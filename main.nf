@@ -36,7 +36,7 @@ if(params.fasta ){
 // 		["5", "--shard NO_COOR"]]
 Channel
     .fromPath(params.csv)
-    .splitCsv(header:true)
+    .splitCsv(header:false)
     .into { shards1; shards2; shards3; }
 
 
@@ -110,34 +110,46 @@ process dedup {
     cpus 16
 
     input:
-	set val(shard_name), val(shard), file(score) from shards2.combine(all_scores)
+	set val(group), file(score), val(shard_name), val(shard) from all_scores.combine(shards2)
     each file(bam) from merged_bam2
     each file(bai) from merged_bai2
-    //each file(score) from all_scores
 
     output:
     //file("dedup.${shard_name}.bam") into merge_deduped_bams
-    file("test")
+    set val(bam_group), file("${shard_name}.bam") into shard_dedup_bam
+    
     //sentieon driver -t 16 -i $bam $shard --algo Dedup --score_info ${score.join(" --score_info " )} --rmdup dedup.${type}.${shard_name}.bam
     //sentieon driver -t 16 -i $bam $shard --algo Dedup --score_info ${all_scores.join(" --score_info ")} --rmdup dedup.${type}.${shard_name}.bam
     script:
     scores = score.join(' --score_info ')
-    //println(scores)
+    bam_group = "bams"
     """
-    echo " $scores" > test
+    echo " $shard --score_info $scores" > ${shard_name}.bam
     """
 
 }
+shard_dedup_bam
+    .groupTuple()
+    .set{ all_dedup_bams }
 
-//locus_collector_scores.println()
-//println(dedup_shards)
-//a = locus_collector_scores.collect()
-//println(a)
-//l = Channel.create()
-//l = locus_collector_scores.collect()
-//locus_collector_scores.collect().combine(dedup_shards).println()
-//l.collect().combine(dedup_shards).println()
-//dedup_in = dedup_shards.combine(a)
-//dedup_in.println()
+shard_combo = Channel.create()
+shard_combo = [["1.bam,2.bam"],["1.bam,2.bam,3.bam"],["2.bam,3.bam,4.bam"],["3.bam,4.bam,5.bam"],["4.bam,5.bam"]]
 
+
+
+process bqsr {
+    cpus 16
+
+    input:
+    set val(group), file(bams), val(shard_combo) from all_dedup_bams.combine(shard_combo)
+    output:
+    file("test")
+    script:
+    //bam = bams.join('')
+    combos = shard_combo.split(',')
+    commons = (combos - bams) 
+    """
+    echo $commons > test
+    """
+}
 
