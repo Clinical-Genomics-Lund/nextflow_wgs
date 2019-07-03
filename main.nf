@@ -33,8 +33,14 @@ if(params.fasta ){
 Channel
     .fromPath(params.csv)
     .splitCsv(header:false)
-    .into { shards1; shards2; shards3; shards4; }
+    .into { shards1; shards2; shards3; shards4; shards5; }
 
+// A channel to pair neighbouring bams and vcfs. 0 and top value removed later
+// Needs to be 0..n+1 where n is number of shards in params.csv
+Channel
+    .from( 0..6 )
+    .collate( 3,1, false )
+    .into{ shardie1; shardie2 }
 
 
 bwa_in = bwa_shards.combine(fastq)
@@ -106,45 +112,39 @@ process dedup {
 
     output:
     set val(bam_group), file("${shard_name}.bam"), file("${shard_name}.bam.bai") into shard_dedup_bam
-    
-    //sentieon driver -t 16 -i $bam $shard --algo Dedup --score_info ${score.join(" --score_info " )} --rmdup dedup.${type}.${shard_name}.bam
-    //sentieon driver -t 16 -i $bam $shard --algo Dedup --score_info ${all_scores.join(" --score_info ")} --rmdup dedup.${type}.${shard_name}.bam
+
     script:
     scores = score.join(' --score_info ')
     bam_group = "bams"
     """
     sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --rmdup ${shard_name}.bam
     """
-//echo " $shard --score_info $scores" > ${shard_name}.bam
 }
 
 shard_dedup_bam
     .groupTuple()
-    .into{ all_dedup_bams1; all_dedup_bams2 }
+    .into{ all_dedup_bams1; all_dedup_bams2;  }
 
-//shard_combo = Channel.create()
-shard_combo = Channel.from([["1.bam,2.bam"],["1.bam,2.bam,3.bam"],["2.bam,3.bam,4.bam"],["3.bam,4.bam,5.bam"],["4.bam,5.bam"]]).into{shard_combo1; shard_combo2}
-//shard_combos = shard_combo.into(2)
 
 
 process bqsr {
     cpus 16
 
     input:
-    set val(shard_name), val(shard) from shards3
-    set val(group), file(bams), file(bai), val(shard_combo) from all_dedup_bams1.combine(shard_combo1)
+    set val(shard_name), val(shard), val(group), file(bams), file(bai) from shards3.combine(all_dedup_bams1)
+    val(combo) from shardie1
     output:
     file("${shard_name}.bqsr.table") into bqsr_table
     script:
-    //bam = bams.join('')
-    combos = shard_combo.split(',')
-    commons = (combos - bams) 
+    combo = (combo - 0) //first dummy value
+    combo = (combo - 6) //last dummy value
+    commons = (combo.collect{ "${it}.bam" } - bams)   //add .bam to each shardie, remove all other bams
     bam_neigh = commons.join(' -i ')
     """
     sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo QualCal -k $KNOWN1 -k $KNOWN2 ${shard_name}.bqsr.table
     """
 }
-//echo "$bam_neigh $shard_name $shard" > test
+
 
 process merge_bqsr {
     
@@ -161,16 +161,16 @@ process dnascope {
     cpus 16
 
     input:
-    set val(shard_name), val(shard) from shards4
-    set val(group), file(bams), file(bai), val(shard_combo) from all_dedup_bams2.combine(shard_combo2)
+    set val(shard_name), val(shard), val(group), file(bams), file(bai) from shards4.combine(all_dedup_bams2)
+    val(combo) from shardie2
     each file(bqsr) from bqsr_merged
     output:
     file("${shard_name}.dnascope.vcf") into vcf_shard
     file("${shard_name}.dnascope.vcf.idx") into vcf_idx
     script:
-    //bam = bams.join('')
-    combos = shard_combo.split(',')
-    commons = (combos - bams) 
+    combo = (combo - 0) //first dummy value
+    combo = (combo - 6) //last dummy value
+    commons = (combo.collect{ "${it}.bam" } - bams)   //add .bam to each shardie, remove all other bams
     bam_neigh = commons.join(' -i ')
     """
     sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo DNAscope --model $sentieon_model ${shard_name}.vcf.tmp
