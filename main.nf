@@ -4,38 +4,43 @@ genome_file = file(params.fasta)
 regions_bed = file(params.bed)
 name        = params.name
 K_size      = 100000000
-
+KNOWN1 = "/data/bnf/ref/b37/1000G_phase1.indels.b37.vcf.gz"
+KNOWN2 = "/data/bnf/ref/b37/Mills_and_1000G_gold_standard.indels.b37.vcf.gz"
+sentieon_model = "/data/bnf/ref/sentieon/SentieonDNAscopeModelBeta0.4a-201808.05.model";
 bwa_num_shards = 2
 bwa_shards = Channel.from( 0..bwa_num_shards-1 )
 
 // Check if paired or unpaired analysis
 mode = "paired"
 fastq = Channel.create()
-if(params.fastq_N_R1 && params.fastq_N_R2) {	
+if(params.fastq_N_R1 && params.fastq_N_R2) {
     fastq = [['T', file(params.fastq_T_R1), file(params.fastq_T_R2)],
 	     ['N', file(params.fastq_N_R1), file(params.fastq_N_R2)]]
 }
 else {
     fastq = [['T', file(params.fastq_T_R1), file(params.fastq_T_R2)]]
     mode = "unpaired"
-}    
+}
 
 
 if(params.fasta ){
     bwaId = Channel
             .fromPath("${params.fasta}.bwt")
             .ifEmpty { exit 1, "BWA index not found: ${params.fasta}.bwt" }
-}	     
+}
 
 
-dedup_shards = Channel.create()
-dedup_shards = [["1", "--shard 1:1-249250621 --shard 2:1-243199373 --shard 3:1-198022430 --shard 4:1-191154276 --shard 5:1-118373300"],
-	        ["2", "--shard 5:118373301-180915260 --shard 6:1-171115067 --shard 7:1-159138663 --shard 8:1-146364022 --shard 9:1-141213431 --shard 10:1-135534747 --shard 11:1-135006516 --shard 12:1-49085594"],
-		["3", "--shard 12:49085595-133851895 --shard 13:1-115169878 --shard 14:1-107349540 --shard 15:1-102531392 --shard 16:1-90354753 --shard 17:1-81195210 --shard 18:1-78077248 --shard 19:1-59128983 --shard 20:1-63025520 --shard 21:1-48129895 --shard 22:1-51304566 --shard X:1-118966714"],
-		["4", "--shard X:118966715-155270560 --shard Y:1-59373566 --shard MT:1-16569 --shard GL000207.1:1-4262 --shard GL000226.1:1-15008 --shard GL000229.1:1-19913 --shard GL000231.1:1-27386 --shard GL000210.1:1-27682 --shard GL000239.1:1-33824 --shard GL000235.1:1-34474 --shard GL000201.1:1-36148 --shard GL000247.1:1-36422 --shard GL000245.1:1-36651 --shard GL000197.1:1-37175 --shard GL000203.1:1-37498 --shard GL000246.1:1-38154 --shard GL000249.1:1-38502 --shard GL000196.1:1-38914 --shard GL000248.1:1-39786 --shard GL000244.1:1-39929 --shard GL000238.1:1-39939 --shard GL000202.1:1-40103 --shard GL000234.1:1-40531 --shard GL000232.1:1-40652 --shard GL000206.1:1-41001 --shard GL000240.1:1-41933 --shard GL000236.1:1-41934 --shard GL000241.1:1-42152 --shard GL000243.1:1-43341 --shard GL000242.1:1-43523 --shard GL000230.1:1-43691 --shard GL000237.1:1-45867 --shard GL000233.1:1-45941 --shard GL000204.1:1-81310 --shard GL000198.1:1-90085 --shard GL000208.1:1-92689 --shard GL000191.1:1-106433 --shard GL000227.1:1-128374 --shard GL000228.1:1-129120 --shard GL000214.1:1-137718 --shard GL000221.1:1-155397 --shard GL000209.1:1-159169 --shard GL000218.1:1-161147 --shard GL000220.1:1-161802 --shard GL000213.1:1-164239 --shard GL000211.1:1-166566 --shard GL000199.1:1-169874 --shard GL000217.1:1-172149 --shard GL000216.1:1-172294 --shard GL000215.1:1-172545 --shard GL000205.1:1-174588 --shard GL000219.1:1-179198 --shard GL000224.1:1-179693 --shard GL000223.1:1-180455 --shard GL000195.1:1-182896 --shard GL000212.1:1-186858 --shard GL000222.1:1-186861 --shard GL000200.1:1-187035 --shard GL000193.1:1-189789 --shard GL000194.1:1-191469 --shard GL000225.1:1-211173 --shard GL000192.1:1-547496 --shard NC_007605:1-171823 --shard hs37d5:1-35477943"],
-		["5", "--shard NO_COOR"]]
+Channel
+    .fromPath(params.csv)
+    .splitCsv(header:false)
+    .into { shards1; shards2; shards3; shards4; shards5; }
 
-
+// A channel to pair neighbouring bams and vcfs. 0 and top value removed later
+// Needs to be 0..n+1 where n is number of shards in params.csv
+Channel
+    .from( 0..6 )
+    .collate( 3,1, false )
+    .into{ shardie1; shardie2 }
 
 
 bwa_in = bwa_shards.combine(fastq)
@@ -44,7 +49,7 @@ process bwa_align {
     cpus 16
     //memory '25 GB'
 
-    input: 
+    input:
 	set val(shard), val(type), file(r1), file(r2) from bwa_in
 
     output:
@@ -61,68 +66,126 @@ process bwa_merge_shards {
 	set val(type), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
 
     output:
-	set val(type), file("merged.bam"), file("merged.bam.bai") into merged_bam
-
+    file("merged.bam") into merged_bam
+    file("merged.bam.bai") into merged_bai
+    script:
+    bams = shard.join(' ')
     """
-    sentieon util merge -o merged.bam ${shard.join(" ")}
+    sentieon util merge -o merged.bam ${bams}
     """
 }
 
-//(locus_collector_bam, dedup_bam) = merged_bam.into(2)
-//(locus_collector_bam, dedup_bam) = merged_bam.into(2)
 
-(locus_collector_in, dedup_in) = merged_bam.combine(dedup_shards).into(2)
+merged_bam.into{merged_bam1; merged_bam2}
+merged_bai.into{merged_bai1; merged_bai2}
 
 process locus_collector {
     cpus 16
 
     input:
-	set val(type), file(bam), file(bai), val(shard_name), val(shard) from locus_collector_in
+	set val(shard_name), val(shard) from shards1
+    each file(bam) from merged_bam1
+    each file(bai) from merged_bai1
 
     output:
-        set file("${type}.${shard_name}.score.gz"), file("${type}.${shard_name}.score.gz.tbi") into locus_collector_scores
-
+    set val(group), file("${shard_name}.score.gz"), file("${shard_name}.score.gz.tbi") into locus_collector_scores
+    
+    script:
+    group = "scores"
     """
-    sentieon driver -t ${task.cpus} -i $bam $shard --algo LocusCollector --fun score_info ${type}.${shard_name}.score.gz
+    sentieon driver -t ${task.cpus} -i $bam $shard --algo LocusCollector --fun score_info ${shard_name}.score.gz
     """
 }
 
-//scores_all = score.join(" -- score_info ")
-all_scores = locus_collector_scores.collect()
-//all_scores.filter( ~/.*gz/ ).println()
-all_scores.println()
+
+locus_collector_scores
+   .groupTuple()
+   .set{ all_scores }
 
 process dedup {
     cpus 16
 
     input:
-        //set file(score), file(index) from locus_collector_scores
-        set val(type), file(bam), file(bai), val(shard_name), val(shard) from dedup_in
-        set file(score), file(score_idx) from all_scores.collect()
-	//set val(type), file(bam), file(bai) from dedup_bam
-	//set val(shard_name), val(shard) from dedup_shards
+	set val(group), file(score), file(tbi), val(shard_name), val(shard) from all_scores.combine(shards2)
+    each file(bam) from merged_bam2
+    each file(bai) from merged_bai2
 
     output:
-        set val(type), file("dedup.${type}.${shard_name}.bam") into merge_deduped_bams
+    set val(bam_group), file("${shard_name}.bam"), file("${shard_name}.bam.bai") into shard_dedup_bam
 
-    //sentieon driver -t 16 -i $bam $shard --algo Dedup --score_info ${score.join(" --score_info " )} --rmdup dedup.${type}.${shard_name}.bam
-    //sentieon driver -t 16 -i $bam $shard --algo Dedup --score_info ${all_scores.join(" --score_info ")} --rmdup dedup.${type}.${shard_name}.bam
+    script:
+    scores = score.join(' --score_info ')
+    bam_group = "bams"
     """
-
-    echo "${all_scores.filter( ~/.*gz/ }" > dedup.${type}.${shard_name}.bam
+    sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --rmdup ${shard_name}.bam
     """
-    
 }
 
-//locus_collector_scores.println()
-//println(dedup_shards)
-//a = locus_collector_scores.collect()
-//println(a)
-//l = Channel.create()
-//l = locus_collector_scores.collect()
-//locus_collector_scores.collect().combine(dedup_shards).println()
-//l.collect().combine(dedup_shards).println()
-//dedup_in = dedup_shards.combine(a)
-//dedup_in.println()
+shard_dedup_bam
+    .groupTuple()
+    .into{ all_dedup_bams1; all_dedup_bams2;  }
 
 
+
+process bqsr {
+    cpus 16
+
+    input:
+    set val(shard_name), val(shard), val(group), file(bams), file(bai) from shards3.combine(all_dedup_bams1)
+    val(combo) from shardie1
+    output:
+    file("${shard_name}.bqsr.table") into bqsr_table
+    script:
+    combo = (combo - 0) //first dummy value
+    combo = (combo - 6) //last dummy value
+    commons = (combo.collect{ "${it}.bam" } - bams)   //add .bam to each shardie, remove all other bams
+    bam_neigh = commons.join(' -i ')
+    """
+    sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo QualCal -k $KNOWN1 -k $KNOWN2 ${shard_name}.bqsr.table
+    """
+}
+
+
+process merge_bqsr {
+    
+    input:
+    file(tables) from bqsr_table.collect()
+    output:
+    file("merged.bqsr.table") into bqsr_merged
+    """
+    sentieon driver --passthru --algo QualCal --merge merged.bqsr.table $tables
+    """
+}
+
+process dnascope {
+    cpus 16
+
+    input:
+    set val(shard_name), val(shard), val(group), file(bams), file(bai) from shards4.combine(all_dedup_bams2)
+    val(combo) from shardie2
+    each file(bqsr) from bqsr_merged
+    output:
+    file("${shard_name}.dnascope.vcf") into vcf_shard
+    file("${shard_name}.dnascope.vcf.idx") into vcf_idx
+    script:
+    combo = (combo - 0) //first dummy value
+    combo = (combo - 6) //last dummy value
+    commons = (combo.collect{ "${it}.bam" } - bams)   //add .bam to each shardie, remove all other bams
+    bam_neigh = commons.join(' -i ')
+    """
+    sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo DNAscope --model $sentieon_model ${shard_name}.vcf.tmp
+    sentieon driver -t ${task.cpus} -r $genome_file $shard --algo DNAModelApply --model $sentieon_model -v ${shard_name}.vcf.tmp ${shard_name}.dnascope.vcf
+    """
+}
+
+process merge_vcf {
+
+    input:
+    file(vcfs) from vcf_shard.collect()
+    file(idx) from vcf_idx.collect()
+    output:
+    file("${name}.dnascope.vcf") into complete_vcf
+    """
+    sentieon driver --passthru --algo DNAscope --merge ${name}.dnascope.vcf $vcfs
+    """
+}
