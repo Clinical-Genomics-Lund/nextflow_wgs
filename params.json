@@ -1,17 +1,7 @@
 {
-    "fastq_N_R1":"/data/NextSeq2/190308_NB501699_0120_AHJGJLAFXY/Data/Intensities/BaseCalls/9672-17_S2_R1_001.fastq.gz",
-    "fastq_N_R2":"/data/NextSeq2/190308_NB501699_0120_AHJGJLAFXY/Data/Intensities/BaseCalls/9672-17_S2_R2_001.fastq.gz",
-    "fastq_T_R1":"/data/NextSeq2/190308_NB501699_0120_AHJGJLAFXY/Data/Intensities/BaseCalls/9671-17_S1_R1_001.fastq.gz",
-    "fastq_T_R2":"/data/NextSeq2/190308_NB501699_0120_AHJGJLAFXY/Data/Intensities/BaseCalls/9671-17_S1_R2_001.fastq.gz",
-    "fasta":"/data/bnf/ref/b37/human_g1k_v37_decoy.fasta",
-    "name":"9671-17",
-    "bed":"/data/bnf/proj/twist/myeloid_panel/final_design/LundUni_NGSTECustom_0001506/all_target_segments_covered_by_probes_LundUni-Targets+Genes_NGSTECustom_0001506c_hg19.bed",
-    "freebayes":true,
-    "mutect":true,
-    "tnscope":true,
-    "vardict":false,
-    "pindel":false,
-    "sentieon_bwa":true
+    "fastq_T_R1":"/fs1/seqdata/NovaSeq/190129_A00681_0019_AHGKWNDSXX/Data/Intensities/BaseCalls/779-16_S11_R1_001.subsample.fastq.gz",
+    "fastq_T_R2":"/fs1/seqdata/NovaSeq/190129_A00681_0019_AHGKWNDSXX/Data/Intensities/BaseCalls/779-16_S11_R2_001.subsample.fastq.gz",
+    "name":"779-16",
 }
  
 

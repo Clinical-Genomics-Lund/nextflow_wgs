@@ -1,14 +1,15 @@
 #!/usr/bin/env nextflow
 
-genome_file = file(params.fasta)
-regions_bed = file(params.bed)
+genome_file = params.refpath+"/hg19/fasta/human_g1k_v37_decoy.fasta"
 name        = params.name
 K_size      = 100000000
-KNOWN1 = "/data/bnf/ref/b37/1000G_phase1.indels.b37.vcf.gz"
-KNOWN2 = "/data/bnf/ref/b37/Mills_and_1000G_gold_standard.indels.b37.vcf.gz"
-sentieon_model = "/data/bnf/ref/sentieon/SentieonDNAscopeModelBeta0.4a-201808.05.model";
-bwa_num_shards = 2
+KNOWN1 = params.refpath+"/hg19/annotation_dbs/1000G_phase1.indels.b37.vcf.gz"
+KNOWN2 = params.refpath+"/hg19/annotation_dbs/Mills_and_1000G_gold_standard.indels.b37.vcf.gz"
+sentieon_model = params.refpath+"/sw/sentieon/SentieonDNAscopeModelBeta0.4a-201808.05.model";
+bwa_num_shards = params.bwa_shards
 bwa_shards = Channel.from( 0..bwa_num_shards-1 )
+
+genomic_num_shards = params.genomic_shards_num
 
 // Check if paired or unpaired analysis
 mode = "paired"
@@ -23,22 +24,22 @@ else {
 }
 
 
-if(params.fasta ){
+if(genome_file ){
     bwaId = Channel
-            .fromPath("${params.fasta}.bwt")
-            .ifEmpty { exit 1, "BWA index not found: ${params.fasta}.bwt" }
+            .fromPath("${genome_file}.bwt")
+            .ifEmpty { exit 1, "BWA index not found: ${genome_file}.bwt" }
 }
 
 
 Channel
-    .fromPath(params.csv)
+    .fromPath(params.genomic_shards_file)
     .splitCsv(header:false)
     .into { shards1; shards2; shards3; shards4; shards5; }
 
 // A channel to pair neighbouring bams and vcfs. 0 and top value removed later
-// Needs to be 0..n+1 where n is number of shards in params.csv
+// Needs to be 0..n+1 where n is number of shards in shards.csv
 Channel
-    .from( 0..6 )
+    .from( 0..genomic_num_shards )
     .collate( 3,1, false )
     .into{ shardie1; shardie2 }
 
@@ -46,8 +47,9 @@ Channel
 bwa_in = bwa_shards.combine(fastq)
 
 process bwa_align {
-    cpus 16
-    //memory '25 GB'
+    cpus 56
+    memory '64 GB'
+    time '24:00:00'
 
     input:
 	set val(shard), val(type), file(r1), file(r2) from bwa_in
@@ -56,7 +58,7 @@ process bwa_align {
 	set val(type), file("shard_${shard}.bwa.sort.bam"), file("shard_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
 
     """
-    sentieon bwa mem -M -R '@RG\\tID:${name}_${type}\\tSM:${name}_${type}\\tPL:illumina' -K $K_size -t ${task.cpus} -p $genome_file "<sentieon fqidx extract -F $shard/$bwa_num_shards -K $K_size $r1 $r2" | sentieon util sort -r $genome_file -o shard_${shard}.bwa.sort.bam -t ${task.cpus} --sam2bam -i -
+    sentieon bwa mem -M -R '@RG\\tID:${name}_${type}\\tSM:${name}_${type}\\tPL:illumina' -K $K_size -t ${task.cpus} -p $genome_file '<sentieon fqidx extract -F $shard/$bwa_num_shards -K $K_size $r1 $r2' | sentieon util sort -r $genome_file -o shard_${shard}.bwa.sort.bam -t ${task.cpus} --sam2bam -i -
     """
 }
 
@@ -69,7 +71,7 @@ process bwa_merge_shards {
     file("merged.bam") into merged_bam
     file("merged.bam.bai") into merged_bai
     script:
-    bams = shard.join(' ')
+	bams = shard.sort(false).join(' ')
     """
     sentieon util merge -o merged.bam ${bams}
     """
@@ -83,7 +85,7 @@ process locus_collector {
     cpus 16
 
     input:
-	set val(shard_name), val(shard) from shards1
+    set val(shard_name), val(shard) from shards1
     each file(bam) from merged_bam1
     each file(bai) from merged_bai1
 
@@ -102,11 +104,12 @@ locus_collector_scores
    .groupTuple()
    .set{ all_scores }
 
+
 process dedup {
     cpus 16
 
     input:
-	set val(group), file(score), file(tbi), val(shard_name), val(shard) from all_scores.combine(shards2)
+    set val(group), file(score), file(tbi), val(shard_name), val(shard) from all_scores.combine(shards2)
     each file(bam) from merged_bam2
     each file(bai) from merged_bai2
 
@@ -181,7 +184,7 @@ process dnascope {
 process merge_vcf {
 
     input:
-    file(vcfs) from vcf_shard.collect()
+    file(vcfs) from vcf_shard.toSortedList()
     file(idx) from vcf_idx.collect()
     output:
     file("${name}.dnascope.vcf") into complete_vcf

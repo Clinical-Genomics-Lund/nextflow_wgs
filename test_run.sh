@@ -1,6 +1,6 @@
-/data/bnf/sw/nextflow/nextflow run main.nf -resume \
-			       -params-file params_small.json \
-				   --csv shards.csv \
-			       -with-singularity /data/bnf/dev/bjorn/nextflow_test/container_2019-04-18.sif \
-			       -with-dag test.dag.png
+nextflow run main.nf \
+	 -params-file params.json \
+	 -with-singularity /fs1/resources/containers/wgs_active.sif \
+	 -resume
+
  
