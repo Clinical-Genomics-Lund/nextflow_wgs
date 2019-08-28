@@ -1,11 +1,19 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-LATEST_CONTAINER_BUILD="$( ls -t container/wgs_*.sif |head -n1)"
-
+LATEST_CONTAINER_BUILD="$( ls -t $DIR/container/wgs_*.sif |head -n1)"
+CONTAINER_BASENAME=${LATEST_CONTAINER_BUILD##*/}
 PIPELINE_DEST="/media/hopper/pipelines/wgs_germline"
+CONTAINER_DEST=/media/hopper/resources/containers/$CONTAINER_BASENAME
 
-# Copy container
-#cp $DIR/$LATEST_CONTAINER_BUILD /media/hopper/resources/containers/
+
+# Deploy container if it isn't already deployed
+if test -f "$CONTAINER_DEST"; then
+    echo "Latest container already deployed, skipping!"
+else
+    echo "Deploying container"
+    cp $DIR/$LATEST_CONTAINER_BUILD $CONTAINER_DEST
+    # TODO: Replace "active" container symlink on hopper!
+fi
 
 
 # Copy pipeline script
