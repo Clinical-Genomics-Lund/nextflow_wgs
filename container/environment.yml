@@ -19,5 +19,5 @@ dependencies:
     - bioconda::vcftools=0.1.16
     - bioconda::perl-vcftools-vcf=0.1.16
     - bioconda::vt=2015.11.10
-    - bioconda::sentieon=201808.07
+    - bioconda::sentieon=201808.05
     - bioconda::expansionhunter=3.1.2
