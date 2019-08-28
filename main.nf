@@ -49,7 +49,6 @@ bwa_in = bwa_shards.combine(fastq)
 process bwa_align {
     cpus 56
     memory '64 GB'
-    time '24:00:00'
 
     input:
 	set val(shard), val(type), file(r1), file(r2) from bwa_in
@@ -62,16 +61,19 @@ process bwa_align {
     """
 }
 
-
 process bwa_merge_shards {
+    cpus 56
+
     input:
-	set val(type), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
+        set val(type), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
 
     output:
-    file("merged.bam") into merged_bam
-    file("merged.bam.bai") into merged_bai
+        file("merged.bam") into merged_bam
+        file("merged.bam.bai") into merged_bai
+
     script:
-	bams = shard.sort(false).join(' ')
+        bams = shard.sort(false) { a, b -> a.getBaseName() <=> b.getBaseName() } .join(' ')
+
     """
     sentieon util merge -o merged.bam ${bams}
     """
