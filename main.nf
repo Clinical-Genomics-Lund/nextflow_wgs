@@ -186,11 +186,15 @@ process dnascope {
 process merge_vcf {
 
     input:
-    file(vcfs) from vcf_shard.toSortedList()
-    file(idx) from vcf_idx.collect()
+	file(vcfs) from vcf_shard.collect()
+        file(idx) from vcf_idx.collect()
     output:
-    file("${name}.dnascope.vcf") into complete_vcf
+	file("${name}.dnascope.vcf") into complete_vcf
+
+    script:
+        vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] <=> b.getBaseName().tokenize(".")[0] } .join(' ')
+    
     """
-    sentieon driver --passthru --algo DNAscope --merge ${name}.dnascope.vcf $vcfs
+    sentieon driver --passthru --algo DNAscope --merge ${name}.dnascope.vcf $vcfs_sorted
     """
 }
