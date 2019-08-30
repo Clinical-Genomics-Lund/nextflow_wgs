@@ -8,7 +8,7 @@ From:nfcore/base
 
 %environment
 	PATH=/opt/conda/envs/CMD-WGS/bin/:$PATH
-	PICARD_HOME=/opt/conda/envs/CMD-twist/share/picard-2.20.5-0/
+	PICARD_HOME=/opt/conda/envs/CMD-WGS/share/picard-2.20.5-0/
 
 
 %files
