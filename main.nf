@@ -63,6 +63,7 @@ process bwa_align {
 
 process bwa_merge_shards {
     cpus 56
+    publishDir '/fs1/results/bam/wgs'
 
     input:
         set val(type), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
@@ -92,12 +93,12 @@ process locus_collector {
     each file(bai) from merged_bai1
 
     output:
-    set val(group), file("${shard_name}.score.gz"), file("${shard_name}.score.gz.tbi") into locus_collector_scores
+    set val(group), file("${shard_name}.score"), file("${shard_name}.score.idx") into locus_collector_scores
     
     script:
     group = "scores"
     """
-    sentieon driver -t ${task.cpus} -i $bam $shard --algo LocusCollector --fun score_info ${shard_name}.score.gz
+    sentieon driver -t ${task.cpus} -i $bam $shard --algo LocusCollector --fun score_info ${shard_name}.score
     """
 }
 
@@ -111,7 +112,7 @@ process dedup {
     cpus 16
 
     input:
-    set val(group), file(score), file(tbi), val(shard_name), val(shard) from all_scores.combine(shards2)
+    set val(group), file(score), file(idx), val(shard_name), val(shard) from all_scores.combine(shards2)
     each file(bam) from merged_bam2
     each file(bai) from merged_bai2
 
@@ -192,7 +193,7 @@ process merge_vcf {
 	file("${name}.dnascope.vcf") into complete_vcf
 
     script:
-        vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] <=> b.getBaseName().tokenize(".")[0] } .join(' ')
+        vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] as Integer <=> b.getBaseName().tokenize(".")[0] as Integer } .join(' ')
     
     """
     sentieon driver --passthru --algo DNAscope --merge ${name}.dnascope.vcf $vcfs_sorted
