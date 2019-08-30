@@ -11,7 +11,7 @@ if test -f "$CONTAINER_DEST"; then
     echo "Latest container already deployed, skipping!"
 else
     echo "Deploying container"
-    cp $DIR/$LATEST_CONTAINER_BUILD $CONTAINER_DEST
+    cp $LATEST_CONTAINER_BUILD $CONTAINER_DEST
     # TODO: Replace "active" container symlink on hopper!
 fi
 
