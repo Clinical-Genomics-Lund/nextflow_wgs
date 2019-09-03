@@ -46,6 +46,7 @@ Channel
 
 bwa_in = bwa_shards.combine(fastq)
 
+// Align fractions of fastq files with BWA
 process bwa_align {
     cpus 56
     memory '64 GB'
@@ -61,6 +62,7 @@ process bwa_align {
     """
 }
 
+// Merge the fractioned bam files
 process bwa_merge_shards {
     cpus 56
     publishDir '/fs1/results/bam/wgs'
@@ -81,22 +83,42 @@ process bwa_merge_shards {
 }
 
 
-merged_bam.into{merged_bam1; merged_bam2}
-merged_bai.into{merged_bai1; merged_bai2}
+merged_bam.into{merged_bam1; merged_bam2; qc_bam}
+merged_bai.into{merged_bai1; merged_bai2; qc_bai}
 
+
+// Collect various QC data
+process sentieon_qc {
+    cpus 56
+
+    input:
+	file(bam) from qc_bam
+	file(bai) from qc_bai
+
+    """
+    sentieon driver -r $genome_file -t ${task.cpus} -i ${bam} --algo MeanQualityByCycle mq_metrics.txt --algo QualDistribution qd_metrics.txt --algo GCBias --summary gc_summary.txt gc_metrics.txt --algo AlignmentStat aln_metrics.txt --algo InsertSizeMetricAlgo is_metrics.txt --algo WgsMetricsAlgo wgs_metrics.txt --algo CoverageMetrics cov_metrics.txt
+    """
+
+}
+
+
+// Collect information that will be used by to remove duplicate reads.
+// The output of this step needs to be uncompressed (Sentieon manual uses .gz)
+// or the command will occasionally crash in Sentieon 201808.07 (works in earlier)
 process locus_collector {
     cpus 16
 
     input:
-    set val(shard_name), val(shard) from shards1
-    each file(bam) from merged_bam1
-    each file(bai) from merged_bai1
+	set val(shard_name), val(shard) from shards1
+        each file(bam) from merged_bam1
+        each file(bai) from merged_bai1
 
     output:
-    set val(group), file("${shard_name}.score"), file("${shard_name}.score.idx") into locus_collector_scores
+	set val(group), file("${shard_name}.score"), file("${shard_name}.score.idx") into locus_collector_scores
     
     script:
-    group = "scores"
+	group = "scores"
+    
     """
     sentieon driver -t ${task.cpus} -i $bam $shard --algo LocusCollector --fun score_info ${shard_name}.score
     """
@@ -108,20 +130,22 @@ locus_collector_scores
    .set{ all_scores }
 
 
+// Remove duplicate reads
 process dedup {
     cpus 16
 
     input:
-    set val(group), file(score), file(idx), val(shard_name), val(shard) from all_scores.combine(shards2)
-    each file(bam) from merged_bam2
-    each file(bai) from merged_bai2
+	set val(group), file(score), file(idx), val(shard_name), val(shard) from all_scores.combine(shards2)
+        each file(bam) from merged_bam2
+        each file(bai) from merged_bai2
 
     output:
-    set val(bam_group), file("${shard_name}.bam"), file("${shard_name}.bam.bai") into shard_dedup_bam
+	set val(bam_group), file("${shard_name}.bam"), file("${shard_name}.bam.bai") into shard_dedup_bam
 
     script:
-    scores = score.join(' --score_info ')
-    bam_group = "bams"
+	scores = score.join(' --score_info ')
+        bam_group = "bams"
+
     """
     sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --rmdup ${shard_name}.bam
     """
@@ -132,58 +156,69 @@ shard_dedup_bam
     .into{ all_dedup_bams1; all_dedup_bams2;  }
 
 
-
+// Create base quality recalibration files for all shards
 process bqsr {
     cpus 16
 
     input:
-    set val(shard_name), val(shard), val(group), file(bams), file(bai) from shards3.combine(all_dedup_bams1)
-    val(combo) from shardie1
+	set val(shard_name), val(shard), val(group), file(bams), file(bai) from shards3.combine(all_dedup_bams1)
+        val(combo) from shardie1
+
     output:
-    file("${shard_name}.bqsr.table") into bqsr_table
+	file("${shard_name}.bqsr.table") into bqsr_table
+
     script:
-    combo = (combo - 0) //first dummy value
-    combo = (combo - 6) //last dummy value
-    commons = (combo.collect{ "${it}.bam" } - bams)   //add .bam to each shardie, remove all other bams
-    bam_neigh = commons.join(' -i ')
+	combo = (combo - 0) //first dummy value
+        combo = (combo - 6) //last dummy value
+        commons = (combo.collect{ "${it}.bam" } - bams)   //add .bam to each shardie, remove all other bams
+        bam_neigh = commons.join(' -i ')
+
     """
     sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo QualCal -k $KNOWN1 -k $KNOWN2 ${shard_name}.bqsr.table
     """
 }
 
-
+// Merge the bqrs shards
 process merge_bqsr {
     
     input:
-    file(tables) from bqsr_table.collect()
+	file(tables) from bqsr_table.collect()
+    
     output:
-    file("merged.bqsr.table") into bqsr_merged
+	file("merged.bqsr.table") into bqsr_merged
+
     """
     sentieon driver --passthru --algo QualCal --merge merged.bqsr.table $tables
     """
 }
 
+
+// Do variant calling using DNAscope, sharded
 process dnascope {
     cpus 16
 
     input:
-    set val(shard_name), val(shard), val(group), file(bams), file(bai) from shards4.combine(all_dedup_bams2)
-    val(combo) from shardie2
-    each file(bqsr) from bqsr_merged
+	set val(shard_name), val(shard), val(group), file(bams), file(bai) from shards4.combine(all_dedup_bams2)
+        val(combo) from shardie2
+        each file(bqsr) from bqsr_merged
+
     output:
-    file("${shard_name}.dnascope.vcf") into vcf_shard
-    file("${shard_name}.dnascope.vcf.idx") into vcf_idx
+	file("${shard_name}.dnascope.vcf") into vcf_shard
+        file("${shard_name}.dnascope.vcf.idx") into vcf_idx
+
     script:
-    combo = (combo - 0) //first dummy value
-    combo = (combo - 6) //last dummy value
-    commons = (combo.collect{ "${it}.bam" } - bams)   //add .bam to each shardie, remove all other bams
-    bam_neigh = commons.join(' -i ')
+	combo = (combo - 0) //first dummy value
+        combo = (combo - 6) //last dummy value
+        commons = (combo.collect{ "${it}.bam" } - bams)   //add .bam to each shardie, remove all other bams
+        bam_neigh = commons.join(' -i ')
+
     """
     sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo DNAscope --model $sentieon_model ${shard_name}.vcf.tmp
     sentieon driver -t ${task.cpus} -r $genome_file $shard --algo DNAModelApply --model $sentieon_model -v ${shard_name}.vcf.tmp ${shard_name}.dnascope.vcf
     """
 }
 
+// Merge vcf shards
 process merge_vcf {
 
     input:
