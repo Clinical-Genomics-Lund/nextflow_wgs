@@ -1,6 +1,6 @@
 #!/usr/bin/env nextflow
 
-genome_file = params.refpath+"/hg19/fasta/human_g1k_v37_decoy.fasta"
+genome_file = params.genome_file
 name        = params.name
 K_size      = 100000000
 KNOWN1 = params.refpath+"/hg19/annotation_dbs/1000G_phase1.indels.b37.vcf.gz"
@@ -11,17 +11,25 @@ bwa_shards = Channel.from( 0..bwa_num_shards-1 )
 
 genomic_num_shards = params.genomic_shards_num
 
-// Check if paired or unpaired analysis
-mode = "paired"
-fastq = Channel.create()
-if(params.fastq_N_R1 && params.fastq_N_R2) {
-    fastq = [['T', file(params.fastq_T_R1), file(params.fastq_T_R2)],
-	     ['N', file(params.fastq_N_R1), file(params.fastq_N_R2)]]
-}
-else {
-    fastq = [['T', file(params.fastq_T_R1), file(params.fastq_T_R2)]]
-    mode = "unpaired"
-}
+csv = file(params.csv)
+mode = csv.countLines() > 2 ? "family" : "single"
+println(mode)
+
+Channel
+    .fromPath(params.csv)
+    .splitCsv(header:true)
+    .map{ row-> tuple(row.group, row.id, row.read1, row.read2) }
+    .set { fastq }
+
+Channel
+    .fromPath(params.csv)
+    .splitCsv(header:true)
+    .map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis) }
+    .into { ped; all_ids; yml_diag }
+
+bwa_in = bwa_shards.combine(fastq)
+
+
 
 
 if(genome_file ){
@@ -44,20 +52,22 @@ Channel
     .into{ shardie1; shardie2 }
 
 
-bwa_in = bwa_shards.combine(fastq)
+
+
+
 
 process bwa_align {
     cpus 56
     memory '64 GB'
 
     input:
-	set val(shard), val(type), file(r1), file(r2) from bwa_in
+	set val(shard), val(group), val(id), r1, r2 from bwa_in
 
     output:
-	set val(type), file("shard_${shard}.bwa.sort.bam"), file("shard_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
+	set val(id), val(group), file("shard_${shard}.bwa.sort.bam"), file("shard_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
 
     """
-    sentieon bwa mem -M -R '@RG\\tID:${name}_${type}\\tSM:${name}_${type}\\tPL:illumina' -K $K_size -t ${task.cpus} -p $genome_file '<sentieon fqidx extract -F $shard/$bwa_num_shards -K $K_size $r1 $r2' | sentieon util sort -r $genome_file -o shard_${shard}.bwa.sort.bam -t ${task.cpus} --sam2bam -i -
+    sentieon bwa mem -M -R '@RG\\tID:${group}_${id}\\tSM:${group}_${id}\\tPL:illumina' -K $K_size -t ${task.cpus} -p $genome_file '<sentieon fqidx extract -F $shard/$bwa_num_shards -K $K_size $r1 $r2' | sentieon util sort -r $genome_file -o shard_${shard}.bwa.sort.bam -t ${task.cpus} --sam2bam -i -
     """
 }
 
@@ -66,7 +76,7 @@ process bwa_merge_shards {
     publishDir '/fs1/results/bam/wgs'
 
     input:
-        set val(type), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
+        set val(id), val(group), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
 
     output:
         file("merged.bam") into merged_bam
