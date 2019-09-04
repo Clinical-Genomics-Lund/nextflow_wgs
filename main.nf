@@ -213,9 +213,10 @@ process dnascope {
         bam_neigh = commons.join(' -i ')
 
     """
-    sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo DNAscope --model $sentieon_model ${shard_name}.vcf.tmp
-    sentieon driver -t ${task.cpus} -r $genome_file $shard --algo DNAModelApply --model $sentieon_model -v ${shard_name}.vcf.tmp ${shard_name}.dnascope.vcf
+    sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard -q $bqsr --algo DNAscope ${shard_name}.vcf.tmp
     """
+    //sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo DNAscope --model $sentieon_model ${shard_name}.vcf.tmp
+    //sentieon driver -t ${task.cpus} -r $genome_file $shard --algo DNAModelApply --model $sentieon_model -v ${shard_name}.vcf.tmp ${shard_name}.dnascope.vcf
 }
 
 // Merge vcf shards
