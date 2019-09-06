@@ -8,7 +8,32 @@ sentieon_model = params.sentieon_model
 bwa_num_shards = params.bwa_shards
 bwa_shards = Channel.from( 0..bwa_num_shards-1 )
 
+
+// temporary, resume does not work for dedup, skipping alignment
+name = "4014-14"
+vcfdone = file("/fs1/results/vcf/wgs/4014-14.combined.gvcf")
+
+
 genomic_num_shards = params.genomic_shards_num
+
+
+CADD = params.CADD
+VEP_FASTA = params.VEP_FASTA
+MAXENTSCAN = params.MAXENTSCAN
+VEP_CACHE = params.VEP_CACHE
+GNOMAD = params.GNOMAD
+GERP = params.GERP
+PHYLOP =  params.PHYLOP
+PHASTCONS = params.PHASTCONS
+
+SNPSIFT = params.SNPSIFT
+CLINVAR = params.CLINVAR
+SWEGEN = params.SWEGEN
+SPIDEX = params.SPIDEX
+
+
+
+
 
 csv = file(params.csv)
 mode = csv.countLines() > 2 ? "family" : "single"
@@ -18,7 +43,7 @@ Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, row.read1, row.read2) }
-    .set { fastq }
+    .into { fastq; vcf_info }
 
 Channel
     .fromPath(params.csv)
@@ -58,10 +83,11 @@ process bwa_align {
 
     input:
 	set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq)
-
+    
     output:
 	set val(id), val(group), file("${id}_${shard}.bwa.sort.bam"), file("${id}_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
-
+    when:
+    params.align == "go"
     """
     sentieon bwa mem -M -R '@RG\\tID:${group}_${id}\\tSM:${group}_${id}\\tPL:illumina' -K $K_size -t ${task.cpus} -p $genome_file '<sentieon fqidx extract -F $shard/$bwa_num_shards -K $K_size $r1 $r2' | sentieon util sort -r $genome_file -o ${id}_${shard}.bwa.sort.bam -t ${task.cpus} --sam2bam -i -
     """
@@ -202,9 +228,10 @@ process merge_vcf {
     input:
 	set id, file(vcfs), file(idx) from vcf_shard.groupTuple()
     output:
-	file("${id}.dnascope.vcf") into complete_vcf
+	set group, file("${id}.dnascope.vcf"), file("${id}.dnascope.vcf.idx") into complete_vcf
 
     script:
+    group = "vcfs"
     vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] as Integer <=> b.getBaseName().tokenize(".")[0] as Integer } .join(' ')
     
     """
@@ -212,3 +239,105 @@ process merge_vcf {
     """
 }
 
+complete_vcf
+    .groupTuple()
+    .set{ gvcfs }
+
+process gvcf_combine {
+    cpus 16
+    publishDir '/fs1/results/vcf/wgs/'
+    input:
+    set id, file(vcf), file(idx) from gvcfs
+    set val(group), val(id), r1, r2 from vcf_info
+
+    output:
+    set group, file("${group}.combined.gvcf"), file("${group}.combined.gvcf.idx") into g_gvcf
+
+    script:
+    // Om fler än en vcf, GVCF combine annars döp om och skickade vidare
+    if (mode == "family" ) {
+    ggvcfs = vcf.join(' -v ')
+    """
+    sentieon driver -t ${task.cpus} -r $genome_file --algo GVCFtyper \\
+    -v $ggvcfs ${group}.combined.gvcf
+    """
+    }
+    // annars ensam vcf, skicka vidare
+    else {
+    ggvcf = vcf.join('')
+    gidx = idx.join('')
+    """
+    mv ${ggvcf} ${group}.combined.gvcf
+    mv ${gidx} ${group}.combined.gvcf.idx
+    """
+    }
+}
+
+// skapa en pedfil, ändra input istället för sök ersätt?
+process create_ped {
+    input:
+    set group, id, sex, mother, father, phenotype, diagnosis from ped
+    output:
+    file("${group}.ped") into ped_ch
+    script:
+    if ( sex =~ /F/) {
+        sex = "2"
+    }
+    else {
+        sex = "1"
+    }
+    if ( phenotype =~ /affected/ ) {
+        phenotype = "2"
+    }
+    else {
+        phenotype = "1"
+    }
+    if ( father == "" ) {
+        father = "0"
+    }
+    if ( mother == "" ) {
+        mother = "0"
+    }
+    """
+    echo "${group}\t${id}\t${father}\t${mother}\t${sex}\t${phenotype}" > ${group}.ped
+    """
+}
+
+// collects each individual's ped-line and creates one ped-file
+ped_ch
+    .collectFile(sort: true, storeDir: "/fs1/results/ped/wgs")
+    .into{ ped_mad; ped_peddy; ped_inher; ped_scout }
+
+
+process annotate_vep {
+    container = '/fs1/resources/containers/container_VEP.sif'
+    cpus 48
+    input:
+    file(vcf) from vcfdone
+    output:
+    file("${name}.vep.vcf") into vep
+    """
+    vep \\
+    -i ${vcf} \\
+    -o ${name}.vep.vcf \\
+    --offline \\
+    --merged \\
+    --everything \\
+    --vcf \\
+    --no_stats \\
+    --fork ${task.cpus} \\
+    --force_overwrite \\
+    --plugin CADD $CADD \\
+    --plugin LoFtool \\
+    --plugin MaxEntScan,$MAXENTSCAN,SWA,NCSS \\
+    --fasta $VEP_FASTA \\
+    --dir_cache $VEP_CACHE \\
+    --dir_plugins $VEP_CACHE/Plugins \\
+    --distance 200 \\
+    -cache \\
+    -custom $GNOMAD \\
+    -custom $GERP \\
+    -custom $PHYLOP \\
+    -custom $PHASTCONS
+    """
+}
