@@ -4,7 +4,7 @@ genome_file = params.genome_file
 K_size      = 100000000
 KNOWN1 = params.refpath+"/annotation_dbs/1000G_phase1.indels.b37.vcf.gz"
 KNOWN2 = params.refpath+"/annotation_dbs/Mills_and_1000G_gold_standard.indels.b37.vcf.gz"
-sentieon_model = params.refpath+"/sw/sentieon/SentieonDNAscopeModelBeta0.4a-201808.05.model";
+sentieon_model = params.sentieon_model
 bwa_num_shards = params.bwa_shards
 bwa_shards = Channel.from( 0..bwa_num_shards-1 )
 
@@ -25,9 +25,6 @@ Channel
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis) }
     .into { ped; all_ids; yml_diag }
-
-//bwa_in = bwa_shards.combine(fastq)
-
 
 
 
@@ -89,47 +86,44 @@ process bwa_merge_shards {
 }
 
 
-merged_bam.into{merged_bam1; merged_bam2}
-
 process locus_collector {
     cpus 16
-    //publishDir '/fs1/results/bam/wgs/scores'
     input:
-    set val(shard_name), val(shard) from shards1
-    each file(bam) from merged_bam1
+    set file(bam), file(bai), val(shard_name), val(shard) from merged_bam.combine(shards1)
+    //each file(bam) from merged_sort_bam
     
-
     output:
-    set val(id), file("${id}_${shard_name}.score"), file("${id}_${shard_name}.score.idx") into locus_collector_scores
-    set val(id), file(bams), file(bai) into tester
+    set val(id), file("${shard_name}.score"), file("${shard_name}.score.idx") into locus_collector_scores
+    set val(id), file(bam), file(bai) into tester
     script:
     // merged_bam1 recieves both bam and bai, remove the bai from input
-    bams = bam[0]
-    bai = bam[1]
-    id = bams.getBaseName().tokenize("_")[0]
+    id = bam.getBaseName().tokenize("_")[0]
     group = "scores"
     """
-    sentieon driver -t ${task.cpus} -i $bams $shard --algo LocusCollector --fun score_info ${id}_${shard_name}.score
+    sentieon driver -t ${task.cpus} -i $bam $shard --algo LocusCollector --fun score_info ${shard_name}.score
     """
 }
 
 
- locus_collector_scores
-     .groupTuple()
-     .set{ all_scores }
+locus_collector_scores
+    .groupTuple()
+    .join(tester)
+    .combine(shards2)
+    .set{ all_scores }
 
 
 process dedup {
     cpus 16
 
     input:
-    set val(id), file(score), file(idx), val(shard_name), val(shard), file(bam), file(bai) from all_scores.combine(shards2).join(tester)
+    set val(id), file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from all_scores
 
     output:
     set val(id), file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
 
     script:
-    scores = score.join(' --score_info ')
+    scores = score.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] as Integer <=> b.getBaseName().tokenize(".")[0] as Integer } .join(' --score_info')
+    //scores = score.join(' --score_info ')
     bam_group = "bams"
     """
     sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --rmdup ${shard_name}_${id}.bam
@@ -140,10 +134,10 @@ process dedup {
 shard_dedup_bam
     .groupTuple()
     .into{ all_dedup_bams1; all_dedup_bams2;  }
-
+//merge shards with shard combinations
 shards3
     .merge(tuple(shardie1))
-    .into{ shard_shard }
+    .into{ shard_shard; shard_shard2 }
 
 process bqsr {
     cpus 16
@@ -167,48 +161,54 @@ process bqsr {
 process merge_bqsr {
     publishDir '/fs1/results/bam/wgs/bqsr_tables'
     input:
-    //file(tables) from bqsr_table.collect()
     set id, file(tables) from bqsr_table.groupTuple()
     output:
-    file("${id}_merged.bqsr.table") into bqsr_merged
+    set val(id), file("${id}_merged.bqsr.table") into bqsr_merged
     """
     sentieon driver --passthru --algo QualCal --merge ${id}_merged.bqsr.table $tables
     """
 }
 
-// process dnascope {
-//     cpus 16
+all_dedup_bams2
+    .join(bqsr_merged)
+    .set{ all_dedup_bams3 }
 
-//     input:
-//     set val(shard_name), val(shard), val(group), file(bams), file(bai) from shards4.combine(all_dedup_bams2)
-//     val(combo) from shardie2
-//     each file(bqsr) from bqsr_merged
-//     output:
-//     file("${shard_name}.dnascope.vcf") into vcf_shard
-//     file("${shard_name}.dnascope.vcf.idx") into vcf_idx
-//     script:
-//     combo = (combo - 0) //first dummy value
-//     combo = (combo - 6) //last dummy value
-//     commons = (combo.collect{ "${it}.bam" } - bams)   //add .bam to each shardie, remove all other bams
-//     bam_neigh = commons.join(' -i ')
-//     """
-//     sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo DNAscope --model $sentieon_model ${shard_name}.vcf.tmp
-//     sentieon driver -t ${task.cpus} -r $genome_file $shard --algo DNAModelApply --model $sentieon_model -v ${shard_name}.vcf.tmp ${shard_name}.dnascope.vcf
-//     """
-// }
 
-// process merge_vcf {
+all_dedup_bams3
+    .combine(shard_shard2)
+    .set{ bam_shard_shard }
 
-//     input:
-// 	file(vcfs) from vcf_shard.collect()
-//         file(idx) from vcf_idx.collect()
-//     output:
-// 	file("${name}.dnascope.vcf") into complete_vcf
+process dnascope {
+    cpus 16
 
-//     script:
-//         vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] as Integer <=> b.getBaseName().tokenize(".")[0] as Integer } .join(' ')
+    input:
+    set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from bam_shard_shard
+    output:
+    set id, file("${shard_name}.vcf"), file("${shard_name}.vcf.idx") into vcf_shard
+    script:
+    combo = [one, two, three]
+    combo = (combo - 0) //first dummy value
+    combo = (combo - (genomic_num_shards+1)) //last dummy value
+    commons = (combo.collect{ "${it}_${id}.bam" })   //add .bam to each shardie, remove all other bams
+    bam_neigh = commons.join(' -i ')
+    type = mode == "family" ? "--emit_mode GVCF" : ""
+    """
+    sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard -q $bqsr --algo DNAscope $type ${shard_name}.vcf
+    """
+}
+
+process merge_vcf {
+
+    input:
+	set id, file(vcfs), file(idx) from vcf_shard.groupTuple()
+    output:
+	file("${id}.dnascope.vcf") into complete_vcf
+
+    script:
+    vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] as Integer <=> b.getBaseName().tokenize(".")[0] as Integer } .join(' ')
     
-//     """
-//     sentieon driver --passthru --algo DNAscope --merge ${name}.dnascope.vcf $vcfs_sorted
-//     """
-// }
+    """
+    sentieon driver --passthru --algo DNAscope --merge ${id}.dnascope.vcf $vcfs_sorted
+    """
+}
+
