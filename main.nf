@@ -37,7 +37,7 @@ SPIDEX = params.SPIDEX
 rank_model = params.rank_model
 rank_model_s = params.rank_model_s
 
-
+scoutbed = params.scoutbed
 
 
 
@@ -101,7 +101,6 @@ process bwa_align {
 
 process bwa_merge_shards {
     cpus 56
-    publishDir '/fs1/results/bam/wgs'
 
     input:
         set val(id), val(group), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
@@ -126,7 +125,7 @@ process locus_collector {
     
     output:
     set val(id), file("${shard_name}.score"), file("${shard_name}.score.idx") into locus_collector_scores
-    set val(id), file(bam), file(bai) into tester
+    set val(id), file(bam), file(bai) into merged_bam_id
     script:
     // merged_bam1 recieves both bam and bai, remove the bai from input
     id = bam.getBaseName().tokenize("_")[0]
@@ -137,16 +136,17 @@ process locus_collector {
 }
 
 
+
 locus_collector_scores
     .groupTuple()
-    .join(tester)
+    .join(merged_bam_id)
     .combine(shards2)
     .set{ all_scores }
 
 
 process dedup {
     cpus 16
-
+    cache 'deep'
     input:
     set val(id), file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from all_scores
 
@@ -165,7 +165,7 @@ process dedup {
 
 shard_dedup_bam
     .groupTuple()
-    .into{ all_dedup_bams1; all_dedup_bams2;  }
+    .into{ all_dedup_bams1; all_dedup_bams2; all_dedup_bams4 }
 //merge shards with shard combinations
 shards3
     .merge(tuple(shardie1))
@@ -191,7 +191,7 @@ process bqsr {
 
 
 process merge_bqsr {
-    publishDir '/fs1/results/bam/wgs/bqsr_tables'
+    publishDir "${OUTDIR}/bam/wgs/bqsr_tables"
     input:
     set id, file(tables) from bqsr_table.groupTuple()
     output:
@@ -200,15 +200,62 @@ process merge_bqsr {
     sentieon driver --passthru --algo QualCal --merge ${id}_merged.bqsr.table $tables
     """
 }
+bqsr_merged
+    .groupTuple()
+    .into{ bqsr_merged1; bqsr_merged2;}
 
 all_dedup_bams2
-    .join(bqsr_merged)
+    .join(bqsr_merged1)
     .set{ all_dedup_bams3 }
 
 
 all_dedup_bams3
     .combine(shard_shard2)
     .set{ bam_shard_shard }
+
+
+process merge_dedup_bam {
+    cpus 16
+
+    publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
+
+    input:
+    set val(id), file(bams), file(bais) from all_dedup_bams4
+
+    output:
+    set id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into merged_dedup_bam
+
+    script:
+    bams_sorted_str = bams.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' -i ')
+    """
+    sentieon util merge -i ${bams_sorted_str} -o ${id}_merged_dedup.bam --mergemode 10
+    """
+}
+
+
+process bam_recal {
+    cpus 16
+    publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
+    input:
+    set id, file(bam), file(bai), file(table) from merged_dedup_bam.join(bqsr_merged2)
+    output:
+    set id, file("${id}_recal.bam"), file("${id}_recal.bam.bai"), file("${id}_recal_post*") into merged_recal_dedup_bam
+    """
+    sentieon driver -t ${task.cpus} -r $genome_file -i $bam -q $table --algo QualCal -k $KNOWN1 -k $KNOWN2 ${id}_recal_post --algo ReadWriter ${id}_recal.bam
+    """
+}
+
+merged_recal_dedup_bam.into{ mrdb1; mrdb2; mrdb3; }
+
+process sambamba {
+    input:
+    set id, file(bam), file(bai), file(recalval) from mrdb1
+    output:
+    file("${id}_.bwa.chanjo.cov")
+    """
+    sambamba depth region -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}_.bwa.chanjo.cov
+    """
+}
 
 process dnascope {
     cpus 16
@@ -338,8 +385,8 @@ process madeline {
 process split_normalize {
     
     input:
-    set group, file(vcf) from vcf_temp
-    //set group, file(vcf), file(idx) from g_gvcf
+    //set group, file(vcf) from vcf_temp
+    set group, file(vcf), file(idx) from g_gvcf
     output:
     set group, file("${group}.norm.DPAF.vcf") into split
     
@@ -388,7 +435,6 @@ process annotate_vep {
 // Annotating variants with SnpSift 2
 
 process snp_sift {
-    //conda '/opt/conda/envs/exome_general'
     input:
     set group, file(vcf) from vep
     output:
@@ -411,7 +457,6 @@ process swegen_all {
 }
 // Annotating variants with Genmod
 process annotate_genmod {
-    //conda '/data/bnf/sw/miniconda3/envs/genmod'
     input:
     set group, file(vcf) from sweall
     output:
@@ -423,7 +468,6 @@ process annotate_genmod {
 
 // # Annotating variant inheritance models:
 process inher_models {
-    //conda '/data/bnf/sw/miniconda3/envs/genmod'
     input:
     set group, file(vcf) from genmod
     file(ped) from ped_inher
@@ -492,7 +536,6 @@ process add_cadd {
 // Sorting VCF according to score: 
 
 process genmodscore {
-    //conda '/data/bnf/sw/miniconda3/envs/genmod'
     input:
     set group, file(vcf) from splice_cadd
     output:
@@ -550,23 +593,23 @@ vcf_done.into {
 // }
 
 
-// Running gSNP:
-process gnsp {
-    //container = 'container_mongodb.sif'
-    publishDir "${OUTDIR}/tmp/exome/gSNP", mode: 'copy' , overwrite: 'true'
-    input:
-    set group, file(vcf), file(idx) from vcf_done3
-    set group, id, sex, mother, father, phenotype, diagnosis from all_ids.groupTuple()
-    output:
-    set file("${group}_gSNP.tsv"), file("${group}_gSNP.png")
-    when:
-    mode == "family"
-    script:
-    ids = id.join(' ')
-    """
-    perl /opt/bin/gSNP.pl $vcf ${group}_gSNP $ids
-    """
-}
+// // Running gSNP:
+// process gnsp {
+//     //container = 'container_mongodb.sif'
+//     publishDir "${OUTDIR}/tmp/exome/gSNP", mode: 'copy' , overwrite: 'true'
+//     input:
+//     set group, file(vcf), file(idx) from vcf_done3
+//     set group, id, sex, mother, father, phenotype, diagnosis from all_ids.groupTuple()
+//     output:
+//     set file("${group}_gSNP.tsv"), file("${group}_gSNP.png")
+//     when:
+//     mode == "family"
+//     script:
+//     ids = id.join(' ')
+//     """
+//     perl /opt/bin/gSNP.pl $vcf ${group}_gSNP $ids
+//     """
+// }
 
 // Uploading case to scout:
 // process create_yaml {
