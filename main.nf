@@ -83,6 +83,7 @@ Channel
 
 
 
+// Align fractions of fastq files with BWA
 process bwa_align {
     cpus 56
     memory '64 GB'
@@ -99,6 +100,7 @@ process bwa_align {
     """
 }
 
+// Merge the fractioned bam files
 process bwa_merge_shards {
     cpus 56
 
@@ -115,14 +117,29 @@ process bwa_merge_shards {
     sentieon util merge -o ${id}_merged.bam ${bams}
     """
 }
+merged_bam.into{merged_bam2; qc_bam;}
 
 
+// Collect various QC data
+process sentieon_qc {
+    cpus 56
+
+    input:
+	set file(bam), file(bai) from qc_bam
+    """
+    sentieon driver -r $genome_file -t ${task.cpus} -i ${bam} --algo MeanQualityByCycle mq_metrics.txt --algo QualDistribution qd_metrics.txt --algo GCBias --summary gc_summary.txt gc_metrics.txt --algo AlignmentStat aln_metrics.txt --algo InsertSizeMetricAlgo is_metrics.txt --algo WgsMetricsAlgo wgs_metrics.txt --algo CoverageMetrics cov_metrics.txt
+    """
+
+}
+
+
+// Collect information that will be used by to remove duplicate reads.
+// The output of this step needs to be uncompressed (Sentieon manual uses .gz)
+// or the command will occasionally crash in Sentieon 201808.07 (works in earlier)
 process locus_collector {
     cpus 16
     input:
-    set file(bam), file(bai), val(shard_name), val(shard) from merged_bam.combine(shards1)
-    //each file(bam) from merged_sort_bam
-    
+    set file(bam), file(bai), val(shard_name), val(shard) from merged_bam2.combine(shards1)
     output:
     set val(id), file("${shard_name}.score"), file("${shard_name}.score.idx") into locus_collector_scores
     set val(id), file(bam), file(bai) into merged_bam_id
@@ -144,18 +161,16 @@ locus_collector_scores
     .set{ all_scores }
 
 
+// Remove duplicate reads
 process dedup {
     cpus 16
     cache 'deep'
     input:
     set val(id), file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from all_scores
-
     output:
     set val(id), file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
-
     script:
     scores = score.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] as Integer <=> b.getBaseName().tokenize(".")[0] as Integer } .join(' --score_info')
-    //scores = score.join(' --score_info ')
     bam_group = "bams"
     """
     sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --rmdup ${shard_name}_${id}.bam
@@ -170,6 +185,7 @@ shard_dedup_bam
 shards3
     .merge(tuple(shardie1))
     .into{ shard_shard; shard_shard2 }
+
 
 process bqsr {
     cpus 16
@@ -189,7 +205,7 @@ process bqsr {
     """
 }
 
-
+// Merge the bqrs shards
 process merge_bqsr {
     publishDir "${OUTDIR}/bam/wgs/bqsr_tables"
     input:
@@ -257,6 +273,8 @@ process sambamba {
     """
 }
 
+
+// Do variant calling using DNAscope, sharded
 process dnascope {
     cpus 16
 
@@ -276,6 +294,7 @@ process dnascope {
     """
 }
 
+// Merge vcf shards
 process merge_vcf {
 
     input:
