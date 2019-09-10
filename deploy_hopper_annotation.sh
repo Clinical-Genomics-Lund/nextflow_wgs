@@ -4,7 +4,6 @@ PIPELINE_DEST="/media/hopper/pipelines/wgs_germline/annotation"
 
 
 # Copy pipeline script
-cp $DIR/annotate.nf $PIPELINE_DEST
 cp $DIR/main.nf $PIPELINE_DEST
 
 # Copy configuration file

@@ -121,16 +121,20 @@ merged_bam.into{merged_bam2; qc_bam;}
 
 
 // Collect various QC data
-process sentieon_qc {
-    cpus 56
+// process sentieon_qc {
+//     cpus 56
+//     memory '64 GB'
+//     input:
+// 	set file(bam), file(bai) from qc_bam
+//     output:
+//     file("*.txt")
+//     """
+//     sentieon driver -r $genome_file -t ${task.cpus} -i ${bam} --algo MeanQualityByCycle mq_metrics.txt --algo QualDistribution qd_metrics.txt \
+//     --algo GCBias --summary gc_summary.txt gc_metrics.txt --algo AlignmentStat aln_metrics.txt --algo InsertSizeMetricAlgo is_metrics.txt \
+//     --algo WgsMetricsAlgo wgs_metrics.txt --algo CoverageMetrics cov_metrics.txt
+//     """
 
-    input:
-	set file(bam), file(bai) from qc_bam
-    """
-    sentieon driver -r $genome_file -t ${task.cpus} -i ${bam} --algo MeanQualityByCycle mq_metrics.txt --algo QualDistribution qd_metrics.txt --algo GCBias --summary gc_summary.txt gc_metrics.txt --algo AlignmentStat aln_metrics.txt --algo InsertSizeMetricAlgo is_metrics.txt --algo WgsMetricsAlgo wgs_metrics.txt --algo CoverageMetrics cov_metrics.txt
-    """
-
-}
+// }
 
 
 // Collect information that will be used by to remove duplicate reads.
@@ -596,20 +600,20 @@ vcf_done.into {
     vcf_done3
 }
 
-// // Running PEDDY: 
-// process peddy {
-//         publishDir "${OUTDIR}/ped/wgs", mode: 'copy' , overwrite: 'true'
-//     cpus 6
-//     input:
-//     file(ped) from ped_peddy
-//     set group, file(vcf), file(idx) from vcf_done1
-//     output:
-//     set file("${group}.ped_check.csv"),file("${group}.background_pca.json"),file("${group}.peddy.ped"),file("${group}.html"), file("${group}.het_check.csv"), file("${group}.sex_check.csv"), file("${group}.vs.html") into peddy_files
-//     """
-//     source activate peddy
-//     python -m peddy -p ${task.cpus} $vcf $ped --prefix $group
-//     """
-// }
+// Running PEDDY: 
+process peddy {
+    publishDir "${OUTDIR}/ped/wgs", mode: 'copy' , overwrite: 'true'
+    cpus 6
+    input:
+    file(ped) from ped_peddy
+    set group, file(vcf), file(idx) from vcf_done1
+    output:
+    set file("${group}.ped_check.csv"),file("${group}.background_pca.json"),file("${group}.peddy.ped"),file("${group}.html"), file("${group}.het_check.csv"), file("${group}.sex_check.csv"), file("${group}.vs.html") into peddy_files
+    """
+    source activate peddy
+    python -m peddy -p ${task.cpus} $vcf $ped --prefix $group
+    """
+}
 
 
 // // Running gSNP:
@@ -630,11 +634,11 @@ vcf_done.into {
 //     """
 // }
 
-// Uploading case to scout:
+// // Uploading case to scout:
 // process create_yaml {
 
 //     input:
-//     set group, id, analysis_dir, file(bam), file(bai) from bam_marked6.groupTuple(sort: true)
+//     set group, id, file(bam), file(bai) from mrdb2.groupTuple(sort: true)
 //     set group, file(vcf), file(idx) from vcf_done2
 //     set file(ped_check),file(json),file(peddy_ped),file(html), file(hetcheck_csv), file(sexcheck), file(vs_html) from peddy_files
 //     file(ped) from ped_scout
