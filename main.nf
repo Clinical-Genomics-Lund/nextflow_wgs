@@ -202,7 +202,7 @@ process bqsr {
     combo = [one, two, three]
     combo = (combo - 0) //first dummy value
     combo = (combo - (genomic_num_shards+1)) //last dummy value
-    commons = (combo.collect{ "${it}_${id}.bam" } - bams)   //add .bam to each shardie, remove all other bams
+    commons = combo.collect{ "${it}_${id}.bam" }   //add .bam to each shardie, remove all other bams
     bam_neigh = commons.join(' -i ')
     """
     sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo QualCal -k $KNOWN1 -k $KNOWN2 ${shard_name}_${id}.bqsr.table
@@ -268,12 +268,13 @@ process bam_recal {
 merged_recal_dedup_bam.into{ mrdb1; mrdb2; mrdb3; }
 
 process sambamba {
+    cpus 16
     input:
     set id, file(bam), file(bai), file(recalval) from mrdb1
     output:
     file("${id}_.bwa.chanjo.cov")
     """
-    sambamba depth region -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}_.bwa.chanjo.cov
+    sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}_.bwa.chanjo.cov
     """
 }
 
@@ -281,7 +282,6 @@ process sambamba {
 // Do variant calling using DNAscope, sharded
 process dnascope {
     cpus 16
-
     input:
     set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from bam_shard_shard
     output:
