@@ -33,7 +33,7 @@ SNPSIFT = params.SNPSIFT
 CLINVAR = params.CLINVAR
 SWEGEN = params.SWEGEN
 SPIDEX = params.SPIDEX
-
+inter_bed = params.intersect_bed
 rank_model = params.rank_model
 rank_model_s = params.rank_model_s
 
@@ -92,9 +92,9 @@ process bwa_align {
 	set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq)
     
     output:
-	set val(id), val(group), file("${id}_${shard}.bwa.sort.bam"), file("${id}_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
+	set val(id), file("${id}_${shard}.bwa.sort.bam"), file("${id}_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
     when:
-    params.align == "go"
+    params.align
     """
     sentieon bwa mem -M -R '@RG\\tID:${id}\\tSM:${id}\\tPL:illumina' -K $K_size -t ${task.cpus} -p $genome_file '<sentieon fqidx extract -F $shard/$bwa_num_shards -K $K_size $r1 $r2' | sentieon util sort -r $genome_file -o ${id}_${shard}.bwa.sort.bam -t ${task.cpus} --sam2bam -i -
     """
@@ -105,13 +105,13 @@ process bwa_merge_shards {
     cpus 56
 
     input:
-        set val(id), val(group), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
+    set val(id), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
 
     output:
-        set file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam
+    set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam
         
     script:
-        bams = shard.sort(false) { a, b -> a.getBaseName() <=> b.getBaseName() } .join(' ')
+    bams = shard.sort(false) { a, b -> a.getBaseName() <=> b.getBaseName() } .join(' ')
 
     """
     sentieon util merge -o ${id}_merged.bam ${bams}
@@ -143,16 +143,14 @@ merged_bam.into{merged_bam2; qc_bam;}
 process locus_collector {
     cpus 16
     input:
-    set file(bam), file(bai), val(shard_name), val(shard) from merged_bam2.combine(shards1)
+    set id, file(bam), file(bai), val(shard_name), val(shard) from merged_bam2.combine(shards1)
     output:
-    set val(id), file("${shard_name}.score"), file("${shard_name}.score.idx") into locus_collector_scores
+    set val(id), file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
     set val(id), file(bam), file(bai) into merged_bam_id
     script:
-    // merged_bam1 recieves both bam and bai, remove the bai from input
-    id = bam.getBaseName().tokenize("_")[0]
-    group = "scores"
+    //id = bam.getBaseName().tokenize("_")[0]
     """
-    sentieon driver -t ${task.cpus} -i $bam $shard --algo LocusCollector --fun score_info ${shard_name}.score
+    sentieon driver -t ${task.cpus} -i $bam $shard --algo LocusCollector --fun score_info ${shard_name}_${id}.score
     """
 }
 
@@ -174,8 +172,7 @@ process dedup {
     output:
     set val(id), file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
     script:
-    scores = score.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] as Integer <=> b.getBaseName().tokenize(".")[0] as Integer } .join(' --score_info')
-    bam_group = "bams"
+    scores = score.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' --score_info')
     """
     sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --rmdup ${shard_name}_${id}.bam
     """
@@ -254,7 +251,7 @@ process merge_dedup_bam {
 
 
 process bam_recal {
-    cpus 16
+    cpus 56
     publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
     input:
     set id, file(bam), file(bai), file(table) from merged_dedup_bam.join(bqsr_merged2)
@@ -267,16 +264,16 @@ process bam_recal {
 
 merged_recal_dedup_bam.into{ mrdb1; mrdb2; mrdb3; }
 
-process sambamba {
-    cpus 16
-    input:
-    set id, file(bam), file(bai), file(recalval) from mrdb1
-    output:
-    file("${id}_.bwa.chanjo.cov")
-    """
-    sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}_.bwa.chanjo.cov
-    """
-}
+// process sambamba {
+//     cpus 16
+//     input:
+//     set id, file(bam), file(bai), file(recalval) from mrdb1
+//     output:
+//     file("${id}_.bwa.chanjo.cov")
+//     """
+//     sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}_.bwa.chanjo.cov
+//     """
+// }
 
 
 // Do variant calling using DNAscope, sharded
@@ -285,7 +282,7 @@ process dnascope {
     input:
     set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from bam_shard_shard
     output:
-    set id, file("${shard_name}.vcf"), file("${shard_name}.vcf.idx") into vcf_shard
+    set id, file("${shard_name}_${id}.vcf"), file("${shard_name}_${id}.vcf.idx") into vcf_shard
     script:
     combo = [one, two, three]
     combo = (combo - 0) //first dummy value
@@ -294,7 +291,7 @@ process dnascope {
     bam_neigh = commons.join(' -i ')
     type = mode == "family" ? "--emit_mode GVCF" : ""
     """
-    sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard -q $bqsr --algo DNAscope $type ${shard_name}.vcf
+    sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard -q $bqsr --algo DNAscope $type ${shard_name}_${id}.vcf
     """
 }
 
@@ -308,7 +305,7 @@ process merge_vcf {
 
     script:
     group = "vcfs"
-    vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize(".")[0] as Integer <=> b.getBaseName().tokenize(".")[0] as Integer } .join(' ')
+    vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' ')
     
     """
     sentieon driver --passthru --algo DNAscope --merge ${id}.dnascope.vcf $vcfs_sorted
@@ -321,7 +318,6 @@ complete_vcf
 
 process gvcf_combine {
     cpus 16
-    publishDir "${OUTDIR}/vcf/wgs/"
     input:
     set id, file(vcf), file(idx) from gvcfs
     set val(group), val(id), r1, r2 from vcf_info
@@ -402,14 +398,34 @@ process madeline {
     """
 }
 
+// Intersect VCF, exome/clinvar introns
+
+process intesect {
+
+    input:
+    set group, file(vcf), file(idx) from g_gvcf
+
+    output:
+    set group, file("${group}.intersected.vcf") into intersected_vcf
+
+    when:
+    params.annotate
+
+    """
+    bedtools intersect -a $vcf -b $inter_bed -header > ${group}.intersected.vcf
+    """
+
+}
+
+
 
 // Splitting & normalizing variants:
 
 process split_normalize {
-    
+    cpus 16
     input:
     //set group, file(vcf) from vcf_temp
-    set group, file(vcf), file(idx) from g_gvcf
+    set group, file(vcf) from intersected_vcf
     output:
     set group, file("${group}.norm.DPAF.vcf") into split
     
@@ -440,7 +456,7 @@ process annotate_vep {
     --no_stats \\
     --fork ${task.cpus} \\
     --force_overwrite \\
-    --plugin CADD $CADD \\
+    --plugin CADD,$CADD \\
     --plugin LoFtool \\
     --plugin MaxEntScan,$MAXENTSCAN,SWA,NCSS \\
     --fasta $VEP_FASTA \\
@@ -458,6 +474,7 @@ process annotate_vep {
 // Annotating variants with SnpSift 2
 
 process snp_sift {
+    cpus 16
     input:
     set group, file(vcf) from vep
     output:
@@ -470,6 +487,7 @@ process snp_sift {
 
 // // Adding SweGen allele frequencies
 process swegen_all {
+    cpus 16
     input:
     set group, file(vcf) from snpsift
     output:
@@ -480,24 +498,28 @@ process swegen_all {
 }
 // Annotating variants with Genmod
 process annotate_genmod {
+    cpus 16
     input:
     set group, file(vcf) from sweall
     output:
     set group, file("${group}.genmod.vcf") into genmod
     """
-    genmod annotate --spidex $SPIDEX --cadd_file $CADD --annotate_regions $vcf -o ${group}.genmod.vcf
+    genmod annotate --spidex $SPIDEX --annotate_regions $vcf -o ${group}.genmod.vcf
     """
 }
 
 // # Annotating variant inheritance models:
 process inher_models {
+    cpus 8
+    memory '64 GB'
+
     input:
     set group, file(vcf) from genmod
     file(ped) from ped_inher
     output:
     set group, file("${group}.models.vcf") into inhermod
     """
-    genmod models $vcf -f $ped > ${group}.models.vcf
+    genmod models $vcf -p ${task.cpus} -f $ped > ${group}.models.vcf
     """
 }
 
@@ -506,6 +528,7 @@ process inher_models {
 // Modifying annotations by VEP-plugins, and adding to info-field: 
 // Modifying CLNSIG field to allow it to be used by genmod score properly:
 process modify_vcf {
+    cpus 16
     input:
     set group, file(vcf) from inhermod
     output:
@@ -513,12 +536,14 @@ process modify_vcf {
     """
     /opt/bin/modify_vcf_nexomeflow.pl $vcf > ${group}.mod.vcf
     """
+    //lägg till cadd i info
 } 
 
 
 // Adding loqusdb allele frequency to info-field: 
 // ssh needs to work from anywhere, filesystems mounted on cmdscout
 process loqdb {
+    cpus 16
     queue 'bigmem'
     input:
     set group, file(vcf) from mod_vcf
@@ -527,11 +552,13 @@ process loqdb {
     """
     export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
     /opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT1_MONGODB > ${group}.loqdb.vcf
+    #mv $vcf ${group}.loqdb.vcf
     """
 }
 // Marking splice INDELs: 
 // Annotating delins with cadd: 
 process mark_splice {
+    cpus 16
     input:
     set group, file(vcf) from loqdb_vcf
     output:
@@ -542,15 +569,16 @@ process mark_splice {
 }
 
 process add_cadd {
+    cpus 16
     container = '/fs1/resources/containers/container_cadd_v1.5.sif'
-    containerOptions '--bind /tmp/ --bind /fs1/'
+    containerOptions '--bind /tmp/ --bind /local/'
     input:
     set group, file(vcf) from splice_marked
     output:
     set group, file("${group}.marksplice.cadd.vcf") into splice_cadd
     """
-    echo hej
-    /opt/add_missing_CADDs_1.4.sh -i $vcf -o ${group}.marksplice.cadd.vcf -t .
+    echo test
+    /opt/add_missing_CADDs_1.4.sh -i $vcf -o ${group}.marksplice.cadd.vcf -t ./tmp
     """
 }
 
@@ -559,6 +587,7 @@ process add_cadd {
 // Sorting VCF according to score: 
 
 process genmodscore {
+    cpus 16
     input:
     set group, file(vcf) from splice_cadd
     output:
@@ -616,10 +645,10 @@ process peddy {
 }
 
 
-// // Running gSNP:
+// Running gSNP:
 // process gnsp {
 //     //container = 'container_mongodb.sif'
-//     publishDir "${OUTDIR}/tmp/exome/gSNP", mode: 'copy' , overwrite: 'true'
+//     publishDir "${OUTDIR}/tmp/wgs/gSNP", mode: 'copy' , overwrite: 'true'
 //     input:
 //     set group, file(vcf), file(idx) from vcf_done3
 //     set group, id, sex, mother, father, phenotype, diagnosis from all_ids.groupTuple()
@@ -634,23 +663,27 @@ process peddy {
 //     """
 // }
 
-// // Uploading case to scout:
-// process create_yaml {
+mrdb2
+    .collect()
+    .set{ yaml_bam }
+// Uploading case to scout:
+process create_yaml {
+    queue 'bigmem'
+    input:
+    set id, file(bam), file(bai), file(crap) from yaml_bam
+    set group, file(vcf), file(idx) from vcf_done2
+    set file(ped_check),file(json),file(peddy_ped),file(html), file(hetcheck_csv), file(sexcheck), file(vs_html) from peddy_files
+    file(ped) from ped_scout
+    set file(madeline), file(xml) from madeline_ped.ifEmpty()
+    set group, id, sex, mother, father, phenotype, diagnosis from yml_diag
+    output:
+    set group, file("${group}.yml") into yaml
+    script:
+    bams = bam.join(',')
+    madde = xml.name != '' ? "$xml" : "single"
+    """
+    export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
+    /opt/bin/create_yml.pl $bams $ped $group $vcf $madde $peddy_ped $ped_check $sexcheck $OUTDIR $diagnosis PORT_CMDSCOUT1_MONGODB > ${group}.yml
+    """
 
-//     input:
-//     set group, id, file(bam), file(bai) from mrdb2.groupTuple(sort: true)
-//     set group, file(vcf), file(idx) from vcf_done2
-//     set file(ped_check),file(json),file(peddy_ped),file(html), file(hetcheck_csv), file(sexcheck), file(vs_html) from peddy_files
-//     file(ped) from ped_scout
-//     set file(madeline), file(xml) from madeline_ped.ifEmpty()
-//     set group, id, sex, mother, father, phenotype, diagnosis from yml_diag
-//     output:
-//     set group, file("${group}.yml") into yaml
-//     script:
-//     bams = bam.join(',')
-//     madde = xml.name != '' ? "$xml" : "single"
-//     """
-//     /trannel/proj/cmd-pipe/nexomeflow/bin/create_yml.pl $bams $ped $group $vcf $madde $peddy_ped $ped_check $sexcheck $OUTDIR $diagnosis > ${group}.yml
-//     """
-
-// }
+}
