@@ -172,7 +172,7 @@ process dedup {
     output:
     set val(id), file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
     script:
-    scores = score.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' --score_info')
+    scores = score.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' --score_info ')
     """
     sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --rmdup ${shard_name}_${id}.bam
     """
@@ -382,7 +382,7 @@ ped_ch
     .into{ ped_mad; ped_peddy; ped_inher; ped_scout }
 
 
-// madeline ped om familj
+//madeline ped om familj
 process madeline {
     publishDir "${OUTDIR}/ped/wgs", mode: 'copy' , overwrite: 'true'
     input:
