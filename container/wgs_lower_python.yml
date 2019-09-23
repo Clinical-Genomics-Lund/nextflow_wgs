@@ -1,0 +1,8 @@
+name: peddy
+channels:
+    - bioconda
+    - conda-forge
+    - defaults
+
+dependencies:
+    - peddy

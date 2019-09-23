@@ -23,3 +23,7 @@ dependencies:
     - bioconda::delly=0.8.1
     - bioconda::manta=1.6.0
     - bioconda::lumpy-sv=0.3.0
+    - bioconda::pybigwig
+    - perl-app-cpanminus
+    - r-base
+    - perl-gd
