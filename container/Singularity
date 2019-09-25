@@ -2,19 +2,39 @@ Bootstrap:docker
 From:nfcore/base
 
 %labels
-	MAINTAINER Björn Hallström <bjorn.hallstrom@skane.se>
+	MAINTAINER Viktor henmyr <viktor.henmyr@skane.se>
 	DESCRIPTION Singularity container for CMD WGS pipeline
-	VERSION 0.0.1
+	VERSION 0.0.2
 
 %environment
-	PATH=/opt/conda/envs/CMD-WGS/bin/:$PATH
-	export PICARD_HOME=/opt/conda/envs/CMD-WGS/share/picard-2.20.5-0/
-
+	PATH=/opt/conda/envs/CMD-WGS/bin:/opt/sentieon-genomics-201808.05/bin/:/opt/bin:/opt/conda/envs/peddy/bin:$PATH
+	PICARD_HOME=/opt/conda/envs/CMD-WGS/share/picard-2.20.5-0/
+	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/
+	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/x86_64-linux-thread-multi/
+	export PERL5LIB=$PERL5LIB:/opt/bin/
 
 %files
-        environment.yml /
-
+        genmod.patch /
+	environment.yml /
+	wgs_lower_python.yml /
+	../bin/ /opt
+	/data/bnf/sw/sentieon/sentieon-genomics-201711.05 /opt # Install old version to circumvent GVCF merging bug in sentieon. Remove them bug fixed!
+	../rank_models/ /
 %post
+	rm -rf /var/lib/apt/lists/*
+	apt -y clean
+	apt -y update
 	/opt/conda/bin/conda env create -f /environment.yml
+        apt -y install libz-dev build-essential gettext cmake libxml2-dev libcurl4-openssl-dev libssl-dev make
+	/opt/conda/envs/CMD-WGS/bin/cpanm Path::Tiny --force
+	/opt/conda/envs/CMD-WGS/bin/cpanm MongoDB::Collection
+	/opt/conda/envs/CMD-WGS/bin/cpanm JSON
+        /opt/conda/envs/CMD-WGS/bin/pip install genmod
+        patch /opt/conda/envs/CMD-WGS/lib/python2.7/site-packages/genmod/score_variants/compound_scorer.py /genmod.patch
+	git clone https://github.com/piratical/Madeline_2.0_PDE.git
+	cd Madeline_2.0_PDE
+	./configure --with-include-gettext
+	make
+	make install
+	/opt/conda/bin/conda env create -f /wgs_lower_python.yml
 	/opt/conda/bin/conda clean -a
-
