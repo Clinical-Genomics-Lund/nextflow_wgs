@@ -40,12 +40,12 @@ print "samples: \n";
 my $count = 0;
 foreach my $sample (@ped) {
     my @pedline = split/\t/,$sample;
-    print " - analysis_type: $antype\n";
-    print "  sample_id: '$pedline[1]'\n";
-    print "  sample_name: '$pedline[1]'\n";
-    print "  mother: '$pedline[3]'\n";
-    print "  father: '$pedline[2]'\n";
-    print "  capture_kit: $kit\n";
+    print "  - analysis_type: $antype\n";
+    print "    sample_id: '$pedline[1]'\n";
+    print "    sample_name: '$pedline[1]'\n";
+    print "    mother: '$pedline[3]'\n";
+    print "    father: '$pedline[2]'\n";
+    print "    capture_kit: $kit\n";
     if ($pedline[5] == 1) {
         print "  phenotype: unaffected\n";
     }
