@@ -388,7 +388,7 @@ process madeline {
     input:
     file(ped) from ped_mad
     output:
-    set file("${ped}.madeline"), file("${ped}.madeline.xml") into madeline_ped
+    file("${ped}.madeline.xml") into madeline_ped
     when:
     mode == "family"
     script:
@@ -674,13 +674,13 @@ process create_yaml {
     set group, file(vcf), file(idx) from vcf_done2
     set file(ped_check),file(json),file(peddy_ped),file(html), file(hetcheck_csv), file(sexcheck), file(vs_html) from peddy_files
     file(ped) from ped_scout
-    set file(madeline), file(xml) from madeline_ped.ifEmpty()
+    file(xml) from madeline_ped.ifEmpty('single')
     set group, id, sex, mother, father, phenotype, diagnosis from yml_diag
     output:
     set group, file("${group}.yml") into yaml
     script:
     bams = bam.join(',')
-    madde = xml.name != '' ? "$xml" : "single"
+    madde = xml.name != 'single' ? "$xml" : "single"
     """
     export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
     /opt/bin/create_yml.pl $bams $ped $group $vcf $madde $peddy_ped $ped_check $sexcheck $OUTDIR $diagnosis PORT_CMDSCOUT1_MONGODB > ${group}.yml
