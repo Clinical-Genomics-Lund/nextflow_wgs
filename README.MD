@@ -5,7 +5,7 @@ Still under development!
 # Deploy
 To run pipeline first deploy to hopper using scp or the nfs-mount(although not reliable atm)
 Use a new folder on hopper to avoid deploying and changing another person's current work.
-!
+
 
 The most important files to deploy are:
 * main.nf 
