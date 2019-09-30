@@ -18,7 +18,7 @@ From:nfcore/base
 	environment.yml /
 	wgs_lower_python.yml /
 	../bin/ /opt
-	/data/bnf/sw/sentieon/sentieon-genomics-201711.05 /opt # Install old version to circumvent GVCF merging bug in sentieon. Remove them bug fixed!
+	/data/bnf/sw/sentieon/sentieon-genomics-201711.05 /opt
 	../rank_models/ /
 %post
 	rm -rf /var/lib/apt/lists/*

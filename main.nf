@@ -93,8 +93,10 @@ process bwa_align {
     
     output:
 	set val(id), file("${id}_${shard}.bwa.sort.bam"), file("${id}_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
+    
     when:
     params.align
+
     """
     sentieon bwa mem -M -R '@RG\\tID:${id}\\tSM:${id}\\tPL:illumina' -K $K_size -t ${task.cpus} -p $genome_file '<sentieon fqidx extract -F $shard/$bwa_num_shards -K $K_size $r1 $r2' | sentieon util sort -r $genome_file -o ${id}_${shard}.bwa.sort.bam -t ${task.cpus} --sam2bam -i -
     """
@@ -142,13 +144,14 @@ merged_bam.into{merged_bam2; qc_bam;}
 // or the command will occasionally crash in Sentieon 201808.07 (works in earlier)
 process locus_collector {
     cpus 16
+
     input:
     set id, file(bam), file(bai), val(shard_name), val(shard) from merged_bam2.combine(shards1)
+
     output:
     set val(id), file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
     set val(id), file(bam), file(bai) into merged_bam_id
-    script:
-    //id = bam.getBaseName().tokenize("_")[0]
+
     """
     sentieon driver -t ${task.cpus} -i $bam $shard --algo LocusCollector --fun score_info ${shard_name}_${id}.score
     """
@@ -167,12 +170,16 @@ locus_collector_scores
 process dedup {
     cpus 16
     cache 'deep'
+
     input:
     set val(id), file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from all_scores
+
     output:
     set val(id), file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
+
     script:
     scores = score.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' --score_info ')
+
     """
     sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --rmdup ${shard_name}_${id}.bam
     """
@@ -193,14 +200,17 @@ process bqsr {
 
     input:
     set val(id), file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams1.combine(shard_shard)
+
     output:
     set val(id), file("${shard_name}_${id}.bqsr.table") into bqsr_table
+
     script:
     combo = [one, two, three]
     combo = (combo - 0) //first dummy value
     combo = (combo - (genomic_num_shards+1)) //last dummy value
     commons = combo.collect{ "${it}_${id}.bam" }   //add .bam to each shardie, remove all other bams
     bam_neigh = commons.join(' -i ')
+
     """
     sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo QualCal -k $KNOWN1 -k $KNOWN2 ${shard_name}_${id}.bqsr.table
     """
@@ -291,24 +301,25 @@ process dnascope {
     bam_neigh = commons.join(' -i ')
     type = mode == "family" ? "--emit_mode GVCF" : ""
     """
-    sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard -q $bqsr --algo DNAscope $type ${shard_name}_${id}.vcf
+    /opt/sentieon-genomics-201711.05/bin/sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard -q $bqsr --algo DNAscope $type ${shard_name}_${id}.vcf
     """
 }
 
 // Merge vcf shards
 process merge_vcf {
+    cpus 16
 
     input:
 	set id, file(vcfs), file(idx) from vcf_shard.groupTuple()
+
     output:
 	set group, file("${id}.dnascope.vcf"), file("${id}.dnascope.vcf.idx") into complete_vcf
 
     script:
     group = "vcfs"
     vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' ')
-    
     """
-    sentieon driver --passthru --algo DNAscope --merge ${id}.dnascope.vcf $vcfs_sorted
+    /opt/sentieon-genomics-201711.05/bin/sentieon driver -t ${task.cpus} --passthru --algo DNAscope --merge ${id}.dnascope.vcf $vcfs_sorted
     """
 }
 
@@ -318,6 +329,7 @@ complete_vcf
 
 process gvcf_combine {
     cpus 16
+
     input:
     set id, file(vcf), file(idx) from gvcfs
     set val(group), val(id), r1, r2 from vcf_info
@@ -329,20 +341,20 @@ process gvcf_combine {
     script:
     // Om fler än en vcf, GVCF combine annars döp om och skickade vidare
     if (mode == "family" ) {
-    ggvcfs = vcf.join(' -v ')
-    """
-    sentieon driver -t ${task.cpus} -r $genome_file --algo GVCFtyper \\
-    -v $ggvcfs ${group}.combined.gvcf
-    """
+        ggvcfs = vcf.join(' -v ')
+        """
+        sentieon driver -t ${task.cpus} -r $genome_file --algo GVCFtyper \\
+        -v $ggvcfs ${group}.combined.gvcf
+        """
     }
     // annars ensam vcf, skicka vidare
     else {
-    ggvcf = vcf.join('')
-    gidx = idx.join('')
-    """
-    mv ${ggvcf} ${group}.combined.gvcf
-    mv ${gidx} ${group}.combined.gvcf.idx
-    """
+        ggvcf = vcf.join('')
+        gidx = idx.join('')
+        """
+        mv ${ggvcf} ${group}.combined.gvcf
+        mv ${gidx} ${group}.combined.gvcf.idx
+        """
     }
 }
 
@@ -385,12 +397,16 @@ ped_ch
 //madeline ped om familj
 process madeline {
     publishDir "${OUTDIR}/ped/wgs", mode: 'copy' , overwrite: 'true'
+
     input:
     file(ped) from ped_mad
+
     output:
     file("${ped}.madeline.xml") into madeline_ped
+
     when:
     mode == "family"
+
     script:
     """
     ped_parser -t ped $ped --to_madeline -o ${ped}.madeline
@@ -400,7 +416,7 @@ process madeline {
 
 // Intersect VCF, exome/clinvar introns
 
-process intesect {
+process intersect {
 
     input:
     set group, file(vcf), file(idx) from g_gvcf
