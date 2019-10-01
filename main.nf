@@ -496,7 +496,7 @@ process snp_sift {
     output:
     set group, file("${group}.clinvar.vcf") into snpsift
     """
-    $SNPSIFT annotate $CLINVAR -info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
+    SnpSift -Xmx60g annotate $CLINVAR -info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
     """
 
 }
@@ -509,7 +509,7 @@ process swegen_all {
     output:
     set group, file("${group}.swegen.vcf") into sweall
     """
-    $SNPSIFT annotate $SWEGEN -name swegen -info AF $vcf > ${group}.swegen.vcf
+    SnpSift -Xmx60g annotate $SWEGEN -name swegen -info AF $vcf > ${group}.swegen.vcf
     """
 }
 // Annotating variants with Genmod
