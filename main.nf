@@ -263,10 +263,16 @@ process merge_dedup_bam {
 process bam_recal {
     cpus 56
     publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
+
     input:
     set id, file(bam), file(bai), file(table) from merged_dedup_bam.join(bqsr_merged2)
+
     output:
-    set id, file("${id}_recal.bam"), file("${id}_recal.bam.bai"), file("${id}_recal_post*") into merged_recal_dedup_bam
+    set group, id, file("${id}_recal.bam"), file("${id}_recal.bam.bai"), file("${id}_recal_post*") into merged_recal_dedup_bam
+
+    script:
+    group = "bams"
+
     """
     sentieon driver -t ${task.cpus} -r $genome_file -i $bam -q $table --algo QualCal -k $KNOWN1 -k $KNOWN2 ${id}_recal_post --algo ReadWriter ${id}_recal.bam
     """
@@ -561,24 +567,29 @@ process modify_vcf {
 process loqdb {
     cpus 16
     queue 'bigmem'
+
     input:
     set group, file(vcf) from mod_vcf
+
     output:
     set group, file("${group}.loqdb.vcf") into loqdb_vcf
+
     """
     export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
     /opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT1_MONGODB > ${group}.loqdb.vcf
-    #mv $vcf ${group}.loqdb.vcf
     """
 }
 // Marking splice INDELs: 
 // Annotating delins with cadd: 
 process mark_splice {
     cpus 16
+
     input:
     set group, file(vcf) from loqdb_vcf
+
     output:
     set group, file("${group}.marksplice.vcf") into splice_marked
+
     """
     /opt/bin/mark_spliceindels.pl $vcf > ${group}.marksplice.vcf
     """
@@ -588,10 +599,13 @@ process add_cadd {
     cpus 16
     container = '/fs1/resources/containers/container_cadd_v1.5.sif'
     containerOptions '--bind /tmp/ --bind /local/'
+
     input:
     set group, file(vcf) from splice_marked
+
     output:
     set group, file("${group}.marksplice.cadd.vcf") into splice_cadd
+
     """
     echo test
     /opt/add_missing_CADDs_1.4.sh -i $vcf -o ${group}.marksplice.cadd.vcf -t ./tmp
@@ -604,10 +618,13 @@ process add_cadd {
 
 process genmodscore {
     cpus 16
+
     input:
     set group, file(vcf) from splice_cadd
+
     output:
     set group, file("${group}.scored.vcf") into scored_vcf
+
     script:
     if (mode == "family") {
         """
@@ -629,10 +646,13 @@ process genmodscore {
 process vcf_completion {
     cpus 16
     publishDir "${OUTDIR}/vcf/wgs/", mode: 'copy', overwrite: 'true'
+
     input:
     set group, file(vcf) from scored_vcf
+
     output:
     set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_done
+
     """
     bgzip -@ ${task.cpus} $vcf -f
     tabix ${vcf}.gz -f
@@ -679,27 +699,33 @@ process peddy {
 //     """
 // }
 
-mrdb2
-    .collect()
-    .set{ yaml_bam }
+// mrdb2
+//     .groupTuple()
+//     .set{ yaml_bam }
 // Uploading case to scout:
 process create_yaml {
     queue 'bigmem'
+    publishDir "${OUTDIR}/json/wgs", mode: 'copy' , overwrite: 'true'
+    publishDir "${OUTDIR}/cron/scout", mode: 'copy' , overwrite: 'true'
+
     input:
-    set id, file(bam), file(bai), file(crap) from yaml_bam
+    set group, id, file(bam), file(bai), file(crap) from mrdb2.groupTuple()
     set group, file(vcf), file(idx) from vcf_done2
     set file(ped_check),file(json),file(peddy_ped),file(html), file(hetcheck_csv), file(sexcheck), file(vs_html) from peddy_files
     file(ped) from ped_scout
     file(xml) from madeline_ped.ifEmpty('single')
     set group, id, sex, mother, father, phenotype, diagnosis from yml_diag
+
     output:
-    set group, file("${group}.yml") into yaml
+    set group, file("${group}.yaml") into yaml
+
     script:
     bams = bam.join(',')
     madde = xml.name != 'single' ? "$xml" : "single"
+
     """
     export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
-    /opt/bin/create_yml.pl $bams $ped $group $vcf $madde $peddy_ped $ped_check $sexcheck $OUTDIR $diagnosis PORT_CMDSCOUT1_MONGODB > ${group}.yml
+    /opt/bin/create_yml.pl $bams $ped $group $vcf $madde $peddy_ped $ped_check $sexcheck $OUTDIR $diagnosis PORT_CMDSCOUT1_MONGODB > ${group}.yaml
     """
 
 }

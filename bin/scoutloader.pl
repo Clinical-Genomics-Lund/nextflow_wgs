@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
-my $directory = '/data/bnf/dev/viktor/nextflow_wgs/test';
+my $directory = '/fs1/results/cron/scout';
 
 opendir (DIR, $directory) or die $!;
 
@@ -20,11 +20,11 @@ closedir(DIR);
 sub scoutcommand {
     my $yaml_file = shift;
     my $command = "ssh viktor\@cmdscout1.lund.skane.se 'scout load case $yaml_file'";
-    my $log = '/data/bnf/dev/viktor/nextflow_wgs/test/test.log';
+    my $log = '/fs1/results/cron/scout/scout_upload.log';
     my $datestring = localtime();
     open(LOG, '>>' , $log) or die $!;
     print LOG "$datestring :: $yaml_file was loaded using: $command\n\n";
-    #my $go = `$command`;
+    my $go = `$command`;
     close(LOG);
     unlink $yaml_file;
     

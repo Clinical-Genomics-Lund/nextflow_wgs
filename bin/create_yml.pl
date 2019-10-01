@@ -2,9 +2,9 @@
 use MongoDB;
 use strict;
 use Data::Dumper;
-my $antype = "wes";
+my $antype = "wgs";
 my $genome = "37";
-my $kit = "Agilent_SureSelectCRE.V2";
+my $kit = "Intersected WGS";
 
 my $BAMS = $ARGV[0];
 my @bams = split/,/, $BAMS;
@@ -47,22 +47,22 @@ foreach my $sample (@ped) {
     print "    father: '$pedline[2]'\n";
     print "    capture_kit: $kit\n";
     if ($pedline[5] == 1) {
-        print "  phenotype: unaffected\n";
+        print "    phenotype: unaffected\n";
     }
     elsif ($pedline[5] == 2) {
-        print "  phenotype: affected\n";
+        print "    phenotype: affected\n";
     }
     else { print STDERR "not a valid phenotype!\n" }
     if ($pedline[4] == 1) {
-        print "  sex: male\n";
+        print "    sex: male\n";
     }
     elsif ($pedline[4] == 2) {
-        print "  sex: female\n";
+        print "    sex: female\n";
     }
     else { print STDERR "not a valid sex!\n" }
     my @match_bam = grep(/^$pedline[1]/, @bams);
     unless (scalar(@match_bam) == 1) { print STDERR "no matching bam"; exit; }
-    print "  bam_path: $basedir/bam/wgs/@match_bam\n";
+    print "    bam_path: $basedir/bam/wgs/@match_bam\n";
     $count++;
 }
 print "vcf_snv: $basedir/vcf/wgs/$vcf\n"; ##obs skapa en version för exome specifikt
