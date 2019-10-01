@@ -18,7 +18,7 @@ To run nextflow with singularity on hopper you need first module load.
 
 the run command should look like this.
 
-`nextflow run main.nf --csv input.csv -with-singularity /fs1/resources/containers/YOURCONTAINER.sif -resume`
+`nextflow run main.nf --csv input.csv -with-singularity /fs1/resources/containers/wgs_active.sif -resume`
 
 the script has a few options
 --align (include if you want align)
