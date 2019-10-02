@@ -401,11 +401,11 @@ process create_ped {
     else {
         sex = "1"
     }
-    if ( phenotype =~ /affected/ ) {
-        phenotype = "2"
+    if ( phenotype =~ /unaffected/ ) {
+        phenotype = "1"
     }
     else {
-        phenotype = "1"
+        phenotype = "2"
     }
     if ( father == "" ) {
         father = "0"
