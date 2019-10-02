@@ -2,7 +2,7 @@
 
 Still under development!
 
-# Deploy
+## Deploy
 To run pipeline first deploy to hopper using scp or the nfs-mount(although not reliable atm)
 Use a new folder on hopper to avoid deploying and changing another person's current work.
 
@@ -25,8 +25,13 @@ the script has a few options
 --annotate (include if you want annotations)
 
 
-# CSV-file
+## CSV-file
 needs to have the following headers
 `clarity_sample_id,id,assay,sex,diagnosis,phenotype,group,father,mother,clarity_pool_id,platform,read1,read2,analysis_dir`
 
 example-files can be located /fs1/pipelines/wgs_germline/annotation/ any csv that is not shards.csv should work.
+
+
+## Known Issues
+
+process bqsr sometimes fail, without any obvious reason, rerun pipeline with -resume. Possible solution, add errorstrategy to nextflow process.
