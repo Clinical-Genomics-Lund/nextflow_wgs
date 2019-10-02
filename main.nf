@@ -122,23 +122,6 @@ process bwa_merge_shards {
 merged_bam.into{merged_bam2; qc_bam;}
 
 
-// Collect various QC data
-// process sentieon_qc {
-//     cpus 56
-//     memory '64 GB'
-//     input:
-// 	set file(bam), file(bai) from qc_bam
-//     output:
-//     file("*.txt")
-//     """
-//     sentieon driver -r $genome_file -t ${task.cpus} -i ${bam} --algo MeanQualityByCycle mq_metrics.txt --algo QualDistribution qd_metrics.txt \
-//     --algo GCBias --summary gc_summary.txt gc_metrics.txt --algo AlignmentStat aln_metrics.txt --algo InsertSizeMetricAlgo is_metrics.txt \
-//     --algo WgsMetricsAlgo wgs_metrics.txt --algo CoverageMetrics cov_metrics.txt
-//     """
-
-// }
-
-
 // Collect information that will be used by to remove duplicate reads.
 // The output of this step needs to be uncompressed (Sentieon manual uses .gz)
 // or the command will occasionally crash in Sentieon 201808.07 (works in earlier)
@@ -176,12 +159,13 @@ process dedup {
 
     output:
     set val(id), file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
+    set id, file("${shard_name}_${id}_dedup_metrics.txt") into dedup_metrics
 
     script:
     scores = score.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' --score_info ')
 
     """
-    sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --rmdup ${shard_name}_${id}.bam
+    sentieon driver -t ${task.cpus} -i $bam $shard --algo Dedup --score_info $scores --metrics ${shard_name}_${id}_dedup_metrics.txt --rmdup ${shard_name}_${id}.bam
     """
     
 }
@@ -194,6 +178,46 @@ shards3
     .merge(tuple(shardie1))
     .into{ shard_shard; shard_shard2 }
 
+process dedup_metrics_merge {
+
+    input:
+    set id, file(dedup) from dedup_metrics.groupTuple()
+
+    output:
+    set id, file("dedup_metrics.txt") into merged_dedup_metrics
+
+    """
+    sentieon driver --passthru --algo Dedup --merge dedup_metrics.txt $dedup
+    """
+}
+
+//Collect various QC data: TODO MOVE qc_sentieon to container!
+process sentieon_qc {
+    cpus 56
+    memory '64 GB'
+    publishDir "${OUTDIR}/postmap/wgs", mode: 'copy' , overwrite: 'true'
+    publishDir "${OUTDIR}/cron/qc", mode: 'copy' , overwrite: 'true'
+
+    input:
+	set id, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
+
+    output:
+    file("${id}.QC") into qc_done
+
+    """
+    sentieon driver \\
+        -r $genome_file -t ${task.cpus} \\
+        -i ${bam} \\
+        --algo MeanQualityByCycle mq_metrics.txt \\
+        --algo QualDistribution qd_metrics.txt \\
+        --algo GCBias --summary gc_summary.txt gc_metrics.txt \\
+        --algo AlignmentStat aln_metrics.txt \\
+        --algo InsertSizeMetricAlgo is_metrics.txt \\
+        --algo WgsMetricsAlgo wgs_metrics.txt
+    /fs1/pipelines/wgs_germline/annotation/qc_sentieon.pl $id wgs > ${id}.QC
+    """
+
+}
 
 process bqsr {
     cpus 16
