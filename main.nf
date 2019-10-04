@@ -236,19 +236,29 @@ process bqsr {
     bam_neigh = commons.join(' -i ')
 
     """
-    sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard --algo QualCal -k $KNOWN1 -k $KNOWN2 ${shard_name}_${id}.bqsr.table
+    sentieon driver \\
+        -t ${task.cpus} \\
+        -r $genome_file \\
+        -i $bam_neigh $shard \\
+        --algo QualCal -k $KNOWN1 -k $KNOWN2 ${shard_name}_${id}.bqsr.table
     """
 }
 
 // Merge the bqrs shards
 process merge_bqsr {
     publishDir "${OUTDIR}/bam/wgs/bqsr_tables"
+
     input:
     set id, file(tables) from bqsr_table.groupTuple()
+
     output:
     set val(id), file("${id}_merged.bqsr.table") into bqsr_merged
+
     """
-    sentieon driver --passthru --algo QualCal --merge ${id}_merged.bqsr.table $tables
+    sentieon driver \\
+        --passthru \\
+        --algo QualCal \\
+        --merge ${id}_merged.bqsr.table $tables
     """
 }
 bqsr_merged
@@ -298,7 +308,13 @@ process bam_recal {
     group = "bams"
 
     """
-    sentieon driver -t ${task.cpus} -r $genome_file -i $bam -q $table --algo QualCal -k $KNOWN1 -k $KNOWN2 ${id}_recal_post --algo ReadWriter ${id}_recal.bam
+    sentieon driver \\
+        -t ${task.cpus} \\
+        -r $genome_file \\
+        -i $bam \\
+        -q $table \\
+        --algo QualCal -k $KNOWN1 -k $KNOWN2 ${id}_recal_post \\
+        --algo ReadWriter ${id}_recal.bam
     """
 }
 
@@ -319,10 +335,13 @@ merged_recal_dedup_bam.into{ mrdb1; mrdb2; mrdb3; }
 // Do variant calling using DNAscope, sharded
 process dnascope {
     cpus 16
+
     input:
     set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from bam_shard_shard
+
     output:
     set id, file("${shard_name}_${id}.vcf"), file("${shard_name}_${id}.vcf.idx") into vcf_shard
+
     script:
     combo = [one, two, three]
     combo = (combo - 0) //first dummy value
@@ -330,8 +349,14 @@ process dnascope {
     commons = (combo.collect{ "${it}_${id}.bam" })   //add .bam to each shardie, remove all other bams
     bam_neigh = commons.join(' -i ')
     type = mode == "family" ? "--emit_mode GVCF" : ""
+
     """
-    /opt/sentieon-genomics-201711.05/bin/sentieon driver -t ${task.cpus} -r $genome_file -i $bam_neigh $shard -q $bqsr --algo DNAscope $type ${shard_name}_${id}.vcf
+    /opt/sentieon-genomics-201711.05/bin/sentieon driver \\
+        -t ${task.cpus} \\
+        -r $genome_file \\
+        -i $bam_neigh $shard \\
+        -q $bqsr \\
+        --algo DNAscope $type ${shard_name}_${id}.vcf
     """
 }
 
@@ -349,7 +374,11 @@ process merge_vcf {
     group = "vcfs"
     vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' ')
     """
-    /opt/sentieon-genomics-201711.05/bin/sentieon driver -t ${task.cpus} --passthru --algo DNAscope --merge ${id}.dnascope.vcf $vcfs_sorted
+    /opt/sentieon-genomics-201711.05/bin/sentieon driver \\
+        -t ${task.cpus} \\
+        --passthru \\
+        --algo DNAscope \\
+        --merge ${id}.dnascope.vcf $vcfs_sorted
     """
 }
 
@@ -372,15 +401,20 @@ process gvcf_combine {
     // Om fler än en vcf, GVCF combine annars döp om och skickade vidare
     if (mode == "family" ) {
         ggvcfs = vcf.join(' -v ')
+
         """
-        sentieon driver -t ${task.cpus} -r $genome_file --algo GVCFtyper \\
-        -v $ggvcfs ${group}.combined.gvcf
+        sentieon driver \\
+            -t ${task.cpus} \\
+            -r $genome_file \\
+            --algo GVCFtyper \\
+            -v $ggvcfs ${group}.combined.gvcf
         """
     }
     // annars ensam vcf, skicka vidare
     else {
         ggvcf = vcf.join('')
         gidx = idx.join('')
+
         """
         mv ${ggvcf} ${group}.combined.gvcf
         mv ${gidx} ${group}.combined.gvcf.idx
@@ -392,8 +426,10 @@ process gvcf_combine {
 process create_ped {
     input:
     set group, id, sex, mother, father, phenotype, diagnosis from ped
+
     output:
     file("${group}.ped") into ped_ch
+
     script:
     if ( sex =~ /F/) {
         sex = "2"
@@ -413,6 +449,7 @@ process create_ped {
     if ( mother == "" ) {
         mother = "0"
     }
+
     """
     echo "${group}\t${id}\t${father}\t${mother}\t${sex}\t${phenotype}" > ${group}.ped
     """
@@ -437,10 +474,15 @@ process madeline {
     when:
     mode == "family"
 
-    script:
     """
-    ped_parser -t ped $ped --to_madeline -o ${ped}.madeline
-    madeline2 -L "IndividualId" ${ped}.madeline -o ${ped}.madeline -x xml
+    ped_parser \\
+        -t ped $ped \\
+        --to_madeline \\
+        -o ${ped}.madeline
+    madeline2 \\
+        -L "IndividualId" ${ped}.madeline \\
+        -o ${ped}.madeline \\
+        -x xml
     """
 }
 
@@ -469,9 +511,11 @@ process intersect {
 
 process split_normalize {
     cpus 16
+
     input:
     //set group, file(vcf) from vcf_temp
     set group, file(vcf) from intersected_vcf
+
     output:
     set group, file("${group}.norm.DPAF.vcf") into split
     
@@ -487,33 +531,36 @@ process split_normalize {
 process annotate_vep {
     container = '/fs1/resources/containers/container_VEP.sif'
     cpus 56
+
     input:
     set group, file(vcf) from split
+
     output:
     set group, file("${group}.vep.vcf") into vep
+
     """
     vep \\
-    -i ${vcf} \\
-    -o ${group}.vep.vcf \\
-    --offline \\
-    --merged \\
-    --everything \\
-    --vcf \\
-    --no_stats \\
-    --fork ${task.cpus} \\
-    --force_overwrite \\
-    --plugin CADD,$CADD \\
-    --plugin LoFtool \\
-    --plugin MaxEntScan,$MAXENTSCAN,SWA,NCSS \\
-    --fasta $VEP_FASTA \\
-    --dir_cache $VEP_CACHE \\
-    --dir_plugins $VEP_CACHE/Plugins \\
-    --distance 200 \\
-    -cache \\
-    -custom $GNOMAD \\
-    -custom $GERP \\
-    -custom $PHYLOP \\
-    -custom $PHASTCONS
+        -i ${vcf} \\
+        -o ${group}.vep.vcf \\
+        --offline \\
+        --merged \\
+        --everything \\
+        --vcf \\
+        --no_stats \\
+        --fork ${task.cpus} \\
+        --force_overwrite \\
+        --plugin CADD,$CADD \\
+        --plugin LoFtool \\
+        --plugin MaxEntScan,$MAXENTSCAN,SWA,NCSS \\
+        --fasta $VEP_FASTA \\
+        --dir_cache $VEP_CACHE \\
+        --dir_plugins $VEP_CACHE/Plugins \\
+        --distance 200 \\
+        -cache \\
+        -custom $GNOMAD \\
+        -custom $GERP \\
+        -custom $PHYLOP \\
+        -custom $PHASTCONS
     """
 }
 
@@ -521,12 +568,16 @@ process annotate_vep {
 
 process snp_sift {
     cpus 16
+
     input:
     set group, file(vcf) from vep
+
     output:
     set group, file("${group}.clinvar.vcf") into snpsift
+
     """
-    SnpSift -Xmx60g annotate $CLINVAR -info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
+    SnpSift -Xmx60g annotate $CLINVAR \\
+        -info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
     """
 
 }
@@ -534,21 +585,29 @@ process snp_sift {
 // // Adding SweGen allele frequencies
 process swegen_all {
     cpus 16
+
     input:
     set group, file(vcf) from snpsift
+
     output:
     set group, file("${group}.swegen.vcf") into sweall
+
     """
-    SnpSift -Xmx60g annotate $SWEGEN -name swegen -info AF $vcf > ${group}.swegen.vcf
+    SnpSift -Xmx60g annotate $SWEGEN \\
+        -name swegen \\
+        -info AF $vcf > ${group}.swegen.vcf
     """
 }
 // Annotating variants with Genmod
 process annotate_genmod {
     cpus 16
+
     input:
     set group, file(vcf) from sweall
+
     output:
     set group, file("${group}.genmod.vcf") into genmod
+    
     """
     genmod annotate --spidex $SPIDEX --annotate_regions $vcf -o ${group}.genmod.vcf
     """
@@ -562,8 +621,10 @@ process inher_models {
     input:
     set group, file(vcf) from genmod
     file(ped) from ped_inher
+
     output:
     set group, file("${group}.models.vcf") into inhermod
+
     """
     genmod models $vcf -p ${task.cpus} -f $ped > ${group}.models.vcf
     """
@@ -575,14 +636,16 @@ process inher_models {
 // Modifying CLNSIG field to allow it to be used by genmod score properly:
 process modify_vcf {
     cpus 16
+
     input:
     set group, file(vcf) from inhermod
+
     output:
     set group, file("${group}.mod.vcf") into mod_vcf
+
     """
     /opt/bin/modify_vcf_nexomeflow.pl $vcf > ${group}.mod.vcf
     """
-    //lägg till cadd i info
 } 
 
 
@@ -693,11 +756,14 @@ vcf_done.into {
 process peddy {
     publishDir "${OUTDIR}/ped/wgs", mode: 'copy' , overwrite: 'true'
     cpus 6
+
     input:
     file(ped) from ped_peddy
     set group, file(vcf), file(idx) from vcf_done1
+
     output:
     set file("${group}.ped_check.csv"),file("${group}.background_pca.json"),file("${group}.peddy.ped"),file("${group}.html"), file("${group}.het_check.csv"), file("${group}.sex_check.csv"), file("${group}.vs.html") into peddy_files
+    
     """
     source activate peddy
     python -m peddy -p ${task.cpus} $vcf $ped --prefix $group
