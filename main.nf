@@ -81,7 +81,7 @@ Channel
 
 
 
-
+//_${shard}
 
 // Align fractions of fastq files with BWA
 process bwa_align {
@@ -815,7 +815,7 @@ process create_yaml {
 
     """
     export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
-    /opt/bin/create_yml.pl $bams $ped $group $vcf $madde $peddy_ped $ped_check $sexcheck $OUTDIR $diagnosis PORT_CMDSCOUT1_MONGODB > ${group}.yaml
+    /fs1/pipelines/wgs_germline/annotation/create_yml.pl $bams $ped $group $vcf $madde $peddy_ped $ped_check $sexcheck $OUTDIR $diagnosis PORT_CMDSCOUT1_MONGODB > ${group}.yaml
     """
-
+    ///opt/bin/create_yml.pl
 }
