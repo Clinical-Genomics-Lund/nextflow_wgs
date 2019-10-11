@@ -22,6 +22,7 @@ GNOMAD = params.GNOMAD
 GERP = params.GERP
 PHYLOP =  params.PHYLOP
 PHASTCONS = params.PHASTCONS
+GNOMAD21 = params.GNOMAD21
 
 // ANNOTATION DBS GENERAL //
 CLINVAR = params.CLINVAR
@@ -574,7 +575,7 @@ process annotate_vep {
 		--dir_plugins $VEP_CACHE/Plugins \\
 		--distance 200 \\
 		-cache \\
-		-custom $GNOMAD \\
+		-custom $GNOMAD21 \\
 		-custom $GERP \\
 		-custom $PHYLOP \\
 		-custom $PHASTCONS
