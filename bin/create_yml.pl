@@ -28,11 +28,11 @@ close PED;
 print "---\n";
 my $institute;
 if (scalar(@bams) > 1 ) {
-    print "owner: klingen\n";
+    print "owner: wgsvalidering\n";
     $institute = "klingen";
 }
 else {
-    print "owner: klingen_genlista\n";
+    print "owner: wgsvalidering\n";
     $institute = "klingen";
 }
 print "family: '$group'\n";
