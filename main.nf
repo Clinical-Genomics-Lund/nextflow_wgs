@@ -1,17 +1,19 @@
 #!/usr/bin/env nextflow
 
-genome_file = params.genome_file
+// GENERAL PATHS //
+OUTDIR = params.outdir
+
+// SENTIEON CONFIGS //
 K_size      = 100000000
-KNOWN1 = params.refpath+"/annotation_dbs/1000G_phase1.indels.b37.vcf.gz"
-KNOWN2 = params.refpath+"/annotation_dbs/Mills_and_1000G_gold_standard.indels.b37.vcf.gz"
 sentieon_model = params.sentieon_model
 bwa_num_shards = params.bwa_shards
 bwa_shards = Channel.from( 0..bwa_num_shards-1 )
-OUTDIR = params.outdir
-
 genomic_num_shards = params.genomic_shards_num
 
+// FASTA //
+genome_file = params.genome_file
 
+// VEP REFERENCES AND ANNOTATION DBS //
 CADD = params.CADD
 VEP_FASTA = params.VEP_FASTA
 MAXENTSCAN = params.MAXENTSCAN
@@ -21,15 +23,21 @@ GERP = params.GERP
 PHYLOP =  params.PHYLOP
 PHASTCONS = params.PHASTCONS
 
-SNPSIFT = params.SNPSIFT
+// ANNOTATION DBS GENERAL //
 CLINVAR = params.CLINVAR
 SWEGEN = params.SWEGEN
 SPIDEX = params.SPIDEX
-inter_bed = params.intersect_bed
+KNOWN1 = params.KNOWN1
+KNOWN2 = params.KNOWN2
+
+// RANK MODELS //
 rank_model = params.rank_model
 rank_model_s = params.rank_model_s
 
+// BED FILES //
+inter_bed = params.intersect_bed
 scoutbed = params.scoutbed
+
 
 
 
