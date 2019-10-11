@@ -102,10 +102,7 @@ process bwa_align {
 		-R '@RG\\tID:${id}\\tSM:${id}\\tPL:illumina' \\
 		-K $K_size \\
 		-t ${task.cpus} \\
-		-p $genome_file '<sentieon fqidx extract \\
-		-F $shard/$bwa_num_shards \\
-		-K $K_size $r1 $r2' \\
-	| sentieon util sort \\
+		-p $genome_file '<sentieon fqidx extract -F $shard/$bwa_num_shards -K $K_size $r1 $r2' | sentieon util sort \\
 		-r $genome_file \\
 		-o ${id}_${shard}.bwa.sort.bam \\
 		-t ${task.cpus} --sam2bam -i -
@@ -623,7 +620,7 @@ process annotate_genmod {
 	cpus 16
 
 	input:
-		 group, file(vcf) from sweall
+		set group, file(vcf) from sweall
 
 	output:
 		set group, file("${group}.genmod.vcf") into genmod
