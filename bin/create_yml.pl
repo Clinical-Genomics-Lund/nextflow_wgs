@@ -99,7 +99,7 @@ print "human_genome_build: $genome\n";
 sub get_genelist {
     my $institute = shift;
     my $host = 'mongodb://cmdscout2.lund.skane.se/scout';
-    if( $ARGV[10] ) {
+    if( $ARGV[4] ) {
         if( $ENV{$ARGV[4]} ) {
 	        my $port = $ENV{$ARGV[4]};
 	        $host = "mongodb://localhost:$port/loqusdb";
