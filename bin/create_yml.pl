@@ -100,7 +100,7 @@ sub get_genelist {
     my $institute = shift;
     my $host = 'mongodb://cmdscout2.lund.skane.se/scout';
     if( $ARGV[10] ) {
-        if( $ENV{$ARGV[10]} ) {
+        if( $ENV{$ARGV[4]} ) {
 	        my $port = $ENV{$ARGV[4]};
 	        $host = "mongodb://localhost:$port/loqusdb";
         }

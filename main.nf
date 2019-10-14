@@ -22,7 +22,6 @@ GNOMAD = params.GNOMAD
 GERP = params.GERP
 PHYLOP =  params.PHYLOP
 PHASTCONS = params.PHASTCONS
-GNOMAD21 = params.GNOMAD21
 
 // ANNOTATION DBS GENERAL //
 CLINVAR = params.CLINVAR
@@ -39,7 +38,6 @@ rank_model_s = params.rank_model_s
 inter_bed = params.intersect_bed
 scoutbed = params.scoutbed
 
-params.intervcf = ""
 
 
 csv = file(params.csv)
@@ -343,7 +341,7 @@ process sambamba {
 	memory '64 GB'
 
 	input:	
-		set id, file(bam), file(bai), file(recalval) from mrdb1
+		set group, id, file(bam), file(bai), file(recalval) from mrdb1
 
 	output:
 		file("${id}_.bwa.chanjo.cov") into chanjocov
@@ -578,7 +576,7 @@ process annotate_vep {
 		--dir_plugins $VEP_CACHE/Plugins \\
 		--distance 200 \\
 		-cache \\
-		-custom $GNOMAD21 \\
+		-custom $GNOMAD \\
 		-custom $GERP \\
 		-custom $PHYLOP \\
 		-custom $PHASTCONS
@@ -818,19 +816,13 @@ process create_yaml {
 
 	"""
 	export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
-	/fs1/pipelines/wgs_germline/annotation/create_yml.pl \\
+	which create_yml.pl
+	create_yml.pl \\
 		$bams \\
-		$ped \\
 		$group \\
-		$vcf \\
-		$madde \\
-		$peddy_ped \\
-		$ped_check \\
-		$sexcheck \\
 		$OUTDIR \\
 		$diagnosis \\
 		PORT_CMDSCOUT1_MONGODB \\
 		> ${group}.yaml
 	"""
-    ///opt/bin/create_yml.pl
 }
