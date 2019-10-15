@@ -29,6 +29,8 @@ the script has a few options
 needs to have the following headers
 `clarity_sample_id,id,assay,sex,diagnosis,phenotype,group,father,mother,clarity_pool_id,platform,read1,read2,analysis_dir`
 
+In diagnosis field, use; validering, this will make sure it ends up in the wgsvalidering institute on SCOUT
+
 example-files can be located /fs1/pipelines/wgs_germline/annotation/ any csv that is not shards.csv should work.
 
 

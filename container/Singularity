@@ -36,5 +36,10 @@ From:nfcore/base
 	./configure --with-include-gettext
 	make
 	make install
+	cd ..
+	git clone https://github.com/Clinical-Genomics-Lund/modify_vcf_scout.git
+	cp modify_vcf_scout/modify_vcf_scout.pl /opt/bin/.
+	git clone https://github.com/Clinical-Genomics-Lund/qc_sentieon.git
+	cp qc_sentieon/qc_sentieon.pl /opt/bin/.
 	/opt/conda/bin/conda env create -f /wgs_lower_python.yml
 	/opt/conda/bin/conda clean -a
