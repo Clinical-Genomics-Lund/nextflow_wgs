@@ -7,8 +7,7 @@ opendir (DIR, $directory) or die $!;
 
 while (my $file = readdir(DIR)) {
 
-    if ( $file =~ /\.yaml/) {
-        
+    if ( $file =~ /\.yaml$/) {
         scoutcommand($directory,$file);
     }
 
@@ -21,36 +20,27 @@ sub scoutcommand {
     my ($directory, $file) = @_;
 
     my $yaml_file = $directory."/".$file;
-    my $command = "ssh viktor\@cmdscout1.lund.skane.se 'scout load case $yaml_file'";
+
+    my $out_file = "~/scout_upload.stdout.".int rand 100000000;
+    rename($yaml_file, $yaml_file.".inprogress");
+    my $command = "ssh viktor\@cmdscout1.lund.skane.se 'scout load case $yaml_file.inprogress' &>> $out_file";
     my $log = '/fs1/results/cron/scout/scout_upload.log';
     my $errlog = '/fs1/results/cron/scout/scout_upload.errlog';
     my $datestring = localtime();
     open(LOG, '>>' , $log) or die $!;
     
-    
     my $results = `$command`;
     my $status = $results->success;
 
     if ( $status ) {
-        print LOG "$datestring :: $yaml_file was loaded using: $command\n\n";
-        unlink $yaml_file;
+        print LOG "$datestring :: $yaml_file was loaded using: $command\n";
+        unlink $yaml_file.".inprogress";
     }
     else {
-        my $infile = 0;
-        print "HAPPENS\n";
-        open(ERRLOG, $errlog) or die $!;
-        while (<ERRLOG>) {
-            print $file,"\n";
-            if ($_ =~ /\/$file:/) {
-                $infile = 1;
-            }
-        }
-        close(ERRLOG);
         open(ERRLOG, '>>' , $errlog) or die $!;
-        if ($infile == 0) {
-            print ERRLOG "$datestring :: $yaml_file: could not be loaded.\n";
-        }
+	print ERRLOG "$datestring :: $yaml_file: could not be loaded.\n";
         close(ERRLOG);
+	rename($yaml_file.".inprogress", $yaml_file.".failed");
     }
     close(LOG);
     
