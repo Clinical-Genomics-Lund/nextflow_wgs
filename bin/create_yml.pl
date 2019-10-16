@@ -8,15 +8,18 @@ my $kit = "Intersected WGS";
 
 my $BAMS = $ARGV[0];
 my @bams = split/,/, $BAMS;
-my $PED = $ARGV[1];
-my $group = $ARGV[2];
-my $vcf = $ARGV[3];
-my $xml = $ARGV[4];
-my $peddy_ped = $ARGV[5];
-my $ped_check = $ARGV[6];
-my $sexcheck = $ARGV[7];
-my $basedir = $ARGV[8];
-my $diagnosis = $ARGV[9];
+my $group = $ARGV[1];
+
+my $basedir = $ARGV[2];
+my $diagnosis = $ARGV[3];
+
+my $PED = $group.".ped";
+my $vcf = $group.".scored.vcf.gz";
+my $xml = $group.".ped.madeline.xml";
+my $peddy_ped = $group.".peddy.ped";
+my $ped_check = $group.".ped_check.csv";
+my $sexcheck = $group.".sex_check.csv";
+
 open (PED, $PED) or die "Cannot open $PED\n";
 my @ped;
 while ( <PED> ) {
@@ -27,13 +30,19 @@ while ( <PED> ) {
 close PED;
 print "---\n";
 my $institute;
-if (scalar(@bams) > 1 ) {
+if ($diagnosis eq "validering") {
     print "owner: wgsvalidering\n";
     $institute = "klingen";
 }
 else {
-    print "owner: wgsvalidering\n";
-    $institute = "klingen";
+    if (scalar(@bams) > 1 ) {
+        print "owner: klingen\n";
+        $institute = "klingen";
+    }
+    else {
+        print "owner: klingen-genlista\n";
+        $institute = "klingen";
+    }
 }
 print "family: '$group'\n";
 print "samples: \n";
@@ -90,13 +99,13 @@ print "human_genome_build: $genome\n";
 sub get_genelist {
     my $institute = shift;
     my $host = 'mongodb://cmdscout2.lund.skane.se/scout';
-    if( $ARGV[10] ) {
-        if( $ENV{$ARGV[10]} ) {
-	        my $port = $ENV{$ARGV[10]};
+    if( $ARGV[4] ) {
+        if( $ENV{$ARGV[4]} ) {
+	        my $port = $ENV{$ARGV[4]};
 	        $host = "mongodb://localhost:$port/loqusdb";
         }
         else {
-	        die "No port envvar set for $ARGV[1]";
+	        die "No port envvar set for $ARGV[4]";
         }
     }
     my $client = MongoDB->connect($host);

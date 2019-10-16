@@ -40,7 +40,6 @@ scoutbed = params.scoutbed
 
 
 
-
 csv = file(params.csv)
 mode = csv.countLines() > 2 ? "family" : "single"
 println(mode)
@@ -78,8 +77,6 @@ Channel
     .collate( 3,1, false )
     .into{ shardie1; shardie2 }
 
-
-//_${shard}
 
 // Align fractions of fastq files with BWA
 process bwa_align {
@@ -292,7 +289,7 @@ all_dedup_bams3
 process merge_dedup_bam {
 	cpus 16
 
-	publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
+	//publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
 
 	input:
 		set val(id), file(bams), file(bais) from all_dedup_bams4
@@ -335,17 +332,20 @@ process bam_recal {
 
 merged_recal_dedup_bam.into{ mrdb1; mrdb2; mrdb3; }
 
-// process sambamba {
-//	cpus 16
-//	memory '64 GB'
-//     input:	
-//     set id, file(bam), file(bai), file(recalval) from mrdb1
-//     output:
-//     file("${id}_.bwa.chanjo.cov")
-//     """
-//     sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}_.bwa.chanjo.cov
-//     """
-// }
+process sambamba {
+	cpus 16
+	memory '64 GB'
+
+	input:	
+		set group, id, file(bam), file(bai), file(recalval) from mrdb1
+
+	output:
+		file("${id}_.bwa.chanjo.cov") into chanjocov
+
+	"""
+	sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}_.bwa.chanjo.cov
+	"""
+}
 
 
 // Do variant calling using DNAscope, sharded
@@ -359,11 +359,11 @@ process dnascope {
 		set id, file("${shard_name}_${id}.vcf"), file("${shard_name}_${id}.vcf.idx") into vcf_shard
 
 	script:
-		combo = [one, two, three]
-		combo = (combo - 0) //first dummy value
-		combo = (combo - (genomic_num_shards+1)) //last dummy value
-		commons = (combo.collect{ "${it}_${id}.bam" })   //add .bam to each shardie, remove all other bams
-		bam_neigh = commons.join(' -i ')
+		combo = [one, two, three] // one two three take on values 0 1 2, 1 2 3...30 31 32
+		combo = (combo - 0) //first dummy value removed (0)
+		combo = (combo - (genomic_num_shards+1)) //last dummy value removed (32)
+		commons = (combo.collect{ "${it}_${id}.bam" })   //add .bam to each combo to match bam files from input channel
+		bam_neigh = commons.join(' -i ') 
 		type = mode == "family" ? "--emit_mode GVCF" : ""
 
 	"""
@@ -597,28 +597,12 @@ process snp_sift {
 
 }
 
-// Adding SweGen allele frequencies
-process swegen_all {
-	cpus 16
-
-	input:
-		set group, file(vcf) from snpsift
-
-	output:
-		set group, file("${group}.swegen.vcf") into sweall
-
-	"""
-	SnpSift -Xmx60g annotate $SWEGEN \\
-		-name swegen \\
-		-info AF $vcf > ${group}.swegen.vcf
-	"""
-}
 // Annotating variants with Genmod
 process annotate_genmod {
 	cpus 16
 
 	input:
-		set group, file(vcf) from sweall
+		set group, file(vcf) from snpsift
 
 	output:
 		set group, file("${group}.genmod.vcf") into genmod
@@ -659,7 +643,7 @@ process modify_vcf {
 		set group, file("${group}.mod.vcf") into mod_vcf
 
 	"""
-	/opt/bin/modify_vcf_nexomeflow.pl $vcf > ${group}.mod.vcf
+	/fs1/pipelines/wgs_germline_dev/modify_vcf_scout.pl $vcf > ${group}.mod.vcf
 	"""
 } 
 
@@ -837,10 +821,7 @@ process peddy {
 //     """
 // }
 
-// mrdb2
-//     .groupTuple()
-//     .set{ yaml_bam }
-// Uploading case to scout:
+
 process create_yaml {
 	queue 'bigmem'
 	publishDir "${OUTDIR}/json/wgs", mode: 'copy' , overwrite: 'true'
@@ -863,19 +844,13 @@ process create_yaml {
 
 	"""
 	export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
-	/fs1/pipelines/wgs_germline/annotation/create_yml.pl \\
+	which create_yml.pl
+	create_yml.pl \\
 		$bams \\
-		$ped \\
 		$group \\
-		$vcf \\
-		$madde \\
-		$peddy_ped \\
-		$ped_check \\
-		$sexcheck \\
 		$OUTDIR \\
 		$diagnosis \\
 		PORT_CMDSCOUT1_MONGODB \\
 		> ${group}.yaml
 	"""
-    ///opt/bin/create_yml.pl
 }
