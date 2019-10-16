@@ -79,9 +79,6 @@ Channel
 
 
 
-
-//_${shard}
-
 // Align fractions of fastq files with BWA
 process bwa_align {
 	cpus 56
@@ -363,11 +360,11 @@ process dnascope {
 		set id, file("${shard_name}_${id}.vcf"), file("${shard_name}_${id}.vcf.idx") into vcf_shard
 
 	script:
-		combo = [one, two, three]
-		combo = (combo - 0) //first dummy value
-		combo = (combo - (genomic_num_shards+1)) //last dummy value
-		commons = (combo.collect{ "${it}_${id}.bam" })   //add .bam to each shardie, remove all other bams
-		bam_neigh = commons.join(' -i ')
+		combo = [one, two, three] // one two three take on values 0 1 2, 1 2 3...30 31 32
+		combo = (combo - 0) //first dummy value removed (0)
+		combo = (combo - (genomic_num_shards+1)) //last dummy value removed (32)
+		commons = (combo.collect{ "${it}_${id}.bam" })   //add .bam to each combo to match bam files from input channel
+		bam_neigh = commons.join(' -i ') 
 		type = mode == "family" ? "--emit_mode GVCF" : ""
 
 	"""
