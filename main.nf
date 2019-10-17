@@ -80,7 +80,7 @@ Channel
 
 // Align fractions of fastq files with BWA
 process bwa_align {
-	cpus 56
+	cpus 50
 	memory '64 GB'
 
 	input:
@@ -106,7 +106,7 @@ process bwa_align {
 
 // Merge the fractioned bam files
 process bwa_merge_shards {
-    cpus 56
+    cpus 50
 
     input:
     	set val(id), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
@@ -204,7 +204,7 @@ process dedup_metrics_merge {
 
 //Collect various QC data: TODO MOVE qc_sentieon to container!
 process sentieon_qc {
-	cpus 56
+	cpus 54
 	memory '64 GB'
 	publishDir "${OUTDIR}/postmap/wgs", mode: 'copy' , overwrite: 'true'
 	publishDir "${OUTDIR}/cron/qc", mode: 'copy' , overwrite: 'true'
@@ -287,7 +287,7 @@ all_dedup_bams3
 
 
 process merge_dedup_bam {
-	cpus 16
+	cpus 1
 
 	//publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
 
@@ -307,7 +307,7 @@ process merge_dedup_bam {
 
 
 process bam_recal {
-	cpus 56
+	cpus 54
 	publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
 
 	input:
@@ -526,7 +526,7 @@ process intersect {
 // Splitting & normalizing variants:
 
 process split_normalize {
-	cpus 16
+	cpus 1
 
 	input:
 		set group, file(vcf) from intersected_vcf
@@ -545,7 +545,7 @@ process split_normalize {
 
 process annotate_vep {
 	container = '/fs1/resources/containers/container_VEP.sif'
-	cpus 56
+	cpus 54
 
 	input:
 		set group, file(vcf) from split_vep
@@ -579,10 +579,10 @@ process annotate_vep {
 	"""
 }
 
-// Annotating variants with SnpSift 2
+// Annotating variants with clinvar
 
-process snp_sift {
-	cpus 16
+process annotate_clinvar {
+	cpus 1
 
 	input:
 		set group, file(vcf) from vep
@@ -599,7 +599,7 @@ process snp_sift {
 
 // Annotating variants with Genmod
 process annotate_genmod {
-	cpus 16
+	cpus 2
 
 	input:
 		set group, file(vcf) from snpsift
@@ -634,7 +634,7 @@ process inher_models {
 // Modifying annotations by VEP-plugins, and adding to info-field: 
 // Modifying CLNSIG field to allow it to be used by genmod score properly:
 process modify_vcf {
-	cpus 16
+	cpus 1
 
 	input:
 		set group, file(vcf) from inhermod
@@ -651,7 +651,7 @@ process modify_vcf {
 // Adding loqusdb allele frequency to info-field: 
 // ssh needs to work from anywhere, filesystems mounted on cmdscout
 process loqdb {
-	cpus 16
+	cpus 1
 	queue 'bigmem'
 
 	input:
@@ -667,7 +667,7 @@ process loqdb {
 }
 // Marking splice INDELs: 
 process mark_splice {
-	cpus 16
+	cpus 1
 
 	input:
 		set group, file(vcf) from loqdb_vcf
@@ -697,7 +697,7 @@ process extract_indels_for_cadd {
 
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
-        cpus 16
+        cpus 1
 	container = '/fs1/resources/containers/container_cadd_v1.5.sif'
 	containerOptions '--bind /tmp/ --bind /local/'
 
@@ -715,7 +715,7 @@ process calculate_indel_cadd {
 
 // Add the calculated indel CADDs to the vcf
 process add_cadd_scores_to_vcf {
-	cpus 1
+	cpus 4
 
 	input: 
 		set group, file(vcf) from splice_marked
@@ -726,7 +726,7 @@ process add_cadd_scores_to_vcf {
 
 	"""
 	gunzip -c $cadd_scores > cadd
-	bgzip cadd
+	bgzip -@ ${task.cpus} cadd
 	tabix -p vcf cadd.gz
 	genmod annotate --cadd-file cadd.gz $vcf > ${group}.cadd.vcf
 	"""
@@ -736,7 +736,7 @@ process add_cadd_scores_to_vcf {
 // Adjusting compound scores: 
 // Sorting VCF according to score: 
 process genmodscore {
-	cpus 16
+	cpus 2
 
 	input:
 		set group, file(vcf) from indel_cadd_added
