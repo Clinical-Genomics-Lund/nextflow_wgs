@@ -24,5 +24,5 @@ cp $DIR/configs/nextflow.hopper.config $PIPELINE_DEST/nextflow.config
 
 # Copy other files
 cp $DIR/shards.csv $PIPELINE_DEST
-cp $DIR/test_run.sh $PIPELINE_DEST
-cp $DIR/params.json $PIPELINE_DEST
+
+
