@@ -78,7 +78,6 @@ Channel
     .into{ shardie1; shardie2 }
 
 
-
 // Align fractions of fastq files with BWA
 process bwa_align {
 	cpus 56
@@ -533,7 +532,7 @@ process split_normalize {
 		set group, file(vcf) from intersected_vcf
 
 	output:
-		set group, file("${group}.norm.DPAF.vcf") into split
+		set group, file("${group}.norm.DPAF.vcf") into split_vep, split_cadd
 
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
@@ -549,7 +548,7 @@ process annotate_vep {
 	cpus 56
 
 	input:
-		set group, file(vcf) from split
+		set group, file(vcf) from split_vep
 
 	output:
 		set group, file("${group}.vep.vcf") into vep
@@ -597,7 +596,6 @@ process snp_sift {
 	"""
 
 }
-
 
 // Annotating variants with Genmod
 process annotate_genmod {
@@ -668,7 +666,6 @@ process loqdb {
 	"""
 }
 // Marking splice INDELs: 
-// Annotating delins with cadd: 
 process mark_splice {
 	cpus 16
 
@@ -683,32 +680,66 @@ process mark_splice {
 	"""
 }
 
-process add_cadd {
-	cpus 16
+// Extract all INDELs from VCF for CADD annotation
+process extract_indels_for_cadd {
+	cpus 1
+
+	input:
+		set group, file(vcf) from split_cadd
+	
+	output:
+		set group, file("${group}.only_indels.vcf") into indel_cadd_vcf
+
+	"""
+	bcftools view $vcf -V snps -o ${group}.only_indels.vcf 
+	"""    
+}
+
+// Calculate CADD scores for all indels
+process calculate_indel_cadd {
+        cpus 16
 	container = '/fs1/resources/containers/container_cadd_v1.5.sif'
 	containerOptions '--bind /tmp/ --bind /local/'
 
 	input:
-		set group, file(vcf) from splice_marked
+		set group, file(vcf) from indel_cadd_vcf
 
 	output:
-		set group, file("${group}.marksplice.cadd.vcf") into splice_cadd
+		set group, file("${group}.indel_cadd.gz") into indel_cadd
 
 	"""
-	echo test
-	/opt/add_missing_CADDs_1.4.sh -i $vcf -o ${group}.marksplice.cadd.vcf -t ./tmp
+        source activate cadd-env
+        /opt/cadd/CADD.sh -g GRCh37 -o ${group}.indel_cadd.gz $vcf
+	"""
+}
+
+// Add the calculated indel CADDs to the vcf
+process add_cadd_scores_to_vcf {
+	cpus 1
+
+	input: 
+		set group, file(vcf) from splice_marked
+		set group, file(cadd_scores) from indel_cadd
+
+	output:
+		set group, file("${group}.cadd.vcf") into indel_cadd_added
+
+	"""
+	gunzip -c $cadd_scores > cadd
+	bgzip cadd
+	tabix -p vcf cadd.gz
+	genmod annotate --cadd-file cadd.gz $vcf > ${group}.cadd.vcf
 	"""
 }
 
 // Scoring variants: 
 // Adjusting compound scores: 
 // Sorting VCF according to score: 
-
 process genmodscore {
 	cpus 16
 
 	input:
-		set group, file(vcf) from splice_cadd
+		set group, file(vcf) from indel_cadd_added
 
 	output:
 		set group, file("${group}.scored.vcf") into scored_vcf
