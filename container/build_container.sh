@@ -1,1 +1,1 @@
-sudo singularity build wgs_`date +%Y-%m-%d`.sif Singularity
+sudo -E singularity build wgs_`date +%Y-%m-%d`.sif Singularity

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use CMD::vcf qw( parse_vcf );
+use vcf qw( parse_vcf );
 use List::Util qw( min sum );
 use Data::Dumper;
 

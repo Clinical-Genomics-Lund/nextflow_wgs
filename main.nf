@@ -330,7 +330,7 @@ process bam_recal {
 	"""
 }
 
-merged_recal_dedup_bam.into{ mrdb1; mrdb2; mrdb3; }
+merged_recal_dedup_bam.into{ mrdb1; mrdb2; mrdb3; expansionhunter_bam }
 
 process sambamba {
 	cpus 16
@@ -346,6 +346,67 @@ process sambamba {
 	sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}_.bwa.chanjo.cov
 	"""
 }
+
+
+
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////// EXPANSION HUNTER ////////////////////////////
+////////////////////////////////////////////////////////////////////////
+// call STRs using ExpansionHunter
+process expansionhunter {
+	input:
+		set group, id, file(bam), file(bai), file(recalval) from expansionhunter_bam
+
+	output:
+		set group, id, file("${id}.eh.vcf") into expansionhunter_vcf
+
+	"""
+	ExpansionHunter \
+		--reads $bam \
+		--reference $genome_file \
+		--variant-catalog $params.expansionhunter_catalog \
+		--output-prefix ${id}.eh
+	"""
+}
+
+// annotate expansionhunter vcf
+process stranger {
+	input:
+		set group, id, file(eh_vcf) from expansionhunter_vcf
+
+	output:
+		set group, id, file("${id}.eh.stranger.vcf") into expansionhunter_vcf_anno
+
+	"""
+	source activate stranger
+	stranger ${eh_vcf} > ${id}.eh.stranger.vcf
+	"""
+}
+
+// split multiallelic sites in expansionhunter vcf
+process vcfbreakmulti_expansionhunter {
+	publishDir "${OUTDIR}/vcf/wgs", mode: 'copy' , overwrite: 'true'
+
+	input:
+		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
+
+	output:
+		file "${id}.expansionhunter.vcf.gz" into expansionhunter_scout
+
+	"""
+	vcfbreakmulti ${eh_vcf_anno} > ${id}.expansionhunter.vcf
+	bgzip ${id}.expansionhunter.vcf
+	tabix ${id}.expansionhunter.vcf.gz
+	"""
+}
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+
+
+
+
 
 
 // Do variant calling using DNAscope, sharded
@@ -407,11 +468,11 @@ process gvcf_combine {
     cpus 16
 
     input:
-    	set id, file(vcf), file(idx) from gvcfs
-    	set val(group), val(id), r1, r2 from vcf_info
+	set id, file(vcf), file(idx) from gvcfs
+	set val(group), val(id), r1, r2 from vcf_info
 
     output:
-    	set group, file("${group}.combined.gvcf"), file("${group}.combined.gvcf.idx") into g_gvcf
+	set group, file("${group}.combined.gvcf"), file("${group}.combined.gvcf.idx") into g_gvcf
 
     script:
 		// Om fler än en vcf, GVCF combine annars döp om och skickade vidare
@@ -797,7 +858,7 @@ process peddy {
 		set file("${group}.ped_check.csv"),file("${group}.background_pca.json"),file("${group}.peddy.ped"),file("${group}.html"), file("${group}.het_check.csv"), file("${group}.sex_check.csv"), file("${group}.vs.html") into peddy_files
 
 	"""
-	source activate peddy
+	source activate py3-env
 	python -m peddy -p ${task.cpus} $vcf $ped --prefix $group
 	"""
 }

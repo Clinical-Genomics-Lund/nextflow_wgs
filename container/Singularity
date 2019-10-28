@@ -7,7 +7,7 @@ From:nfcore/base
 	VERSION 0.0.2
 
 %environment
-	PATH=/opt/conda/envs/CMD-WGS/bin:/opt/sentieon-genomics-201808.05/bin/:/opt/bin:/opt/conda/envs/peddy/bin:$PATH
+	PATH=/opt/conda/envs/CMD-WGS/bin:/opt/sentieon-genomics-201808.05/bin/:/opt/bin:/opt/conda/envs/py3-env/bin:$PATH
 	PICARD_HOME=/opt/conda/envs/CMD-WGS/share/picard-2.20.5-0/
 	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/
 	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/x86_64-linux-thread-multi/
@@ -16,7 +16,7 @@ From:nfcore/base
 %files
         genmod.patch /
 	environment.yml /
-	wgs_lower_python.yml /
+	environment_py3.yml /
 	../bin/ /opt
 	/data/bnf/sw/sentieon/sentieon-genomics-201711.05 /opt
 	../rank_models/ /
@@ -24,8 +24,19 @@ From:nfcore/base
 	rm -rf /var/lib/apt/lists/*
 	apt -y clean
 	apt -y update
+
+	/opt/conda/bin/conda env create -f /environment_py3.yml python=3
+	/opt/conda/bin/conda clean -a
+        . /opt/conda/bin/activate py3-env
+
+        git clone https://github.com/moonso/stranger.git
+	cd stranger
+	git checkout 48218c711d5dd9cf7ce61f0804a12b904cfb6338
+	/opt/conda/envs/py3-env/bin/pip install --editable .
+
+
 	/opt/conda/bin/conda env create -f /environment.yml
-        apt -y install libz-dev build-essential gettext cmake libxml2-dev libcurl4-openssl-dev libssl-dev make
+	apt -y install libz-dev build-essential gettext cmake libxml2-dev libcurl4-openssl-dev libssl-dev make
 	/opt/conda/envs/CMD-WGS/bin/cpanm Path::Tiny --force
 	/opt/conda/envs/CMD-WGS/bin/cpanm MongoDB::Collection
 	/opt/conda/envs/CMD-WGS/bin/cpanm JSON
@@ -41,5 +52,6 @@ From:nfcore/base
 	cp modify_vcf_scout/modify_vcf_scout.pl /opt/bin/.
 	git clone https://github.com/Clinical-Genomics-Lund/qc_sentieon.git
 	cp qc_sentieon/qc_sentieon.pl /opt/bin/.
-	/opt/conda/bin/conda env create -f /wgs_lower_python.yml
-	/opt/conda/bin/conda clean -a
+
+
+				

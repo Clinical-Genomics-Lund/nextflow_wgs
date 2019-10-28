@@ -1,4 +1,4 @@
-name: peddy
+name: py3-env
 channels:
     - bioconda
     - conda-forge

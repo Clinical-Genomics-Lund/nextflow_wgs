@@ -1,4 +1,4 @@
-package CMD::vcf;
+package vcf;
 use strict;
 
 use Exporter qw(import);
