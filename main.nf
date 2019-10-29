@@ -379,7 +379,7 @@ process stranger {
 		set group, id, file("${id}.eh.stranger.vcf") into expansionhunter_vcf_anno
 
 	"""
-	source activate stranger
+	source activate py3-env
 	stranger ${eh_vcf} > ${id}.eh.stranger.vcf
 	"""
 }
