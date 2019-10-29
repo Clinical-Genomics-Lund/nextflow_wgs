@@ -29,10 +29,21 @@ From:nfcore/base
 	/opt/conda/bin/conda clean -a
         . /opt/conda/bin/activate py3-env
 
+	git clone https://github.com/bjhall/upd.git
+	cd upd
+	git checkout 6f34d2e1a890ef7f030a2bf1458b82453835bf27
+	/opt/conda/envs/py3-env/bin/pip install --editable .
+
         git clone https://github.com/moonso/stranger.git
 	cd stranger
 	git checkout 48218c711d5dd9cf7ce61f0804a12b904cfb6338
 	/opt/conda/envs/py3-env/bin/pip install --editable .
+
+	git clone https://github.com/J35P312/SVDB
+	cd SVDB
+	git checkout 2.2.0
+	/opt/conda/envs/py3-env/bin/pip install --editable .
+
 
 
 	/opt/conda/bin/conda env create -f /environment.yml
@@ -48,6 +59,7 @@ From:nfcore/base
 	make
 	make install
 	cd ..
+
 	git clone https://github.com/Clinical-Genomics-Lund/modify_vcf_scout.git
 	cp modify_vcf_scout/modify_vcf_scout.pl /opt/bin/.
 	git clone https://github.com/Clinical-Genomics-Lund/qc_sentieon.git
