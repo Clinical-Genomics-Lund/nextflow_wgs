@@ -288,8 +288,7 @@ all_dedup_bams3
 
 process merge_dedup_bam {
 	cpus 1
-
-	//publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
 
 	input:
 		set val(id), file(bams), file(bais) from all_dedup_bams4
