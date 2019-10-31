@@ -7,7 +7,7 @@ From:nfcore/base
 	VERSION 0.0.2
 
 %environment
-	PATH=/opt/conda/envs/CMD-WGS/bin:/opt/sentieon-genomics-201808.05/bin/:/opt/bin:/opt/conda/envs/py3-env/bin:$PATH
+	PATH=/opt/conda/envs/CMD-WGS/bin:/opt/sentieon-genomics-201808.05/bin/:/opt/bin:/opt/conda/envs/py3-env/bin:/TIDDIT:$PATH
 	PICARD_HOME=/opt/conda/envs/CMD-WGS/share/picard-2.20.5-0/
 	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/
 	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/x86_64-linux-thread-multi/
@@ -24,17 +24,23 @@ From:nfcore/base
 	rm -rf /var/lib/apt/lists/*
 	apt -y clean
 	apt -y update
+	apt -y install libz-dev build-essential gettext cmake libxml2-dev libcurl4-openssl-dev libssl-dev make libbz2-dev
 
 	/opt/conda/bin/conda env create -f /environment_py3.yml python=3
 	/opt/conda/bin/conda clean -a
         . /opt/conda/bin/activate py3-env
 
-	git clone https://github.com/bjhall/upd.git
+	cd / && git clone https://github.com/SciLifeLab/TIDDIT.git
+	cd TIDDIT
+	git checkout TIDDIT-2.8.1
+	./INSTALL.sh
+
+	cd / && git clone https://github.com/bjhall/upd.git
 	cd upd
 	git checkout 6f34d2e1a890ef7f030a2bf1458b82453835bf27
 	/opt/conda/envs/py3-env/bin/pip install --editable .
 
-        git clone https://github.com/moonso/stranger.git
+        cd / && git clone https://github.com/moonso/stranger.git
 	cd stranger
 	git checkout 48218c711d5dd9cf7ce61f0804a12b904cfb6338
 	/opt/conda/envs/py3-env/bin/pip install --editable .
@@ -47,7 +53,6 @@ From:nfcore/base
 
 
 	/opt/conda/bin/conda env create -f /environment.yml
-	apt -y install libz-dev build-essential gettext cmake libxml2-dev libcurl4-openssl-dev libssl-dev make
 	/opt/conda/envs/CMD-WGS/bin/cpanm Path::Tiny --force
 	/opt/conda/envs/CMD-WGS/bin/cpanm MongoDB::Collection
 	/opt/conda/envs/CMD-WGS/bin/cpanm JSON
