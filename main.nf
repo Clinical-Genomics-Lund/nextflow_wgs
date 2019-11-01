@@ -604,7 +604,7 @@ process split_normalize {
 
 
 process annotate_vep {
-	container = '/fs1/resources/containers/container_VEP.sif'
+	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	cpus 54
 
 	input:

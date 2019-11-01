@@ -5,4 +5,4 @@ channels:
     - defaults
 
 dependencies:
-    - peddy
+    - bioconda::peddy=0.4.3

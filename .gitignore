@@ -4,3 +4,4 @@ container/*.sif
 nextflow.config
 work/
 *.html
+*#
