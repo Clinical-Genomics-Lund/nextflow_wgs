@@ -48,7 +48,7 @@ Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, row.read1, row.read2) }
-    .into { fastq; vcf_info }
+    .into { fastq; vcf_info; qc_extra }
 
 Channel
     .fromPath(params.csv)
@@ -109,13 +109,13 @@ process bwa_merge_shards {
     cpus 50
 
     input:
-    	set val(id), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
+	set val(id), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
 
     output:
-    	set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam
+	set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam
         
     script:
-    	bams = shard.sort(false) { a, b -> a.getBaseName() <=> b.getBaseName() } .join(' ')
+	bams = shard.sort(false) { a, b -> a.getBaseName() <=> b.getBaseName() } .join(' ')
 
     """
     sentieon util merge -o ${id}_merged.bam ${bams}
@@ -207,13 +207,12 @@ process sentieon_qc {
 	cpus 54
 	memory '64 GB'
 	publishDir "${OUTDIR}/postmap/wgs", mode: 'copy' , overwrite: 'true'
-	publishDir "${OUTDIR}/cron/qc", mode: 'copy' , overwrite: 'true'
 
 	input:
 		set id, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
 
 	output:
-		file("${id}.QC") into qc_done
+		set id, file("${id}.QC") into qc_done
 
 	"""
 	sentieon driver \\
@@ -227,8 +226,28 @@ process sentieon_qc {
 		--algo WgsMetricsAlgo wgs_metrics.txt
 	/fs1/pipelines/wgs_germline/annotation/qc_sentieon.pl $id wgs > ${id}.QC
 	"""
+}
+
+
+// Load QC data into CDM (via middleman)
+process qc_to_cdm {
+	cpus 1
+	publishDir "${OUTDIR}/cron/qc", mode: 'copy' , overwrite: 'true'
+	
+	input:
+		set id, file(qc) from qc_done
+		set val(group), val(id2), r1, r2 from qc_extra
+
+	script:
+		rundir = r1.split('/').removeLast().join("/")
+
+	"""
+	echo "--run-folder $rundir --sample-id $id --assay wgs --qc ${OUTDIR}/postmap/wgs/${id}.QC" > ${id}.cdm
+	"""
 
 }
+
+
 
 process bqsr {
 	cpus 16
