@@ -212,7 +212,7 @@ process sentieon_qc {
 		set id, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
 
 	output:
-		set id, file("${id}.QC") into qc_done
+		set id, file("${id}.QC") into qc_cdm
 
 	"""
 	sentieon driver \\
@@ -235,12 +235,16 @@ process qc_to_cdm {
 	publishDir "${OUTDIR}/cron/qc", mode: 'copy' , overwrite: 'true'
 	
 	input:
-		set id, file(qc) from qc_done
+		set id, file(qc) from qc_cdm
 		set val(group), val(id2), r1, r2 from qc_extra
 
-	script:
-		rundir = r1.split('/').dropRight(1).join("/")
+	output:
+		file("${id}.cdm") into cdm_done
 
+	script:
+		parts = r1.split('/')
+		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
+		rundir = parts[0..idx].join("/")
 	"""
 	echo "--run-folder $rundir --sample-id $id --assay wgs --qc ${OUTDIR}/postmap/wgs/${id}.QC" > ${id}.cdm
 	"""
@@ -637,8 +641,8 @@ process annotate_vep {
 		-i ${vcf} \\
 		-o ${group}.vep.vcf \\
 		--offline \\
-		--merged \\
 		--everything \\
+		--merged \\
 		--vcf \\
 		--no_stats \\
 		--fork ${task.cpus} \\
