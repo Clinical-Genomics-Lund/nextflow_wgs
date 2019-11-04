@@ -557,7 +557,7 @@ process create_ped {
 // collects each individual's ped-line and creates one ped-file
 ped_ch
     .collectFile(sort: true, storeDir: "${OUTDIR}/ped/wgs")
-    .into{ ped_mad; ped_peddy; ped_inher; ped_scout }
+    .into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus }
 
 
 //madeline ped om familj
@@ -586,7 +586,6 @@ process madeline {
 }
 
 // Intersect VCF, exome/clinvar introns
-
 process intersect {
 
 	input:
@@ -607,7 +606,6 @@ process intersect {
 
 
 // Splitting & normalizing variants:
-
 process split_normalize {
 	cpus 1
 
@@ -615,7 +613,7 @@ process split_normalize {
 		set group, file(vcf) from intersected_vcf
 
 	output:
-		set group, file("${group}.norm.DPAF.vcf") into split_vep, split_cadd
+		set group, file("${group}.norm.DPAF.vcf") into split_vep, split_cadd, split_loqusdb
 
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
@@ -625,6 +623,21 @@ process split_normalize {
 
 }
 
+process add_to_loqusdb {
+	cpus 1
+	publishDir "${OUTDIR}/cron/loqus", mode: 'copy' , overwrite: 'true'
+
+	input:
+		set group, file(vcf) from split_loqusdb
+		file(ped) from ped_loqus
+
+	output:
+		file("${group}.loqus") into loqusdb_done
+
+	"""
+	echo "loqusdb load -f $ped $vcf > ${group}.loqus"
+	"""
+}
 
 process annotate_vep {
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
