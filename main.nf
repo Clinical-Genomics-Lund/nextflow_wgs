@@ -239,7 +239,7 @@ process qc_to_cdm {
 		set val(group), val(id2), r1, r2 from qc_extra
 
 	script:
-		rundir = r1.split('/').removeLast().join("/")
+		rundir = r1.split('/').dropRight(1).join("/")
 
 	"""
 	echo "--run-folder $rundir --sample-id $id --assay wgs --qc ${OUTDIR}/postmap/wgs/${id}.QC" > ${id}.cdm
