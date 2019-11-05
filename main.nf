@@ -635,7 +635,7 @@ process add_to_loqusdb {
 		file("${group}.loqus") into loqusdb_done
 
 	"""
-	echo "loqusdb load -f $ped $vcf > ${group}.loqus"
+	echo "loqusdb load -f ${ped.toRealPath()} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
 	"""
 }
 
