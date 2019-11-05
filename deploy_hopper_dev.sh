@@ -1,15 +1,14 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-PIPELINE_DEST="/media/hopper/pipelines/wgs_germline_dev/"
-
+DEST_HOST="rs-fs1.lunarc.lu.se"
+PIPELINE_DEST="/fs1/pipelines/wgs_germline_dev"
 
 # Copy pipeline script
-cp $DIR/main.nf $PIPELINE_DEST
+scp $DIR/main.nf $DEST_HOST:$PIPELINE_DEST
 
 # Copy configuration file
-cp $DIR/configs/nextflow.hopper.config $PIPELINE_DEST/nextflow.config
+scp $DIR/configs/nextflow.hopper.config $DEST_HOST:$PIPELINE_DEST/nextflow.config
 
 # Copy other files
-cp $DIR/shards.csv $PIPELINE_DEST
-cp -r $DIR/bin $PIPELINE_DEST
-cp -r $DIR/rank_models /fs1/resources/scout/
+scp $DIR/shards.csv $DEST_HOST:$PIPELINE_DEST
+scp -r $DIR/bin $DEST_HOST:$PIPELINE_DEST

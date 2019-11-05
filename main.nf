@@ -494,7 +494,7 @@ process gvcf_combine {
 	set val(group), val(id), r1, r2 from vcf_info
 
     output:
-	set group, file("${group}.combined.gvcf"), file("${group}.combined.gvcf.idx") into g_gvcf
+	set group, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
 
     script:
 		// Om fler än en vcf, GVCF combine annars döp om och skickade vidare
@@ -506,7 +506,7 @@ process gvcf_combine {
 				-t ${task.cpus} \\
 				-r $genome_file \\
 				--algo GVCFtyper \\
-				-v $ggvcfs ${group}.combined.gvcf
+				-v $ggvcfs ${group}.combined.vcf
 			"""
 		}
 		// annars ensam vcf, skicka vidare
@@ -515,8 +515,8 @@ process gvcf_combine {
 			gidx = idx.join('')
 
 			"""
-			mv ${ggvcf} ${group}.combined.gvcf
-			mv ${gidx} ${group}.combined.gvcf.idx
+			mv ${ggvcf} ${group}.combined.vcf
+			mv ${gidx} ${group}.combined.vcf.idx
 			"""
 		}
 }
@@ -585,40 +585,39 @@ process madeline {
 	"""
 }
 
-// Intersect VCF, exome/clinvar introns
-process intersect {
-
-	input:
-		set group, file(vcf), file(idx) from g_gvcf
-
-	output:
-		set group, file("${group}.intersected.vcf") into intersected_vcf
-
-	when:
-		params.annotate
-
-	"""
-	bedtools intersect -a $vcf -b $inter_bed -header > ${group}.intersected.vcf
-	"""
-
-}
-
-
-
 // Splitting & normalizing variants:
 process split_normalize {
 	cpus 1
 
 	input:
-		set group, file(vcf) from intersected_vcf
+		set group, file(vcf), file(idx) from combined_vcf
 
 	output:
-		set group, file("${group}.norm.DPAF.vcf") into split_vep, split_cadd, split_loqusdb
+		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm
 
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
 	bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
-	exome_DPAF_filter.pl ${group}.norm.vcf > ${group}.norm.DPAF.vcf
+	vcfstreamsort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
+	exome_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
+	"""
+
+}
+
+// Intersect VCF, exome/clinvar introns
+process intersect {
+
+	input:
+		set group, file(vcf) from split_norm
+
+	output:
+		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, split_loqusdb
+
+	when:
+		params.annotate
+
+	"""
+	bedtools intersect -a $vcf -b $inter_bed -u -header > ${group}.intersected.vcf
 	"""
 
 }
