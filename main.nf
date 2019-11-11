@@ -54,7 +54,7 @@ Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis) }
-    .into { ped; all_ids; yml_diag }
+    .into { ped; all_ids; yml_diag; meta_upd }
 
 
 
@@ -593,7 +593,7 @@ process split_normalize {
 		set group, file(vcf), file(idx) from combined_vcf
 
 	output:
-		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm
+		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_upd
 
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
@@ -898,23 +898,26 @@ process peddy {
 }
 
 
-// Running change to UPD Björn TODO:
-// process gnsp {
-//     //container = 'container_mongodb.sif'
-//     publishDir "${OUTDIR}/tmp/wgs/gSNP", mode: 'copy' , overwrite: 'true'
-//     input:
-//     set group, file(vcf), file(idx) from vcf_done3
-//     set group, id, sex, mother, father, phenotype, diagnosis from all_ids.groupTuple()
-//     output:
-//     set file("${group}_gSNP.tsv"), file("${group}_gSNP.png")
-//     when:
-//     mode == "family"
-//     script:
-//     ids = id.join(' ')
-//     """
-//     perl /opt/bin/gSNP.pl $vcf ${group}_gSNP $ids
-//     """
-// }
+process upd {
+	publishDir "${OUTDIR}/tmp/wgs/gSNP", mode: 'copy' , overwrite: 'true'
+
+	input:
+		set gr, file(vcf) from vcf_upd
+		set group, id, sex, mother, father, phenotype, diagnosis from meta_upd
+
+	output:
+		file("upd.bed")
+
+	when:
+		mode == "family"
+
+	"""
+	gzip -c $vcf > ${vcf}.gz
+	annotate -g $params.FASTGNOMAD_REF -i ${vcf}.gz > ${vcf}.anno
+	upd --vcf ${vcf}.anno --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > ${id}.bed
+        bcftools roh --rec-rate 1e-9 --AF-tag GNOMADAF ${vcf}.anno -o ${id}.roh
+	"""
+}
 
 
 process create_yaml {
