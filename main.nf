@@ -38,6 +38,7 @@ rank_model_s = params.rank_model_s
 inter_bed = params.intersect_bed
 scoutbed = params.scoutbed
 
+PON = [F: params.GATK_PON_FEMALE, M: params.GATK_PON_MALE]
 
 
 csv = file(params.csv)
@@ -54,7 +55,7 @@ Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis) }
-    .into { ped; all_ids; yml_diag; meta_upd }
+    .into { ped; all_ids; yml_diag; meta_upd; meta_gatkcov }
 
 
 
@@ -317,10 +318,11 @@ process merge_dedup_bam {
 		set val(id), file(bams), file(bais) from all_dedup_bams4
 
 	output:
-		set id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into merged_dedup_bam
+		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam
 
 	script:
 		bams_sorted_str = bams.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' -i ')
+		group = "bams"
 
 	"""
 	sentieon util merge -i ${bams_sorted_str} -o ${id}_merged_dedup.bam --mergemode 10
@@ -328,38 +330,13 @@ process merge_dedup_bam {
 }
 
 
-process bam_recal {
-	cpus 54
-	publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
-
-	input:
-		set id, file(bam), file(bai), file(table) from merged_dedup_bam.join(bqsr_merged2)
-
-	output:
-		set group, id, file("${id}_recal.bam"), file("${id}_recal.bam.bai"), file("${id}_recal_post*") into merged_recal_dedup_bam
-
-	script:
-		group = "bams"
-
-	"""
-	sentieon driver \\
-		-t ${task.cpus} \\
-		-r $genome_file \\
-		-i $bam \\
-		-q $table \\
-		--algo QualCal -k $KNOWN1 -k $KNOWN2 ${id}_recal_post \\
-		--algo ReadWriter ${id}_recal.bam
-	"""
-}
-
-merged_recal_dedup_bam.into{ mrdb1; mrdb2; mrdb3; expansionhunter_bam }
-
-process sambamba {
+// Calculate coverage for chanjo
+process chanjo_sambamba {
 	cpus 16
 	memory '64 GB'
 
 	input:	
-		set group, id, file(bam), file(bai), file(recalval) from mrdb1
+		set group, id, file(bam), file(bai) from chanjo_bam
 
 	output:
 		file("${id}_.bwa.chanjo.cov") into chanjocov
@@ -375,10 +352,11 @@ process sambamba {
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////// EXPANSION HUNTER ////////////////////////////
 ////////////////////////////////////////////////////////////////////////
+
 // call STRs using ExpansionHunter
 process expansionhunter {
 	input:
-		set group, id, file(bam), file(bai), file(recalval) from expansionhunter_bam
+		set group, id, file(bam), file(bai) from expansionhunter_bam
 
 	output:
 		set group, id, file("${id}.eh.vcf") into expansionhunter_vcf
@@ -593,7 +571,7 @@ process split_normalize {
 		set group, file(vcf), file(idx) from combined_vcf
 
 	output:
-		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_upd
+		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
 
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
@@ -898,26 +876,110 @@ process peddy {
 }
 
 
-process upd {
-	publishDir "${OUTDIR}/tmp/wgs/gSNP", mode: 'copy' , overwrite: 'true'
 
+
+// Extract all variants (from whole genome) with a gnomAD af > x%
+process fastgnomad {
+	cpus 2
+	memory '16 GB'
+
+	publishDir "${OUTDIR}/vcf/wgs", mode: 'copy', overwrite: 'true'
+
+    input:
+		set group, file(vcf) from vcf_gnomad
+
+	output:
+		set group, file("${group}.SNPs.vcf") into vcf_upd, vcf_roh
+
+	"""
+	gzip -c $vcf > ${vcf}.gz
+	annotate -g $params.FASTGNOMAD_REF -i ${vcf}.gz > ${group}.SNPs.vcf
+	"""
+	
+}
+
+
+// Call UPD regions from SNP vcf
+process upd {
 	input:
 		set gr, file(vcf) from vcf_upd
 		set group, id, sex, mother, father, phenotype, diagnosis from meta_upd
 
 	output:
-		file("upd.bed")
+		file("upd.bed") into upd_plot
 
 	when:
 		mode == "family"
 
 	"""
-	gzip -c $vcf > ${vcf}.gz
-	annotate -g $params.FASTGNOMAD_REF -i ${vcf}.gz > ${vcf}.anno
-	upd --vcf ${vcf}.anno --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > ${id}.bed
-        bcftools roh --rec-rate 1e-9 --AF-tag GNOMADAF ${vcf}.anno -o ${id}.roh
+	upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
 	"""
 }
+
+
+// Call ROH regions from SNP vcf
+process roh {
+	input:
+		set gr, file(vcf) from vcf_roh
+
+	output:
+		set gr, file("roh.txt") into roh_plot
+
+	"""
+    bcftools roh --rec-rate 1e-9 --AF-tag GNOMADAF ${vcf} -o roh.txt
+	"""
+}
+
+// Create coverage profile using GATK
+process gatkcov {
+	cpus 2
+	memory '16 GB'
+
+	input:
+		set group, id, file(bam), file(bai) from cov_bam
+		set gr, id, sex, mother, father, phenotype, diagnosis from meta_gatkcov
+
+	output:
+		set file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot
+
+	"""
+	source activate gatk4-env
+
+	gatk CollectReadCounts \
+		-I $bam -L $params.COV_INTERVAL_LIST \
+		--interval-merging-rule OVERLAPPING_ONLY -O ${bam}.hdf5
+
+	gatk --java-options "-Xmx12g" DenoiseReadCounts \
+		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex]} \
+		--standardized-copy-ratios ${id}.standardizedCR.tsv \
+		--denoised-copy-ratios ${id}.denoisedCR.tsv
+
+	gatk PlotDenoisedCopyRatios \
+		--standardized-copy-ratios ${id}.standardizedCR.tsv \
+		--denoised-copy-ratios ${id}.denoisedCR.tsv \
+		--sequence-dictionary $params.GENOMEDICT \
+		--minimum-contig-length 46709983 --output . --output-prefix $id
+	"""
+}
+
+
+// Plot ROH, UPD and coverage in a genomic overview plot
+process overview_plot {
+	publishDir "${OUTDIR}/postmap/wgs", mode: 'copy' , overwrite: 'true'
+
+	input:
+		file(upd) from upd_plot
+		set gr, file(roh) from roh_plot
+		set file(cov_stand), file(cov_denoised) from cov_plot
+
+	output:
+		file("${gr}.genomic_overview.png")
+
+	"""
+	genome_plotter.pl --dict $params.GENOMEDICT --sample $gr --upd $upd --roh $roh --cov $cov_denoised --out ${gr}.genomic_overview.png
+	"""
+}
+
 
 
 process create_yaml {
@@ -926,7 +988,7 @@ process create_yaml {
 	publishDir "${OUTDIR}/cron/scout", mode: 'copy' , overwrite: 'true'
 
 	input:
-		set group, id, file(bam), file(bai), file(crap) from mrdb2.groupTuple()
+		set group, id, file(bam), file(bai) from yaml_bam.groupTuple()
 		set group, file(vcf), file(idx) from vcf_done2
 		set file(ped_check),file(json),file(peddy_ped),file(html), file(hetcheck_csv), file(sexcheck), file(vs_html) from peddy_files
 		file(ped) from ped_scout

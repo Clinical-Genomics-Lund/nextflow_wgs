@@ -27,3 +27,4 @@ dependencies:
     - bioconda::perl-app-cpanminus=1.7044
     - bioconda::svtyper=0.7.1
     - r-base
+    - perl-gd
