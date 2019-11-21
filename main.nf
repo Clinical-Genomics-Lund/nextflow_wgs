@@ -566,12 +566,13 @@ process madeline {
 // Splitting & normalizing variants:
 process split_normalize {
 	cpus 1
+	publishDir "${OUTDIR}/vcf/wgs/", mode: 'copy', overwrite: 'true'
 
 	input:
 		set group, file(vcf), file(idx) from combined_vcf
 
 	output:
-		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
+		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad, vcf_loqus
 
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
@@ -589,7 +590,7 @@ process intersect {
 		set group, file(vcf) from split_norm
 
 	output:
-		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, split_loqusdb
+		set group, file("${group}.intersected.vcf") into split_vep, split_cadd
 
 	when:
 		params.annotate
@@ -605,7 +606,7 @@ process add_to_loqusdb {
 	publishDir "${OUTDIR}/cron/loqus", mode: 'copy' , overwrite: 'true'
 
 	input:
-		set group, file(vcf) from split_loqusdb
+		set group, file(vcf) from vcf_loqusdb
 		file(ped) from ped_loqus
 
 	output:
