@@ -31,7 +31,7 @@ while( <VCF> ) {
 		$keep = 0;
 		last;
 	    }
-	    elsif( $a[0] ne "0/0" and $allele_counts[1]/$dp < 0.3 ) {
+	    elsif( $a[0] ne "0/0" and $allele_counts[1]/$dp < 0.2 ) {
 		$keep = 0;
 		last;
 	    }
