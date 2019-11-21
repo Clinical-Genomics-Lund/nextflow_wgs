@@ -91,7 +91,7 @@ if ($diagnosis eq "pedriatrics") {
 else {
     print "default_gene_panels: [$diagnosis]\n";
 }
-print "rank_model_version: 3.0\n";
+print "rank_model_version: 4.0\n";
 print "rank_score_threshold: 0\n";
 print "human_genome_build: $genome\n";
 
