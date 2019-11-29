@@ -15,6 +15,7 @@ my $diagnosis = $ARGV[3];
 
 my $PED = $group.".ped";
 my $vcf = $group.".scored.vcf.gz";
+my $vcf_str = $group.".expansionhunter.vcf.gz";
 my $xml = $group.".ped.madeline.xml";
 my $peddy_ped = $group.".peddy.ped";
 my $ped_check = $group.".ped_check.csv";
@@ -75,6 +76,8 @@ foreach my $sample (@ped) {
     $count++;
 }
 print "vcf_snv: $basedir/vcf/wgs/$vcf\n"; ##obs skapa en version för exome specifikt
+print "vcf_str: $basedir/vcf/wgs/$vcf_str\n" if -s "$basedir/vcf/wgs/$vcf_str";
+
 if (scalar(@bams) > 1 ) {
     print "madeline: $basedir/ped/wgs/$xml\n";
 }
