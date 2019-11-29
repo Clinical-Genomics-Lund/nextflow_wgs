@@ -385,6 +385,7 @@ process stranger {
 }
 
 // split multiallelic sites in expansionhunter vcf
+// FIXME: Use env variable for picard path...
 process vcfbreakmulti_expansionhunter {
 	publishDir "${OUTDIR}/vcf/wgs", mode: 'copy' , overwrite: 'true'
 
@@ -395,7 +396,8 @@ process vcfbreakmulti_expansionhunter {
 		file "${id}.expansionhunter.vcf.gz" into expansionhunter_scout
 
 	"""
-	vcfbreakmulti ${eh_vcf_anno} > ${id}.expansionhunter.vcf
+	java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
+	vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${id}.expansionhunter.vcf
 	bgzip ${id}.expansionhunter.vcf
 	tabix ${id}.expansionhunter.vcf.gz
 	"""

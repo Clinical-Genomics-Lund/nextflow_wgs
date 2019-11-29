@@ -1,0 +1,9 @@
+#CHANGELOG
+
+###0.1.1
+
+####Features
+
+####Fixes
+- Properly add selected gene panels to YAML
+- Add STR-vcf to YAML
