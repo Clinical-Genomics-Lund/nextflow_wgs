@@ -85,11 +85,13 @@ my $gene_panels = get_genelist($institute);
 print "gene_panels: [";
 print join ",", @$gene_panels;
 print "]\n";
-if ($diagnosis eq "pedriatrics") {
+if ($diagnosis !~ /\+/) {
     print "default_gene_panels: []\n";
 }
 else {
-    print "default_gene_panels: [$diagnosis]\n";
+    my @panels = split /\+/, $diagnosis;
+    my $panels_str = '"'. join('","', @panels). '"';
+    print "default_gene_panels: [$panels_str]\n";
 }
 print "rank_model_version: 4.0\n";
 print "rank_score_threshold: 0\n";
