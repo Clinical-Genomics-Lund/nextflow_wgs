@@ -608,7 +608,7 @@ process add_to_loqusdb {
 	publishDir "${OUTDIR}/cron/loqus", mode: 'copy' , overwrite: 'true'
 
 	input:
-		set group, file(vcf) from vcf_loqusdb
+		set group, file(vcf) from vcf_loqus
 		file(ped) from ped_loqus
 
 	output:
