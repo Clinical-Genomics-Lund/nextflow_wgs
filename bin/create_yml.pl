@@ -36,14 +36,8 @@ if ($diagnosis eq "validering") {
     $institute = "klingen";
 }
 else {
-    if (scalar(@bams) > 1 ) {
-        print "owner: klingen\n";
-        $institute = "klingen";
-    }
-    else {
-        print "owner: klingen-genlista\n";
-        $institute = "klingen";
-    }
+    print "owner: klingen\n";
+    $institute = "klingen";
 }
 print "family: '$group'\n";
 print "samples: \n";
