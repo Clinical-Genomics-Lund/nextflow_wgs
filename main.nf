@@ -574,7 +574,7 @@ process split_normalize {
 		set group, file(vcf), file(idx) from combined_vcf
 
 	output:
-		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad, vcf_loqus
+		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
 
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
@@ -592,7 +592,7 @@ process intersect {
 		set group, file(vcf) from split_norm
 
 	output:
-		set group, file("${group}.intersected.vcf") into split_vep, split_cadd
+		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus
 
 	when:
 		params.annotate
