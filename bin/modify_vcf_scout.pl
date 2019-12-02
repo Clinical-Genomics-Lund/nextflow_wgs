@@ -72,6 +72,7 @@ while( <VEP>) {
     }
     # Print and store header
     elsif( /^#/ ) {
+        print "##INFO\=<ID=1KG_AF\,Number=1\,Type=Float,Description=\"1000G average AF if no gnomadAF exists\">\n";
         print "##INFO\=<ID=GNOMADAF\,Number=1\,Type=Float,Description=\"Average AF GnomAD\">\n";
         print "##INFO=<ID=GNOMADAF_MAX,Number=1,Type=Float,Description=\"Highest reported AF in gnomAD\">\n";
         print "##INFO=<ID=GNOMADPOP_MAX,Number=1,Type=Float,Description=\"Population of highest AF\">\n";
@@ -102,6 +103,12 @@ while( <VEP>) {
         if ($gAF) {
              push @add_info_field,"GNOMADAF=$gAF";
         }
+	# If no gnomadAF exists set an extra 1000 genomes AF to use for ranking non-exonic regions
+	else{
+	    my $thousandgAF = $doobi->{INFO}->{CSQ}->[0]->{AF};
+	    push @add_info_field,"1KG_AF=$thousandgAF" if $thousandgAF;
+	}
+	
         ### AF MAX POPULATION
         my $max = $doobi->{INFO}->{CSQ}->[0]->{gnomADg_AF_popmax};
         if ($max) {
