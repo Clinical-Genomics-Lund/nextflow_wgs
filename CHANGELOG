@@ -1,5 +1,20 @@
 #CHANGELOG
 
+###X.X.X
+
+####Features
+
+####Fixes
+- Change back to adding intersected vcf for loqusdb instead of full genomic vcf
+
+
+###0.1.2
+
+####Features
+
+####Fixes
+- Add 1000G in a special field for positions missing gnomAD (typically non-exonic) and add it to rankmodel
+	
 ###0.1.1
 
 ####Features
