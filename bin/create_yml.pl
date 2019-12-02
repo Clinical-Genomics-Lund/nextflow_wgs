@@ -82,7 +82,7 @@ my $gene_panels = get_genelist($institute);
 print "gene_panels: [";
 print join ",", @$gene_panels;
 print "]\n";
-if ($diagnosis !~ /\+/) {
+if ($diagnosis eq "pediatrics") {
     print "default_gene_panels: []\n";
 }
 else {
