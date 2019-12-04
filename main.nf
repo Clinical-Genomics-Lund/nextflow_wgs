@@ -48,8 +48,14 @@ println(mode)
 Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
-    .map{ row-> tuple(row.group, row.id, row.read1, row.read2) }
-    .into { fastq; vcf_info; qc_extra }
+    .map{ row-> tuple(row.group, row.id, file(row.read1), file(row.read2)) }
+    .into { fastq_sharded; fastq; vcf_info }
+
+Channel
+    .fromPath(params.csv)
+    .splitCsv(header:true)
+    .map{ row-> tuple(row.id, row.read1, row.read2) }
+    .set{ qc_extra }
 
 Channel
     .fromPath(params.csv)
@@ -80,18 +86,18 @@ Channel
 
 
 // Align fractions of fastq files with BWA
-process bwa_align {
+process bwa_align_sharded {
 	cpus 50
 	memory '64 GB'
 
 	input:
-		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq)
+		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
 
 	output:
 		set val(id), file("${id}_${shard}.bwa.sort.bam"), file("${id}_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
 
 	when:
-		params.align
+		params.align && params.shardbwa
 
 	"""
 	sentieon bwa mem -M \\
@@ -107,22 +113,55 @@ process bwa_align {
 
 // Merge the fractioned bam files
 process bwa_merge_shards {
-    cpus 50
+	cpus 50
 
-    input:
-	set val(id), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
+	input:
+		set val(id), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
 
-    output:
-	set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam
-        
-    script:
-	bams = shard.sort(false) { a, b -> a.getBaseName() <=> b.getBaseName() } .join(' ')
+	output:
+		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam, qc_merged_bam
 
-    """
-    sentieon util merge -o ${id}_merged.bam ${bams}
-    """
+	when:
+		params.shardbwa
+    
+	script:
+		bams = shard.sort(false) { a, b -> a.getBaseName() <=> b.getBaseName() } .join(' ')
+
+	"""
+	sentieon util merge -o ${id}_merged.bam ${bams}
+	"""
 }
-merged_bam.into{merged_bam2; qc_bam;}
+
+// ALTERNATIVE PATH: Unsharded BWA, utilize local scratch space.
+process bwa_align {
+	cpus 27
+	memory '64 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+
+	input:
+		set val(group), val(id), file(r1), file(r2) from fastq
+
+	output:
+		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam, qc_bam
+
+	when:
+		params.align && !params.shardbwa
+
+	"""
+	sentieon bwa mem \\
+		-M \\
+		-R '@RG\\tID:${id}\\tSM:${id}\\tPL:illumina' \\
+		-t ${task.cpus} \\
+		$genome_file $r1 $r2 \\
+		| sentieon util sort \\
+		-r $genome_file \\
+		-o ${id}_merged.bam \\
+		-t ${task.cpus} --sam2bam -i -
+	"""
+}
+
 
 
 // Collect information that will be used by to remove duplicate reads.
@@ -132,7 +171,7 @@ process locus_collector {
 	cpus 16
 
 	input:
-		set id, file(bam), file(bai), val(shard_name), val(shard) from merged_bam2.combine(shards1)
+		set id, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(shards1)
 
 	output:
 		set val(id), file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
@@ -210,7 +249,7 @@ process sentieon_qc {
 	publishDir "${OUTDIR}/postmap/wgs", mode: 'copy' , overwrite: 'true'
 
 	input:
-		set id, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
+		set id, file(bam), file(bai), file(dedup) from qc_bam.mix(qc_merged_bam).join(merged_dedup_metrics)
 
 	output:
 		set id, file("${id}.QC") into qc_cdm

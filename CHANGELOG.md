@@ -3,6 +3,7 @@
 ###X.X.X
 
 ####Features
+- Allow for non-distributed BWA (new default). For urgent cases use --shardbwa
 
 ####Fixes
 - Change back to adding intersected vcf for loqusdb instead of full genomic vcf
@@ -14,7 +15,7 @@
 
 ####Fixes
 - Add 1000G in a special field for positions missing gnomAD (typically non-exonic) and add it to rankmodel
-	
+
 ###0.1.1
 
 ####Features
