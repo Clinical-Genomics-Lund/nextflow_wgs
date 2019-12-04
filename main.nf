@@ -276,7 +276,7 @@ process qc_to_cdm {
 	
 	input:
 		set id, file(qc) from qc_cdm
-		set val(group), val(id2), r1, r2 from qc_extra
+		set val(id), r1, r2 from qc_extra
 
 	output:
 		file("${id}.cdm") into cdm_done
