@@ -54,7 +54,7 @@ Channel
 Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
-    .map{ row-> tuple(row.id, row.read1, row.read2) }
+    .map{ row-> tuple(row.id, row.diagnosis, row.read1, row.read2) }
     .set{ qc_extra }
 
 Channel
@@ -276,7 +276,7 @@ process qc_to_cdm {
 	
 	input:
 		set id, file(qc) from qc_cdm
-		set val(id), r1, r2 from qc_extra
+		set id, diagnosis, r1, r2 from qc_extra
 
 	output:
 		file("${id}.cdm") into cdm_done
@@ -285,8 +285,9 @@ process qc_to_cdm {
 		parts = r1.split('/')
 		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
 		rundir = parts[0..idx].join("/")
+
 	"""
-	echo "--run-folder $rundir --sample-id $id --assay wgs --qc ${OUTDIR}/postmap/wgs/${id}.QC" > ${id}.cdm
+	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay wgs --qc ${OUTDIR}/postmap/wgs/${id}.QC" > ${id}.cdm
 	"""
 
 }
