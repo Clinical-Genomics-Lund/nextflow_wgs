@@ -4,6 +4,7 @@
 
 #### Features
 - Allow for non-distributed BWA (new default). For urgent cases use --shardbwa
+- Add diagnosis field to CDM
 
 #### Fixes
 - Change back to adding intersected vcf for loqusdb instead of full genomic vcf
