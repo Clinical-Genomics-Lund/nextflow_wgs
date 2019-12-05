@@ -8,7 +8,7 @@
 
 #### Fixes
 - Change back to adding intersected vcf for loqusdb instead of full genomic vcf
-
+- Change name of 1000G INFO field to make it show up in Scout
 
 ### 0.1.2
 
