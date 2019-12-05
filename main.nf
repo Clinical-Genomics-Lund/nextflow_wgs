@@ -265,7 +265,7 @@ process sentieon_qc {
 		--algo AlignmentStat aln_metrics.txt \\
 		--algo InsertSizeMetricAlgo is_metrics.txt \\
 		--algo WgsMetricsAlgo wgs_metrics.txt
-	/fs1/pipelines/wgs_germline/annotation/qc_sentieon.pl $id wgs > ${id}.QC
+	qc_sentieon.pl $id wgs > ${id}.QC
 	"""
 }
 
@@ -758,7 +758,7 @@ process modify_vcf {
 		set group, file("${group}.mod.vcf") into mod_vcf
 
 	"""
-	/fs1/pipelines/wgs_germline_dev/modify_vcf_scout.pl $vcf > ${group}.mod.vcf
+	modify_vcf_scout.pl $vcf > ${group}.mod.vcf
 	"""
 } 
 
