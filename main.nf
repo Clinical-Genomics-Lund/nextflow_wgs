@@ -2,6 +2,7 @@
 
 // GENERAL PATHS //
 OUTDIR = params.outdir
+CRONDIR = params.crondir
 
 // SENTIEON CONFIGS //
 K_size      = 100000000
@@ -246,7 +247,7 @@ process dedup_metrics_merge {
 process sentieon_qc {
 	cpus 54
 	memory '64 GB'
-	publishDir "${OUTDIR}/postmap/wgs", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
 
 	input:
 		set id, file(bam), file(bai), file(dedup) from qc_bam.mix(qc_merged_bam).join(merged_dedup_metrics)
@@ -272,7 +273,7 @@ process sentieon_qc {
 // Load QC data into CDM (via middleman)
 process qc_to_cdm {
 	cpus 1
-	publishDir "${OUTDIR}/cron/qc", mode: 'copy' , overwrite: 'true'
+	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	
 	input:
 		set id, file(qc) from qc_cdm
@@ -321,8 +322,6 @@ process bqsr {
 
 // Merge the bqrs shards
 process merge_bqsr {
-	publishDir "${OUTDIR}/bam/wgs/bqsr_tables"
-
 	input:
 		set id, file(tables) from bqsr_table.groupTuple()
 
@@ -352,7 +351,7 @@ all_dedup_bams3
 
 process merge_dedup_bam {
 	cpus 1
-	publishDir "${OUTDIR}/bam/wgs/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true'
 
 	input:
 		set val(id), file(bams), file(bais) from all_dedup_bams4
@@ -427,7 +426,7 @@ process stranger {
 // split multiallelic sites in expansionhunter vcf
 // FIXME: Use env variable for picard path...
 process vcfbreakmulti_expansionhunter {
-	publishDir "${OUTDIR}/vcf/wgs", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
@@ -582,7 +581,7 @@ ped_ch
 
 //madeline ped om familj
 process madeline {
-	publishDir "${OUTDIR}/ped/wgs", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
 
 	input:
 		file(ped) from ped_mad
@@ -608,7 +607,7 @@ process madeline {
 // Splitting & normalizing variants:
 process split_normalize {
 	cpus 1
-	publishDir "${OUTDIR}/vcf/wgs/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
 	input:
 		set group, file(vcf), file(idx) from combined_vcf
@@ -645,7 +644,7 @@ process intersect {
 
 process add_to_loqusdb {
 	cpus 1
-	publishDir "${OUTDIR}/cron/loqus", mode: 'copy' , overwrite: 'true'
+	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
 
 	input:
 		set group, file(vcf) from vcf_loqus
@@ -880,7 +879,7 @@ process genmodscore {
 // Bgzipping and indexing VCF: 
 process vcf_completion {
 	cpus 16
-	publishDir "${OUTDIR}/vcf/wgs/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
 	input:
 		set group, file(vcf) from scored_vcf
@@ -902,7 +901,7 @@ vcf_done.into {
 
 // Running PEDDY: 
 process peddy {
-	publishDir "${OUTDIR}/ped/wgs", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
 	cpus 6
 
 	input:
@@ -926,7 +925,7 @@ process fastgnomad {
 	cpus 2
 	memory '16 GB'
 
-	publishDir "${OUTDIR}/vcf/wgs", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
     input:
 		set group, file(vcf) from vcf_gnomad
@@ -975,6 +974,8 @@ process roh {
 
 // Create coverage profile using GATK
 process gatkcov {
+	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'    
+    
 	cpus 2
 	memory '16 GB'
 
@@ -1008,7 +1009,7 @@ process gatkcov {
 
 // Plot ROH, UPD and coverage in a genomic overview plot
 process overview_plot {
-	publishDir "${OUTDIR}/postmap/wgs", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 
 	input:
 		file(upd) from upd_plot
@@ -1027,8 +1028,8 @@ process overview_plot {
 
 process create_yaml {
 	queue 'bigmem'
-	publishDir "${OUTDIR}/json/wgs", mode: 'copy' , overwrite: 'true'
-	publishDir "${OUTDIR}/cron/scout", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/yaml", mode: 'copy' , overwrite: 'true'
+	publishDir "${CRONDIR}/scout", mode: 'copy' , overwrite: 'true'
 
 	input:
 		set group, id, file(bam), file(bai) from yaml_bam.groupTuple()
