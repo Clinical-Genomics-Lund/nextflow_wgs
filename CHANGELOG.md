@@ -9,6 +9,7 @@
 #### Fixes
 - Change back to adding intersected vcf for loqusdb instead of full genomic vcf
 - Change name of 1000G INFO field to make it show up in Scout
+- Removed some hardcoded paths to scripts and added them the the bin/ folder
 
 ### 0.1.2
 
