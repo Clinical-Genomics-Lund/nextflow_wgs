@@ -1,6 +1,6 @@
 # CHANGELOG
 
-### X.X.X
+### 0.1.3
 
 #### Features
 - Allow for non-distributed BWA (new default). For urgent cases use --shardbwa
