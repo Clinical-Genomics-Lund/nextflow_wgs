@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### X.X.X
+
+#### Features
+
+#### Fixes
+- Increase allocated  memory for Clinvar SnpSift process due to occasional crashes
+
 ### 0.1.3
 
 #### Features

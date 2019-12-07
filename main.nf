@@ -697,7 +697,8 @@ process annotate_vep {
 // Annotating variants with clinvar
 
 process annotate_clinvar {
-	cpus 1
+        cpus 1
+        memory '32GB'
 
 	input:
 		set group, file(vcf) from vep
