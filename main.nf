@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 // GENERAL PATHS //
-OUTDIR = params.outdir
+OUTDIR = params.outdir+'/'+params.subdir
 CRONDIR = params.crondir
 
 // SENTIEON CONFIGS //
@@ -288,9 +288,8 @@ process qc_to_cdm {
 		rundir = parts[0..idx].join("/")
 
 	"""
-	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay wgs --qc ${OUTDIR}/postmap/wgs/${id}.QC" > ${id}.cdm
+	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay wgs --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
 	"""
-
 }
 
 
@@ -575,7 +574,7 @@ process create_ped {
 
 // collects each individual's ped-line and creates one ped-file
 ped_ch
-    .collectFile(sort: true, storeDir: "${OUTDIR}/ped/wgs")
+    .collectFile(sort: true, storeDir: "${OUTDIR}/ped/")
     .into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus }
 
 
