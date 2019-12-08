@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### X.X.X
+
+#### Features
+
+#### Fixes
+- Use the correct scout server for create_yaml and loqusdb annotation
+
 ### 0.1.4
 
 #### Features

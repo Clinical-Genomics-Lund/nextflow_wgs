@@ -778,8 +778,8 @@ process loqdb {
 		set group, file("${group}.loqdb.vcf") into loqdb_vcf
 
 	"""
-	export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
-	/opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT1_MONGODB > ${group}.loqdb.vcf
+	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
+	/opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT2_MONGODB > ${group}.loqdb.vcf
 	"""
 }
 // Marking splice INDELs: 
@@ -1051,14 +1051,14 @@ process create_yaml {
 		madde = xml.name != 'single' ? "$xml" : "single"
 
 	"""
-	export PORT_CMDSCOUT1_MONGODB=33001 #TA BORT VÄLDIGT FULT
+	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	which create_yml.pl
 	create_yml.pl \\
 		$bams \\
 		$group \\
 		$OUTDIR \\
 		$diagnosis \\
-		PORT_CMDSCOUT1_MONGODB \\
+		PORT_CMDSCOUT2_MONGODB \\
 		> ${group}.yaml
 	"""
 }
