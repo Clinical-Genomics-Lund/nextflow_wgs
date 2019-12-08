@@ -768,6 +768,8 @@ process modify_vcf {
 process loqdb {
 	cpus 1
 	queue 'bigmem'
+	errorStrategy 'retry'
+	maxErrors 5
 
 	input:
 		set group, file(vcf) from mod_vcf
@@ -812,7 +814,7 @@ process extract_indels_for_cadd {
 
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
-        cpus 1
+	cpus 1
 	container = '/fs1/resources/containers/container_cadd_v1.5.sif'
 	containerOptions '--bind /tmp/ --bind /local/'
 
@@ -1030,6 +1032,8 @@ process create_yaml {
 	queue 'bigmem'
 	publishDir "${OUTDIR}/yaml", mode: 'copy' , overwrite: 'true'
 	publishDir "${CRONDIR}/scout", mode: 'copy' , overwrite: 'true'
+	errorStrategy 'retry'
+	maxErrors 5
 
 	input:
 		set group, id, file(bam), file(bai) from yaml_bam.groupTuple()

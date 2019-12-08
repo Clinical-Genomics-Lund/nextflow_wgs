@@ -1,12 +1,13 @@
 # CHANGELOG
 
-### X.X.X
+### 0.1.4
 
 #### Features
 
 #### Fixes
 - Increase allocated  memory for Clinvar SnpSift process due to occasional crashes
 - Further fixes to output folders
+- Retry create_yaml and loqus process up to 5 times
 
 ### 0.1.3
 
