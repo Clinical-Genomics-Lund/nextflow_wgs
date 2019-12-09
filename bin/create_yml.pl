@@ -66,18 +66,18 @@ foreach my $sample (@ped) {
     else { print STDERR "not a valid sex!\n" }
     my @match_bam = grep(/^$pedline[1]/, @bams);
     unless (scalar(@match_bam) == 1) { print STDERR "no matching bam"; exit; }
-    print "    bam_path: $basedir/bam/wgs/@match_bam\n";
+    print "    bam_path: $basedir/bam/@match_bam\n";
     $count++;
 }
-print "vcf_snv: $basedir/vcf/wgs/$vcf\n"; ##obs skapa en version för exome specifikt
-print "vcf_str: $basedir/vcf/wgs/$vcf_str\n" if -s "$basedir/vcf/wgs/$vcf_str";
+print "vcf_snv: $basedir/vcf/$vcf\n"; ##obs skapa en version för exome specifikt
+print "vcf_str: $basedir/vcf/$vcf_str\n" if -s "$basedir/vcf/$vcf_str";
 
 if (scalar(@bams) > 1 ) {
-    print "madeline: $basedir/ped/wgs/$xml\n";
+    print "madeline: $basedir/ped/$xml\n";
 }
-print "peddy_ped: $basedir/ped/wgs/$peddy_ped\n";
-print "peddy_check: $basedir/ped/wgs/$ped_check\n";
-print "peddy_sex: $basedir/ped/wgs/$sexcheck\n";
+print "peddy_ped: $basedir/ped/$peddy_ped\n";
+print "peddy_check: $basedir/ped/$ped_check\n";
+print "peddy_sex: $basedir/ped/$sexcheck\n";
 my $gene_panels = get_genelist($institute);
 print "gene_panels: [";
 print join ",", @$gene_panels;

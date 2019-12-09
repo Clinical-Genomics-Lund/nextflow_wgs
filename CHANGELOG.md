@@ -6,6 +6,7 @@
 
 #### Fixes
 - Use the correct scout server for create_yaml and loqusdb annotation
+- Removed some hardcoded assumptions in create_yml.pl
 
 ### 0.1.4
 
