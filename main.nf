@@ -372,6 +372,7 @@ process merge_dedup_bam {
 process chanjo_sambamba {
 	cpus 16
 	memory '64 GB'
+	publishDir "${OUTDIR}/cov"
 
 	input:	
 		set group, id, file(bam), file(bai) from chanjo_bam
@@ -457,7 +458,7 @@ process dnascope {
 		set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from bam_shard_shard
 
 	output:
-		set id, file("${shard_name}_${id}.vcf"), file("${shard_name}_${id}.vcf.idx") into vcf_shard
+		set id, file("${shard_name}_${id}.gvcf"), file("${shard_name}_${id}.gvcf.idx") into vcf_shard
 
 	script:
 		combo = [one, two, three] // one two three take on values 0 1 2, 1 2 3...30 31 32
@@ -465,7 +466,6 @@ process dnascope {
 		combo = (combo - (genomic_num_shards+1)) //last dummy value removed (32)
 		commons = (combo.collect{ "${it}_${id}.bam" })   //add .bam to each combo to match bam files from input channel
 		bam_neigh = commons.join(' -i ') 
-		type = mode == "family" ? "--emit_mode GVCF" : ""
 
 	"""
 	/opt/sentieon-genomics-201711.05/bin/sentieon driver \\
@@ -473,19 +473,20 @@ process dnascope {
 		-r $genome_file \\
 		-i $bam_neigh $shard \\
 		-q $bqsr \\
-		--algo DNAscope $type ${shard_name}_${id}.vcf
+		--algo DNAscope --emit_mode GVCF ${shard_name}_${id}.gvcf
 	"""
 }
 
-// Merge vcf shards
-process merge_vcf {
+// Merge gvcf shards
+process merge_gvcf {
     cpus 16
+	publishDir "${OUTDIR}/gvcf", mode: 'copy' , overwrite: 'true'
 
     input:
 		set id, file(vcfs), file(idx) from vcf_shard.groupTuple()
 
     output:
-		set group, file("${id}.dnascope.vcf"), file("${id}.dnascope.vcf.idx") into complete_vcf
+		set group, file("${id}.dnascope.gvcf"), file("${id}.dnascope.gvcf.idx") into complete_vcf
 
     script:
 		group = "vcfs"
@@ -496,7 +497,7 @@ process merge_vcf {
         -t ${task.cpus} \\
         --passthru \\
         --algo DNAscope \\
-        --merge ${id}.dnascope.vcf $vcfs_sorted
+        --merge ${id}.dnascope.gvcf $vcfs_sorted
     """
 }
 
@@ -515,28 +516,15 @@ process gvcf_combine {
 	set group, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
 
     script:
-		// Om fler än en vcf, GVCF combine annars döp om och skickade vidare
-		if (mode == "family" ) {
-			ggvcfs = vcf.join(' -v ')
+		all_gvcfs = vcf.join(' -v ')
 
-			"""
-			sentieon driver \\
-				-t ${task.cpus} \\
-				-r $genome_file \\
-				--algo GVCFtyper \\
-				-v $ggvcfs ${group}.combined.vcf
-			"""
-		}
-		// annars ensam vcf, skicka vidare
-		else {
-			ggvcf = vcf.join('')
-			gidx = idx.join('')
-
-			"""
-			mv ${ggvcf} ${group}.combined.vcf
-			mv ${gidx} ${group}.combined.vcf.idx
-			"""
-		}
+	"""
+	sentieon driver \\
+		-t ${task.cpus} \\
+		-r $genome_file \\
+		--algo GVCFtyper \\
+		-v $all_gvcfs ${group}.combined.vcf
+	"""
 }
 
 // skapa en pedfil, ändra input istället för sök ersätt?
