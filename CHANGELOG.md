@@ -1,12 +1,14 @@
 # CHANGELOG
 
-### X.X.X
+### 0.1.5
 
 #### Features
 
 #### Fixes
 - Use the correct scout server for create_yaml and loqusdb annotation
 - Removed some hardcoded assumptions in create_yml.pl
+- Always create gvcfs, and publish
+- Publish chanjo coverage file
 
 ### 0.1.4
 
