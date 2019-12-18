@@ -51,7 +51,7 @@ From:nfcore/base
 	cp qc_sentieon.pl /opt/bin/.
 
 
-				
+	wget https://github.com/brentp/vcfanno/releases/download/v0.3.2/vcfanno_linux64 -O /opt/bin/vcfanno
 
 	/opt/conda/bin/conda env create -f /environment_py3.yml python=3
 	/opt/conda/bin/conda clean -a
