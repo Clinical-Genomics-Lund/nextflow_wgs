@@ -971,10 +971,13 @@ process gatkcov {
 
 	input:
 		set group, id, file(bam), file(bai) from cov_bam
-		set gr, id, sex, mother, father, phenotype, diagnosis from meta_gatkcov
+		set gr, ids, sex, mother, father, phenotype, diagnosis from meta_gatkcov.groupTuple()
 
 	output:
 		set file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot
+
+	script:
+		ind_idx = ids.findIndexOf { it == id }
 
 	"""
 	source activate gatk4-env
@@ -984,7 +987,7 @@ process gatkcov {
 		--interval-merging-rule OVERLAPPING_ONLY -O ${bam}.hdf5
 
 	gatk --java-options "-Xmx12g" DenoiseReadCounts \
-		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex]} \
+		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex[ind_id]]} \
 		--standardized-copy-ratios ${id}.standardizedCR.tsv \
 		--denoised-copy-ratios ${id}.denoisedCR.tsv
 
