@@ -378,10 +378,10 @@ process chanjo_sambamba {
 		set group, id, file(bam), file(bai) from chanjo_bam
 
 	output:
-		file("${id}_.bwa.chanjo.cov") into chanjocov
+		file("${id}.bwa.chanjo.cov") into chanjocov
 
 	"""
-	sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}_.bwa.chanjo.cov
+	sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}.bwa.chanjo.cov
 	"""
 }
 
