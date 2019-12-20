@@ -135,7 +135,7 @@ process bwa_merge_shards {
 
 // ALTERNATIVE PATH: Unsharded BWA, utilize local scratch space.
 process bwa_align {
-	cpus 27
+	cpus 50
 	memory '64 GB'
 	scratch true
 	stageInMode 'copy'
