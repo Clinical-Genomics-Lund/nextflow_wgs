@@ -987,7 +987,7 @@ process gatkcov {
 		--interval-merging-rule OVERLAPPING_ONLY -O ${bam}.hdf5
 
 	gatk --java-options "-Xmx12g" DenoiseReadCounts \
-		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex[ind_id]]} \
+		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex[ind_idx]]} \
 		--standardized-copy-ratios ${id}.standardizedCR.tsv \
 		--denoised-copy-ratios ${id}.denoisedCR.tsv
 
