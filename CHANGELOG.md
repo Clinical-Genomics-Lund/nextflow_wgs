@@ -9,6 +9,7 @@
 - Removed some hardcoded assumptions in create_yml.pl
 - Always create gvcfs, and publish
 - Publish chanjo coverage file
+- Fix ID mixup in gatkcov process
 
 ### 0.1.4
 
