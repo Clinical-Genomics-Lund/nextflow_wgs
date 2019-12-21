@@ -62,7 +62,14 @@ Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis) }
-    .into { ped; all_ids; yml_diag; meta_upd; meta_gatkcov }
+    .into { ped; all_ids; yml_diag; meta_upd }
+
+
+Channel
+    .fromPath(params.csv)
+    .splitCsv(header:true)
+    .map{ row-> tuple(row.group, row.id, row.sex, row.type) }
+    .set { meta_gatkcov }
 
 
 
@@ -970,14 +977,10 @@ process gatkcov {
 	memory '16 GB'
 
 	input:
-		set group, id, file(bam), file(bai) from cov_bam
-		set gr, ids, sex, mother, father, phenotype, diagnosis from meta_gatkcov.groupTuple()
+		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.join(meta_gatkcov, by:1)
 
 	output:
-		set file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot
-
-	script:
-		ind_idx = ids.findIndexOf { it == id }
+		set group, id, type, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot
 
 	"""
 	source activate gatk4-env
@@ -987,7 +990,7 @@ process gatkcov {
 		--interval-merging-rule OVERLAPPING_ONLY -O ${bam}.hdf5
 
 	gatk --java-options "-Xmx12g" DenoiseReadCounts \
-		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex[ind_idx]]} \
+		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex]} \
 		--standardized-copy-ratios ${id}.standardizedCR.tsv \
 		--denoised-copy-ratios ${id}.denoisedCR.tsv
 
@@ -1007,13 +1010,22 @@ process overview_plot {
 	input:
 		file(upd) from upd_plot
 		set gr, file(roh) from roh_plot
-		set file(cov_stand), file(cov_denoised) from cov_plot
+		set group, id, type, file(cov_stand), file(cov_denoised) from cov_plot.groupTuple().view()
+
 
 	output:
-		file("${gr}.genomic_overview.png")
+		file("${id[proband_idx]}.genomic_overview.png")
+
+	script:
+		proband_idx = type.findIndexOf{ it == "proband" }
 
 	"""
-	genome_plotter.pl --dict $params.GENOMEDICT --sample $gr --upd $upd --roh $roh --cov $cov_denoised --out ${gr}.genomic_overview.png
+	genome_plotter.pl  --dict $params.GENOMEDICT \\
+		 --sample ${id[proband_idx]} \\
+		 --upd $upd \\
+		 --roh $roh \\
+		 --cov ${cov_denoised[proband_idx]} \\
+		 --out ${id[proband_idx]}.genomic_overview.png
 	"""
 }
 
