@@ -177,6 +177,8 @@ process bwa_align {
 // or the command will occasionally crash in Sentieon 201808.07 (works in earlier)
 process locus_collector {
 	cpus 16
+	errorStrategy 'retry'
+	maxErrors 5
 
 	input:
 		set id, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(shards1)
@@ -279,8 +281,10 @@ process sentieon_qc {
 
 // Load QC data into CDM (via middleman)
 process qc_to_cdm {
-	cpus 1
-	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
+        cpus 1
+	errorStrategy 'retry'
+	maxErrors 5
+    	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	
 	input:
 		set id, file(qc) from qc_cdm
@@ -303,6 +307,8 @@ process qc_to_cdm {
 
 process bqsr {
 	cpus 16
+	errorStrategy 'retry'
+	maxErrors 5
 
 	input:
 		set val(id), file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams1.combine(shard_shard)
