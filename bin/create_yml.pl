@@ -111,13 +111,13 @@ sub get_genelist {
     my $PANELS = $client->ns("scout.gene_panel");
     my $panels = $PANELS->find( {'institute'=>$institute} );
 
-    my @ok_panels;
+    my %ok_panels;
     my $counter = 0;
     while( my $panel = $panels->next ) {
         unless ( $panel->{'display_name'} =~ /ERSATT|TEST|test|Test/ ){
             my $tmp = $panel->{'panel_name'};
             $tmp = '"'.$tmp.'"';
-            push @ok_panels, $tmp;
+	    $ok_panels{$tmp} = 1;
             $counter++;
         }
         #print $panel->{'display_name'},"\n";
@@ -125,5 +125,6 @@ sub get_genelist {
 
 
     #print $counter,"\n";
+    my @ok_panels = sort {lc $a cmp lc $b } keys %ok_panels;
     return \@ok_panels;
 }

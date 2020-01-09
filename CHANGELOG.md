@@ -10,6 +10,8 @@
 - Always create gvcfs, and publish
 - Publish chanjo coverage file
 - Fix ID mixup in gatkcov process
+- Added retry strategies to cdm, locuscollector and bqsr processes
+- create_yml: Only add each panel once and sort panels alphabetically
 
 ### 0.1.4
 
