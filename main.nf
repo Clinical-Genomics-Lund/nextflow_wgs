@@ -983,6 +983,9 @@ process gatkcov {
 	output:
 		set group, id, type, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot
 
+	when:
+	params.gatkcov
+
 	"""
 	source activate gatk4-env
 
