@@ -3,7 +3,7 @@ use MongoDB;
 use strict;
 use Data::Dumper;
 my $antype = "wgs";
-my $genome = "37";
+my $genome = "38";
 my $kit = "Intersected WGS";
 
 my $BAMS = $ARGV[0];
