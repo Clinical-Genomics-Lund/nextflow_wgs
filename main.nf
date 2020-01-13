@@ -20,15 +20,11 @@ VEP_FASTA = params.VEP_FASTA
 MAXENTSCAN = params.MAXENTSCAN
 VEP_CACHE = params.VEP_CACHE
 GNOMAD = params.GNOMAD
-GERP = params.GERP
 PHYLOP =  params.PHYLOP
 PHASTCONS = params.PHASTCONS
 
 // ANNOTATION DBS GENERAL //
 CLINVAR = params.CLINVAR
-SWEGEN = params.SWEGEN
-SPIDEX = params.SPIDEX
-KNOWN1 = params.KNOWN1
 KNOWN2 = params.KNOWN2
 
 // RANK MODELS //
@@ -328,7 +324,7 @@ process bqsr {
 		-t ${task.cpus} \\
 		-r $genome_file \\
 		-i $bam_neigh $shard \\
-		--algo QualCal -k $KNOWN1 -k $KNOWN2 ${shard_name}_${id}.bqsr.table
+		--algo QualCal -k $KNOWN2 ${shard_name}_${id}.bqsr.table
 	"""
 }
 
@@ -688,7 +684,6 @@ process annotate_vep {
 		--distance 200 \\
 		-cache \\
 		-custom $GNOMAD \\
-		-custom $GERP \\
 		-custom $PHYLOP \\
 		-custom $PHASTCONS
 	"""
@@ -724,7 +719,7 @@ process annotate_genmod {
 		set group, file("${group}.genmod.vcf") into genmod
 
 	"""
-	genmod annotate --spidex $SPIDEX --annotate_regions $vcf -o ${group}.genmod.vcf
+	genmod annotate --genome-build 38 --spidex $SPIDEX --annotate_regions $vcf -o ${group}.genmod.vcf
 	"""
 }
 
@@ -827,7 +822,7 @@ process calculate_indel_cadd {
 
 	"""
         source activate cadd-env
-        /opt/cadd/CADD.sh -g GRCh37 -o ${group}.indel_cadd.gz $vcf
+        /opt/cadd/CADD.sh -g GRCh38 -o ${group}.indel_cadd.gz $vcf
 	"""
 }
 
