@@ -311,7 +311,7 @@ process bqsr {
 
 	output:
 		set val(id), file("${shard_name}_${id}.bqsr.table") into bqsr_table
-
+	
 	script:
 		combo = [one, two, three]
 		combo = (combo - 0) //first dummy value
@@ -719,7 +719,7 @@ process annotate_genmod {
 		set group, file("${group}.genmod.vcf") into genmod
 
 	"""
-	genmod annotate --genome-build 38 --spidex $SPIDEX --annotate_regions $vcf -o ${group}.genmod.vcf
+	genmod annotate --genome-build 38 --annotate_regions $vcf -o ${group}.genmod.vcf
 	"""
 }
 
@@ -1014,7 +1014,7 @@ process overview_plot {
 	input:
 		file(upd) from upd_plot
 		set gr, file(roh) from roh_plot
-		set group, id, type, file(cov_stand), file(cov_denoised) from cov_plot.groupTuple().view()
+		set group, id, type, file(cov_stand), file(cov_denoised) from cov_plot.groupTuple()
 
 
 	output:
@@ -1024,7 +1024,7 @@ process overview_plot {
 		proband_idx = type.findIndexOf{ it == "proband" }
 
 	"""
-	genome_plotter.pl  --dict $params.GENOMEDICT \\
+	genome_plotter.pl --dict $params.GENOMEDICT \\
 		 --sample ${id[proband_idx]} \\
 		 --upd $upd \\
 		 --roh $roh \\
@@ -1059,7 +1059,6 @@ process create_yaml {
 
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
-	which create_yml.pl
 	create_yml.pl \\
 		$bams \\
 		$group \\
