@@ -14,40 +14,37 @@ genomic_num_shards = params.genomic_shards_num
 // FASTA //
 genome_file = params.genome_file
 
-// VEP REFERENCES AND ANNOTATION DBS //
-CADD = params.CADD
-VEP_FASTA = params.VEP_FASTA
-MAXENTSCAN = params.MAXENTSCAN
-VEP_CACHE = params.VEP_CACHE
-GNOMAD = params.GNOMAD
-PHYLOP =  params.PHYLOP
-PHASTCONS = params.PHASTCONS
-
-// ANNOTATION DBS GENERAL //
-CLINVAR = params.CLINVAR
-KNOWN2 = params.KNOWN2
-
-// RANK MODELS //
-rank_model = params.rank_model
-rank_model_s = params.rank_model_s
-
 // BED FILES //
-inter_bed = params.intersect_bed
 scoutbed = params.scoutbed
 
 PON = [F: params.GATK_PON_FEMALE, M: params.GATK_PON_MALE]
 
-
+// Count lines of input csv, if more than 2(header + 1 ind) then mode is set to family //
 csv = file(params.csv)
 mode = csv.countLines() > 2 ? "family" : "single"
 println(mode)
 
+// Input channels for alignment, variant calling and annotation //
 Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, file(row.read1), file(row.read2)) }
-    .into { fastq_sharded; fastq; vcf_info }
+    .into { input_files; vcf_info }
 
+fastq = Channel.create()
+bam_choice = Channel.create()
+vcf_choice = Channel.create()
+fastq_sharded = Channel.create()
+
+// If input files are fastq -> normal path. Flags affecting; --shardbwa (sharded bwa) --align(req), --varcall(if variant calling is to be done) and --annotate(if --varcall)
+// bam -> skips align and is variant called (if --varcall is present) and annotated (if --annotate is present)
+// vcf skips align + varcall and is only annotated (if --annotate is present)
+input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded) { it[3]  =~ /\.bam/ ? 1 : ( it[3] =~ /\.vcf/ ? 2 : (params.shardbwa ? 3 : 0))  }
+
+bam_choice
+	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice }
+
+// Input channels for various meta information //
 Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
@@ -58,7 +55,7 @@ Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis) }
-    .into { ped; all_ids; yml_diag; meta_upd }
+    .into { ped; yml_diag; meta_upd }
 
 
 Channel
@@ -68,25 +65,25 @@ Channel
     .set { meta_gatkcov }
 
 
-
+// Check whether genome assembly is indexed //
 if(genome_file ){
     bwaId = Channel
             .fromPath("${genome_file}.bwt")
             .ifEmpty { exit 1, "BWA index not found: ${genome_file}.bwt" }
 }
 
-
+// Create genomic shards //
 Channel
     .fromPath(params.genomic_shards_file)
     .splitCsv(header:false)
-    .into { shards1; shards2; shards3; shards4; shards5; }
+    .into { locuscollector_shards; dedup_shards; genomicshards }
 
 // A channel to pair neighbouring bams and vcfs. 0 and top value removed later
 // Needs to be 0..n+1 where n is number of shards in shards.csv
 Channel
     .from( 0..(genomic_num_shards+1) )
     .collate( 3,1, false )
-    .into{ shardie1; shardie2 }
+    .set{ neighbour_shards }
 
 
 // Align fractions of fastq files with BWA
@@ -177,7 +174,7 @@ process locus_collector {
 	maxErrors 5
 
 	input:
-		set id, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(shards1)
+		set id, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
 
 	output:
 		set val(id), file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
@@ -197,7 +194,7 @@ process locus_collector {
 locus_collector_scores
     .groupTuple()
     .join(merged_bam_id)
-    .combine(shards2)
+    .combine(dedup_shards)
     .set{ all_scores }
 
 
@@ -230,10 +227,10 @@ process dedup {
 shard_dedup_bam
     .groupTuple()
     .into{ all_dedup_bams1; all_dedup_bams2; all_dedup_bams4 }
-//merge shards with shard combinations
-shards3
-    .merge(tuple(shardie1))
-    .into{ shard_shard; shard_shard2 }
+//merge genomic shards with neighbouring shard combinations
+genomicshards
+    .merge(tuple(neighbour_shards))
+    .into{ bqsr_shard_shard; varcall_shard_shard }
 
 process dedup_metrics_merge {
 
@@ -307,7 +304,7 @@ process bqsr {
 	maxErrors 5
 
 	input:
-		set val(id), file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams1.combine(shard_shard)
+		set val(id), file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams1.combine(bqsr_shard_shard)
 
 	output:
 		set val(id), file("${shard_name}_${id}.bqsr.table") into bqsr_table
@@ -324,12 +321,14 @@ process bqsr {
 		-t ${task.cpus} \\
 		-r $genome_file \\
 		-i $bam_neigh $shard \\
-		--algo QualCal -k $KNOWN2 ${shard_name}_${id}.bqsr.table
+		--algo QualCal -k $params.KNOWN ${shard_name}_${id}.bqsr.table
 	"""
 }
 
 // Merge the bqrs shards
 process merge_bqsr {
+	publishDir "${OUTDIR}/bqsr", mode: 'copy', overwrite: 'true'
+
 	input:
 		set id, file(tables) from bqsr_table.groupTuple()
 
@@ -345,7 +344,7 @@ process merge_bqsr {
 }
 bqsr_merged
     .groupTuple()
-    .into{ bqsr_merged1; bqsr_merged2;}
+    .set{ bqsr_merged1 }
 
 all_dedup_bams2
     .join(bqsr_merged1)
@@ -353,8 +352,8 @@ all_dedup_bams2
 
 
 all_dedup_bams3
-    .combine(shard_shard2)
-    .set{ bam_shard_shard }
+    .combine(varcall_shard_shard)
+    .set{ varcall_shard_shard_bams }
 
 
 process merge_dedup_bam {
@@ -384,7 +383,7 @@ process chanjo_sambamba {
 	publishDir "${OUTDIR}/cov"
 
 	input:	
-		set group, id, file(bam), file(bai) from chanjo_bam
+		set group, id, file(bam), file(bai) from chanjo_bam.mix(chanjo_bam_choice)
 
 	output:
 		file("${id}.bwa.chanjo.cov") into chanjocov
@@ -403,8 +402,11 @@ process chanjo_sambamba {
 
 // call STRs using ExpansionHunter
 process expansionhunter {
+	when:
+		params.varcall
+		
 	input:
-		set group, id, file(bam), file(bai) from expansionhunter_bam
+		set group, id, file(bam), file(bai) from expansionhunter_bam.mix(expansionhunter_bam_choice)
 
 	output:
 		set group, id, file("${id}.eh.vcf") into expansionhunter_vcf
@@ -455,16 +457,40 @@ process vcfbreakmulti_expansionhunter {
 /////////////////////////////////////////////////////////////////////////
 
 
+process dnascope_bam_choice {
+	cpus 54
+	when:
+		params.varcall
 
+	input:
+		set group, id, bam, bqsr_table from dnascope_bam_choice
+
+	output:
+		set vgroup, id, file("${id}.dnascope.gvcf"), file("${id}.dnascope.gvcf.idx") into complete_vcf_choice
+
+	script:
+	vgroup = "vcfs"
+
+	"""
+	/opt/sentieon-genomics-201711.05/bin/sentieon driver \\
+		-t ${task.cpus} \\
+		-r $genome_file \\
+		-i $bam \\
+		-q $bqsr \\
+		--algo DNAscope --emit_mode GVCF ${shard_name}_${id}.gvcf
+	"""
+}
 
 
 
 // Do variant calling using DNAscope, sharded
 process dnascope {
 	cpus 16
+	when:
+		params.varcall
 
 	input:
-		set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from bam_shard_shard
+		set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from varcall_shard_shard_bams
 
 	output:
 		set id, file("${shard_name}_${id}.gvcf"), file("${shard_name}_${id}.gvcf.idx") into vcf_shard
@@ -511,6 +537,7 @@ process merge_gvcf {
 }
 
 complete_vcf
+	.mix(complete_vcf_choice)
     .groupTuple()
     .set{ gvcfs }
 
@@ -522,7 +549,7 @@ process gvcf_combine {
 	set val(group), val(id), r1, r2 from vcf_info
 
     output:
-	set group, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
+	set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
 
     script:
 		all_gvcfs = vcf.join(' -v ')
@@ -604,9 +631,11 @@ process madeline {
 process split_normalize {
 	cpus 1
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	when:
+		params.annotate
 
 	input:
-		set group, file(vcf), file(idx) from combined_vcf
+		set group, id, file(vcf), file(idx) from combined_vcf.mix(vcf_choice)
 
 	output:
 		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
@@ -622,18 +651,14 @@ process split_normalize {
 
 // Intersect VCF, exome/clinvar introns
 process intersect {
-
 	input:
 		set group, file(vcf) from split_norm
 
 	output:
 		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus
 
-	when:
-		params.annotate
-
 	"""
-	bedtools intersect -a $vcf -b $inter_bed -u -header > ${group}.intersected.vcf
+	bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
 	"""
 
 }
@@ -675,17 +700,17 @@ process annotate_vep {
 		--no_stats \\
 		--fork ${task.cpus} \\
 		--force_overwrite \\
-		--plugin CADD,$CADD \\
+		--plugin CADD,$params.CADD \\
 		--plugin LoFtool \\
-		--plugin MaxEntScan,$MAXENTSCAN,SWA,NCSS \\
-		--fasta $VEP_FASTA \\
-		--dir_cache $VEP_CACHE \\
-		--dir_plugins $VEP_CACHE/Plugins \\
+		--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
+		--fasta $params.VEP_FASTA \\
+		--dir_cache $params.VEP_CACHE \\
+		--dir_plugins $params.VEP_CACHE/Plugins \\
 		--distance 200 \\
 		-cache \\
-		-custom $GNOMAD \\
-		-custom $PHYLOP \\
-		-custom $PHASTCONS
+		-custom $params.GNOMAD \\
+		-custom $params.PHYLOP \\
+		-custom $params.PHASTCONS
 	"""
 }
 
@@ -702,7 +727,7 @@ process annotate_clinvar {
 		set group, file("${group}.clinvar.vcf") into snpsift
 
 	"""
-	SnpSift -Xmx60g annotate $CLINVAR \\
+	SnpSift -Xmx60g annotate $params.CLINVAR \\
 		-info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
 	"""
 
@@ -860,14 +885,14 @@ process genmodscore {
 	script:
 		if (mode == "family") {
 			"""
-			genmod score -i $group -c $rank_model -r $vcf -o ${group}.score1.vcf
+			genmod score -i $group -c $params.rank_model -r $vcf -o ${group}.score1.vcf
 			genmod compound ${group}.score1.vcf > ${group}.score2.vcf
 			genmod sort -p -f $group ${group}.score2.vcf -o ${group}.scored.vcf
 			"""
 		}
 		else {
 			"""
-			genmod score -i $group -c $rank_model_s -r $vcf -o ${group}.score1.vcf
+			genmod score -i $group -c $params.rank_model_s -r $vcf -o ${group}.score1.vcf
 			genmod sort -p -f $group ${group}.score1.vcf -o ${group}.scored.vcf
 			"""
 		}
