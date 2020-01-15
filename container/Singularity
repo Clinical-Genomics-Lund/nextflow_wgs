@@ -7,7 +7,7 @@ From:nfcore/base
 	VERSION 0.0.2
 
 %environment
-	PATH=/opt/conda/envs/CMD-WGS/bin:/opt/sentieon-genomics-201808.05/bin/:/opt/bin:/opt/conda/envs/py3-env/bin:/TIDDIT:$PATH
+	PATH=/opt/conda/envs/CMD-WGS/bin:/opt/sentieon-genomics-201911/bin/:/opt/bin:/opt/conda/envs/py3-env/bin:/TIDDIT:$PATH
 	PICARD_HOME=/opt/conda/envs/CMD-WGS/share/picard-2.21.2-0/
 	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/
 	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/x86_64-linux-thread-multi/
@@ -19,7 +19,7 @@ From:nfcore/base
 	environment_gatk.yml /
 	environment_py3.yml /
 	../bin/ /opt
-	/data/bnf/sw/sentieon/sentieon-genomics-201711.05 /opt
+	/data/bnf/sw/sentieon/sentieon-genomics-201911 /opt
 	../rank_models/ /
 %post
 	rm -rf /var/lib/apt/lists/*
