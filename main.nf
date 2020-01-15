@@ -311,7 +311,7 @@ process bqsr {
 
 	output:
 		set val(id), file("${shard_name}_${id}.bqsr.table") into bqsr_table
-	
+
 	script:
 		combo = [one, two, three]
 		combo = (combo - 0) //first dummy value
