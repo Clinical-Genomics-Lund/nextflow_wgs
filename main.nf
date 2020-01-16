@@ -836,7 +836,7 @@ process extract_indels_for_cadd {
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
 	cpus 1
-	container = '/fs1/resources/containers/container_cadd_v1.5.sif'
+	container = '/fs1/resources/containers/container_cadd_v1.5_hg38_20200116.sif'
 	containerOptions '--bind /tmp/ --bind /local/'
 
 	input:
@@ -846,7 +846,7 @@ process calculate_indel_cadd {
 		set group, file("${group}.indel_cadd.gz") into indel_cadd
 
 	"""
-        source activate cadd-env
+        source activate cadd-env-v1.5
         /opt/cadd/CADD.sh -g GRCh38 -o ${group}.indel_cadd.gz $vcf
 	"""
 }
