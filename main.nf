@@ -39,7 +39,7 @@ fastq_sharded = Channel.create()
 // If input files are fastq -> normal path. Flags affecting; --shardbwa (sharded bwa) --align(req), --varcall(if variant calling is to be done) and --annotate(if --varcall)
 // bam -> skips align and is variant called (if --varcall is present) and annotated (if --annotate is present)
 // vcf skips align + varcall and is only annotated (if --annotate is present)
-input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded) { it[3]  =~ /\.bam/ ? 1 : ( it[3] =~ /\.vcf/ ? 2 : (params.shardbwa ? 3 : 0))  }
+input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : (params.shardbwa ? 3 : 0))  }
 
 bam_choice
 	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice }
@@ -389,7 +389,7 @@ process chanjo_sambamba {
 		file("${id}.bwa.chanjo.cov") into chanjocov
 
 	"""
-	sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}.bwa.chanjo.cov
+	sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 ${bam.toRealPath()} > ${id}.bwa.chanjo.cov
 	"""
 }
 
@@ -413,7 +413,7 @@ process expansionhunter {
 
 	"""
 	ExpansionHunter \
-		--reads $bam \
+		--reads ${bam.toRealPath()} \
 		--reference $genome_file \
 		--variant-catalog $params.expansionhunter_catalog \
 		--output-prefix ${id}.eh
@@ -456,17 +456,17 @@ process vcfbreakmulti_expansionhunter {
 //////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 
-
+// When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
 process dnascope_bam_choice {
 	cpus 54
 	when:
 		params.varcall
 
 	input:
-		set group, id, bam, bqsr_table from dnascope_bam_choice
+		set group, id, bam, bqsr from dnascope_bam_choice
 
 	output:
-		set vgroup, id, file("${id}.dnascope.gvcf"), file("${id}.dnascope.gvcf.idx") into complete_vcf_choice
+		set vgroup, file("${id}.dnascope.gvcf"), file("${id}.dnascope.gvcf.idx") into complete_vcf_choice
 
 	script:
 	vgroup = "vcfs"
@@ -475,9 +475,9 @@ process dnascope_bam_choice {
 	/opt/sentieon-genomics-201711.05/bin/sentieon driver \\
 		-t ${task.cpus} \\
 		-r $genome_file \\
-		-i $bam \\
+		-i ${bam.toRealPath()} \\
 		-q $bqsr \\
-		--algo DNAscope --emit_mode GVCF ${shard_name}_${id}.gvcf
+		--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf
 	"""
 }
 
