@@ -44,7 +44,9 @@ PON = [F: params.GATK_PON_FEMALE, M: params.GATK_PON_MALE]
 
 csv = file(params.csv)
 mode = csv.countLines() > 2 ? "family" : "single"
+trio = csv.countLines() > 3 ? true : false
 println(mode)
+println(trio)
 
 Channel
     .fromPath(params.csv)
@@ -954,7 +956,7 @@ process upd {
 		file("upd.bed") into upd_plot
 
 	when:
-		mode == "family"
+		mode == "family" && trio == true
 
 	"""
 	upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
