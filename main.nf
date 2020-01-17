@@ -194,12 +194,12 @@ process locus_collector {
 
 // Cannot be put inside process, groupTuple + any other combining operator causes an array of issues //
 // All scores are collecting per sampleID, these are joined with one unique instance of their respective merged BAM //
-// these are combined with all genomic shards. Each shard is run with total bam+all scores. //
+// these are combined with all genomic shards. Each shard is run with merged bam + all scores. //
 locus_collector_scores
     .groupTuple()
     .join(merged_bam_id)
     .combine(dedup_shards)
-    .set{ all_scores }
+    .set{ dedup_input }
 
 // Remove duplicate reads
 process dedup {
@@ -207,7 +207,7 @@ process dedup {
 	cache 'deep'
 
 	input:
-		set val(id), file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from all_scores
+		set val(id), file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from dedup_input
 		
 
 	output:
@@ -458,7 +458,7 @@ process dnascope_bam_choice {
 		set group, id, bam, bqsr from dnascope_bam_choice
 
 	output:
-		set vgroup, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.idx") into complete_vcf_choice
+		set vgroup, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
 
 	script:
 	vgroup = "vcfs"
@@ -495,7 +495,7 @@ process dnascope {
 		set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from varcall_shard_shard_bams
 		
 	output:
-		set id, file("${shard_name}_${id}.gvcf.gz"), file("${shard_name}_${id}.gvcf.gz.idx") into vcf_shard
+		set id, file("${shard_name}_${id}.gvcf.gz"), file("${shard_name}_${id}.gvcf.gz.tbi") into vcf_shard
 
 	script:
 		combo = [one, two, three] // one two three take on values 0 1 2, 1 2 3...30 31 32
@@ -523,7 +523,7 @@ process merge_gvcf {
 		set id, file(vcfs), file(idx) from vcf_shard.groupTuple()
 
     output:
-		set group, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.idx") into complete_vcf
+		set group, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
 
     script:
 		group = "vcfs"
@@ -551,7 +551,7 @@ process gvcf_combine {
 	set val(group), val(id), r1, r2 from vcf_info
 
     output:
-	set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
+	set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.tbi") into combined_vcf
 
     script:
 		all_gvcfs = vcf.join(' -v ')
@@ -565,7 +565,7 @@ process gvcf_combine {
 	"""
 }
 
-// skapa en pedfil, ändra input istället för sök ersätt?
+// Create ped from input variables //
 process create_ped {
 	input:
 		set group, id, sex, mother, father, phenotype, diagnosis from ped
@@ -604,7 +604,7 @@ ped_ch
     .into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus }
 
 
-//madeline ped om familj
+//madeline ped, run if family mode
 process madeline {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
 
@@ -717,7 +717,6 @@ process annotate_vep {
 }
 
 // Annotating variants with clinvar
-
 process annotate_clinvar {
         cpus 1
         memory '32GB'
@@ -838,7 +837,7 @@ process extract_indels_for_cadd {
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
 	cpus 1
-	container = '/fs1/resources/containers/container_cadd_v1.5_hg38_20200116.sif'
+	container = '/fs1/resources/containers/container_cadd_v1.5_hg38_20200117.sif'
 	containerOptions '--bind /tmp/ --bind /local/'
 
 	input:
