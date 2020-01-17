@@ -190,13 +190,14 @@ process locus_collector {
 }
 
 
-
+// Cannot be put inside process, groupTuple + any other combining operator causes an array of issues //
+// All scores are collecting per sampleID, these are joined with one unique instance of their respective merged BAM //
+// these are combined with all genomic shards. Each shard is run with total bam+all scores. //
 locus_collector_scores
     .groupTuple()
     .join(merged_bam_id)
     .combine(dedup_shards)
     .set{ all_scores }
-
 
 // Remove duplicate reads
 process dedup {
@@ -205,6 +206,7 @@ process dedup {
 
 	input:
 		set val(id), file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from all_scores
+		
 
 	output:
 		set val(id), file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
@@ -226,7 +228,7 @@ process dedup {
 
 shard_dedup_bam
     .groupTuple()
-    .into{ all_dedup_bams1; all_dedup_bams2; all_dedup_bams4 }
+    .into{ all_dedup_bams_bqsr; all_dedup_bams_dnascope; all_dedup_bams_mergepublish }
 //merge genomic shards with neighbouring shard combinations
 genomicshards
     .merge(tuple(neighbour_shards))
@@ -304,7 +306,7 @@ process bqsr {
 	maxErrors 5
 
 	input:
-		set val(id), file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams1.combine(bqsr_shard_shard)
+		set val(id), file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams_bqsr.combine(bqsr_shard_shard)
 
 	output:
 		set val(id), file("${shard_name}_${id}.bqsr.table") into bqsr_table
@@ -342,18 +344,6 @@ process merge_bqsr {
 		--merge ${id}_merged.bqsr.table $tables
 	"""
 }
-bqsr_merged
-    .groupTuple()
-    .set{ bqsr_merged1 }
-
-all_dedup_bams2
-    .join(bqsr_merged1)
-    .set{ all_dedup_bams3 }
-
-
-all_dedup_bams3
-    .combine(varcall_shard_shard)
-    .set{ varcall_shard_shard_bams }
 
 
 process merge_dedup_bam {
@@ -361,7 +351,7 @@ process merge_dedup_bam {
 	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true'
 
 	input:
-		set val(id), file(bams), file(bais) from all_dedup_bams4
+		set val(id), file(bams), file(bais) from all_dedup_bams_mergepublish
 
 	output:
 		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam
@@ -466,22 +456,32 @@ process dnascope_bam_choice {
 		set group, id, bam, bqsr from dnascope_bam_choice
 
 	output:
-		set vgroup, file("${id}.dnascope.gvcf"), file("${id}.dnascope.gvcf.idx") into complete_vcf_choice
+		set vgroup, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.idx") into complete_vcf_choice
 
 	script:
 	vgroup = "vcfs"
 
 	"""
-	/opt/sentieon-genomics-201711.05/bin/sentieon driver \\
+	sentieon driver \\
 		-t ${task.cpus} \\
 		-r $genome_file \\
 		-i ${bam.toRealPath()} \\
 		-q $bqsr \\
-		--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf
+		--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf.gz
 	"""
 }
 
+// Collect each bqsr and group by sampleID //
+bqsr_merged
+    .groupTuple()
+    .set{ bqsr_merged_grouped }
 
+// join the bqsr to all genomic sharded bams //
+// combine all with each shard and their neighbouring shards //
+all_dedup_bams_dnascope
+    .join(bqsr_merged_grouped)
+    .combine(varcall_shard_shard)
+    .set{ varcall_shard_shard_bams }
 
 // Do variant calling using DNAscope, sharded
 process dnascope {
@@ -491,9 +491,9 @@ process dnascope {
 
 	input:
 		set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from varcall_shard_shard_bams
-
+		
 	output:
-		set id, file("${shard_name}_${id}.gvcf"), file("${shard_name}_${id}.gvcf.idx") into vcf_shard
+		set id, file("${shard_name}_${id}.gvcf.gz"), file("${shard_name}_${id}.gvcf.gz.idx") into vcf_shard
 
 	script:
 		combo = [one, two, three] // one two three take on values 0 1 2, 1 2 3...30 31 32
@@ -503,12 +503,12 @@ process dnascope {
 		bam_neigh = commons.join(' -i ') 
 
 	"""
-	/opt/sentieon-genomics-201711.05/bin/sentieon driver \\
+	sentieon driver \\
 		-t ${task.cpus} \\
 		-r $genome_file \\
 		-i $bam_neigh $shard \\
 		-q $bqsr \\
-		--algo DNAscope --emit_mode GVCF ${shard_name}_${id}.gvcf
+		--algo DNAscope --emit_mode GVCF ${shard_name}_${id}.gvcf.gz
 	"""
 }
 
@@ -521,18 +521,18 @@ process merge_gvcf {
 		set id, file(vcfs), file(idx) from vcf_shard.groupTuple()
 
     output:
-		set group, file("${id}.dnascope.gvcf"), file("${id}.dnascope.gvcf.idx") into complete_vcf
+		set group, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.idx") into complete_vcf
 
     script:
 		group = "vcfs"
 		vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' ')
 
     """
-    /opt/sentieon-genomics-201711.05/bin/sentieon driver \\
+    sentieon driver \\
         -t ${task.cpus} \\
         --passthru \\
         --algo DNAscope \\
-        --merge ${id}.dnascope.gvcf $vcfs_sorted
+        --merge ${id}.dnascope.gvcf.gz $vcfs_sorted
     """
 }
 
@@ -908,7 +908,7 @@ process vcf_completion {
 		set group, file(vcf) from scored_vcf
 
 	output:
-		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_done
+		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, vcf_yaml
 
 	"""
 	bgzip -@ ${task.cpus} $vcf -f
@@ -916,11 +916,6 @@ process vcf_completion {
 	"""
 }
 
-vcf_done.into {
-    vcf_done1
-    vcf_done2
-    vcf_done3
-}
 
 // Running PEDDY: 
 process peddy {
@@ -929,7 +924,7 @@ process peddy {
 
 	input:
 		file(ped) from ped_peddy
-		set group, file(vcf), file(idx) from vcf_done1
+		set group, file(vcf), file(idx) from vcf_peddy
 
 	output:
 		set file("${group}.ped_check.csv"),file("${group}.background_pca.json"),file("${group}.peddy.ped"),file("${group}.html"), file("${group}.het_check.csv"), file("${group}.sex_check.csv"), file("${group}.vs.html") into peddy_files
@@ -1069,7 +1064,7 @@ process create_yaml {
 
 	input:
 		set group, id, file(bam), file(bai) from yaml_bam.groupTuple()
-		set group, file(vcf), file(idx) from vcf_done2
+		set group, file(vcf), file(idx) from vcf_yaml
 		set file(ped_check),file(json),file(peddy_ped),file(html), file(hetcheck_csv), file(sexcheck), file(vs_html) from peddy_files
 		file(ped) from ped_scout
 		file(xml) from madeline_ped.ifEmpty('single')
