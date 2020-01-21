@@ -10,6 +10,6 @@ scp $DIR/main.nf $DEST_HOST:$PIPELINE_DEST
 scp $DIR/configs/nextflow.hopper.config $DEST_HOST:$PIPELINE_DEST/nextflow.config
 
 # Copy other files
-scp $DIR/shards.csv $DEST_HOST:$PIPELINE_DEST
+scp $DIR/shards_38.csv $DEST_HOST:$PIPELINE_DEST
 scp -r $DIR/bin $DEST_HOST:$PIPELINE_DEST
 scp $DIR/rank_models/* $DEST_HOST:/fs1/resources/scout/rank_models_38
