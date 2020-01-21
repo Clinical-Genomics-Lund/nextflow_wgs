@@ -1,7 +1,7 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 DEST_HOST="rs-fs1.lunarc.lu.se"
-PIPELINE_DEST="/fs1/viktor/wgs_germline_dev_38"
+PIPELINE_DEST="/fs1/viktor/wgs_choice"
 
 # Copy pipeline script
 scp $DIR/main.nf $DEST_HOST:$PIPELINE_DEST

@@ -710,7 +710,8 @@ process annotate_vep {
 		--dir_plugins $params.VEP_CACHE/Plugins \\
 		--distance 200 \\
 		-cache \\
-		-custom $params.GNOMAD \\
+		-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
+		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
 		-custom $params.PHYLOP \\
 		-custom $params.PHASTCONS
 	"""
@@ -827,11 +828,38 @@ process extract_indels_for_cadd {
 		set group, file(vcf) from split_cadd
 	
 	output:
-		set group, file("${group}.only_indels.vcf") into indel_cadd_vcf
+		set group, file("${group}.only_indels.vcf") into indel_cadd_vep
 
 	"""
 	bcftools view $vcf -V snps -o ${group}.only_indels.vcf 
 	"""    
+}
+
+// Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
+process indel_vep {
+	cpus 5
+	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
+
+	input:
+		set group, file(vcf) from indel_cadd_vep
+
+	output:
+		set group, file("${group}.only_indels.vep.filtered.vcf") into indel_cadd_vcf
+	"""
+	vep \\
+	-i $vcf \\
+	-o ${group}.only_indels.vep.vcf \\
+	--offline \\
+	--cache \\
+	--merged \\
+	--vcf
+	-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
+	--dir_cache $params.VEP_CACHE \\
+	--force_overwrite \\
+	--no_stats \\
+	--fork ${task.cpus}
+	./filter_indels.pl ${group}.only_indels.vep.vcf > ${group}.only_indels.vep.filtered.vcf
+	"""
 }
 
 // Calculate CADD scores for all indels
