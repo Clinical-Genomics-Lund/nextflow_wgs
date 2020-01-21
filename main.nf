@@ -551,7 +551,7 @@ process gvcf_combine {
 	set val(group), val(id), r1, r2 from vcf_info
 
     output:
-	set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.tbi") into combined_vcf
+	set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
 
     script:
 		all_gvcfs = vcf.join(' -v ')
