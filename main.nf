@@ -847,18 +847,18 @@ process indel_vep {
 		set group, file("${group}.only_indels.vep.filtered.vcf") into indel_cadd_vcf
 	"""
 	vep \\
-	-i $vcf \\
-	-o ${group}.only_indels.vep.vcf \\
-	--offline \\
-	--cache \\
-	--merged \\
-	--vcf
-	-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
-	--dir_cache $params.VEP_CACHE \\
-	--force_overwrite \\
-	--no_stats \\
-	--fork ${task.cpus}
-	./filter_indels.pl ${group}.only_indels.vep.vcf > ${group}.only_indels.vep.filtered.vcf
+		-i $vcf \\
+		-o ${group}.only_indels.vep.vcf \\
+		--offline \\
+		--cache \\
+		--merged \\
+		--vcf \\
+		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
+		--dir_cache $params.VEP_CACHE \\
+		--force_overwrite \\
+		--no_stats \\
+		--fork ${task.cpus}
+	filter_indels.pl ${group}.only_indels.vep.vcf > ${group}.only_indels.vep.filtered.vcf
 	"""
 }
 
