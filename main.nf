@@ -37,11 +37,14 @@ fastq = Channel.create()
 bam_choice = Channel.create()
 vcf_choice = Channel.create()
 fastq_sharded = Channel.create()
+gvcf_choice = Channel.create()
 
 // If input files are fastq -> normal path. Flags affecting; --shardbwa (sharded bwa) --align(req), --varcall(if variant calling is to be done) and --annotate(if --varcall)
 // bam -> skips align and is variant called (if --varcall is present) and annotated (if --annotate is present)
 // vcf skips align + varcall and is only annotated (if --annotate is present)
-input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : (params.shardbwa ? 3 : 0))  }
+
+// If .bam -> value 1, else if .vcf -> value 2 else if .gvcf -> value 4 else if none(.fq.gz) if params.shardbwa true -> value 3 otherwise 0
+input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : 0)))  }
 
 bam_choice
 	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice }
@@ -97,7 +100,7 @@ process bwa_align_sharded {
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
 
 	output:
-		set val(id), file("${id}_${shard}.bwa.sort.bam"), file("${id}_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
+		set val(id), group, file("${id}_${shard}.bwa.sort.bam"), file("${id}_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
 
 	when:
 		params.align && params.shardbwa
@@ -119,10 +122,10 @@ process bwa_merge_shards {
 	cpus 50
 
 	input:
-		set val(id), file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
+		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
 
 	output:
-		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam, qc_merged_bam
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam, qc_merged_bam
 
 	when:
 		params.shardbwa
@@ -147,7 +150,7 @@ process bwa_align {
 		set val(group), val(id), file(r1), file(r2) from fastq
 
 	output:
-		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam, qc_bam
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam, qc_bam
 
 	when:
 		params.align && !params.shardbwa
@@ -176,10 +179,10 @@ process locus_collector {
 	maxErrors 5
 
 	input:
-		set id, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
+		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
 
 	output:
-		set val(id), file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
+		set val(id), group, file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
 		set val(id), file(bam), file(bai) into merged_bam_id
 
 	"""
@@ -207,11 +210,11 @@ process dedup {
 	cache 'deep'
 
 	input:
-		set val(id), file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from dedup_input
+		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from dedup_input
 		
 
 	output:
-		set val(id), file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
+		set val(id), group, file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
 		set id, file("${shard_name}_${id}_dedup_metrics.txt") into dedup_metrics
 
 	script:
@@ -256,7 +259,7 @@ process sentieon_qc {
 	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
 
 	input:
-		set id, file(bam), file(bai), file(dedup) from qc_bam.mix(qc_merged_bam).join(merged_dedup_metrics)
+		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(qc_merged_bam).join(merged_dedup_metrics)
 
 	output:
 		set id, file("${id}.QC") into qc_cdm
@@ -308,7 +311,7 @@ process bqsr {
 	maxErrors 5
 
 	input:
-		set val(id), file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams_bqsr.combine(bqsr_shard_shard)
+		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams_bqsr.combine(bqsr_shard_shard)
 
 	output:
 		set val(id), file("${shard_name}_${id}.bqsr.table") into bqsr_table
@@ -353,14 +356,14 @@ process merge_dedup_bam {
 	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true'
 
 	input:
-		set val(id), file(bams), file(bais) from all_dedup_bams_mergepublish
+		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish
 
 	output:
-		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam
+		set bgroup, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam
 
 	script:
 		bams_sorted_str = bams.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' -i ')
-		group = "bams"
+		bgroup = "bams"
 
 	"""
 	sentieon util merge -i ${bams_sorted_str} -o ${id}_merged_dedup.bam --mergemode 10
@@ -458,11 +461,11 @@ process dnascope_bam_choice {
 		set group, id, bam, bqsr from dnascope_bam_choice
 
 	output:
-		set vgroup, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
+		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
 
 	script:
 	vgroup = "vcfs"
-
+	ph = "dnascope_choice"
 	"""
 	sentieon driver \\
 		-t ${task.cpus} \\
@@ -492,10 +495,10 @@ process dnascope {
 		params.varcall
 
 	input:
-		set id, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from varcall_shard_shard_bams
+		set id, group, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from varcall_shard_shard_bams
 		
 	output:
-		set id, file("${shard_name}_${id}.gvcf.gz"), file("${shard_name}_${id}.gvcf.gz.tbi") into vcf_shard
+		set id, group, file("${shard_name}_${id}.gvcf.gz"), file("${shard_name}_${id}.gvcf.gz.tbi") into vcf_shard
 
 	script:
 		combo = [one, two, three] // one two three take on values 0 1 2, 1 2 3...30 31 32
@@ -520,15 +523,15 @@ process merge_gvcf {
 	publishDir "${OUTDIR}/gvcf", mode: 'copy' , overwrite: 'true'
 
     input:
-		set id, file(vcfs), file(idx) from vcf_shard.groupTuple()
+		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple()
 
     output:
-		set group, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
+		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
 
     script:
-		group = "vcfs"
+		vgroup = "vcfs"
 		vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' ')
-
+		ph = "normalpath"
     """
     sentieon driver \\
         -t ${task.cpus} \\
@@ -540,6 +543,7 @@ process merge_gvcf {
 
 complete_vcf
 	.mix(complete_vcf_choice)
+	.mix(gvcf_choice)
     .groupTuple()
     .set{ gvcfs }
 
@@ -547,7 +551,7 @@ process gvcf_combine {
     cpus 16
 
     input:
-	set id, file(vcf), file(idx) from gvcfs
+	set vgroup, ph, file(vcf), file(idx) from gvcfs
 	set val(group), val(id), r1, r2 from vcf_info
 
     output:
