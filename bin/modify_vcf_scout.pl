@@ -2,6 +2,7 @@
 use strict;
 use Data::Dumper;
 use List::Util qw( min max );
+use List::MoreUtils qw(first_index);
 my %vcf_meta;
 my @vcf_data;
 my @head;
@@ -72,7 +73,6 @@ while( <VEP>) {
     }
     # Print and store header
     elsif( /^#/ ) {
-        print "##INFO\=<ID=1000GAF\,Number=1\,Type=Float,Description=\"1000G average AF if no gnomadAF exists\">\n";
         print "##INFO\=<ID=GNOMADAF\,Number=1\,Type=Float,Description=\"Average AF GnomAD\">\n";
         print "##INFO=<ID=GNOMADAF_MAX,Number=1,Type=Float,Description=\"Highest reported AF in gnomAD\">\n";
         print "##INFO=<ID=GNOMADPOP_MAX,Number=1,Type=Float,Description=\"Population of highest AF\">\n";
@@ -82,6 +82,7 @@ while( <VEP>) {
         print "##INFO=<ID=CLNSIG_MOD,Number=.,Type=String,Description=\"Modified Variant Clinical Significance, for genmod score _0_ - Uncertain significance, _1_ - not provided, _2_ - Benign, _3_ - Likely benign, _4_ - Likely pathogenic, _5_ - Pathogenic, _6_ - drug response, _7_ - histocompatibility, _255_ - other\">\n";
         print "##INFO=<ID=most_severe_consequence,Number=.,Type=String,Description=\"Most severe genomic consequence.\">\n";
         print "##INFO=<ID=CADD,Number=.,Type=String,Description=\"CADD phred score\">\n";
+        print "##INFO=<ID=nhomalt,Number=.,Type=Integer,Description=\"number of alt allele homozygous individuals in gnomad\">\n";
 	    print;
         $_ =~ s/^#//;
 	    @head = split /\t/;
@@ -103,14 +104,12 @@ while( <VEP>) {
         if ($gAF) {
              push @add_info_field,"GNOMADAF=$gAF";
         }
-	# If no gnomadAF exists set an extra 1000 genomes AF to use for ranking non-exonic regions
-	else{
-	    my $thousandgAF = $doobi->{INFO}->{CSQ}->[0]->{AF};
-	    push @add_info_field,"1000GAF=$thousandgAF" if $thousandgAF;
-	}
 	
         ### AF MAX POPULATION
         my $max = $doobi->{INFO}->{CSQ}->[0]->{gnomADg_AF_popmax};
+        my @max = split '&', $max;
+        $max = findmax(@max);
+        my $index = first_index {$_ eq $max } @max;
         if ($max) {
             push @add_info_field,"GNOMADAF_MAX=$max";
         }
@@ -139,6 +138,16 @@ while( <VEP>) {
         my $CADD = $doobi->{INFO}->{CSQ}->[0]->{CADD_PHRED};
         if ($CADD) {
             push @add_info_field,"CADD=$CADD";
+        }
+        ## HomAltCount
+        my $hac = $doobi->{INFO}->{CSQ}->[0]->{gnomADg_nhomalt};
+        my @hac = split '&', $hac;
+        if ($hac) {
+            if ($max && $max <= 0.02) {
+                push @add_info_field,"nhomalt=$hac[$index]";
+                #print STDERR "$max => $hac[$index]  $hac\n";
+            }
+            
         }
         ## CLINSIG MODIFY
         my $csM = $doobi->{INFO}->{CLNSIG};
