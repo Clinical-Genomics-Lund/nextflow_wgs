@@ -2,7 +2,7 @@
 use strict;
 use Data::Dumper;
 use List::Util qw( min max );
-use List::MoreUtils qw(first_index);
+# use List::MoreUtils qw(first_index);
 my %vcf_meta;
 my @vcf_data;
 my @head;
@@ -107,9 +107,9 @@ while( <VEP>) {
 	
         ### AF MAX POPULATION
         my $max = $doobi->{INFO}->{CSQ}->[0]->{gnomADg_AF_popmax};
-        my @max = split '&', $max;
-        $max = findmax(@max);
-        my $index = first_index {$_ eq $max } @max;
+        # my @max = split '&', $max;
+        # $max = findmax(@max);
+        # my $index = first_index {$_ eq $max } @max;
         if ($max) {
             push @add_info_field,"GNOMADAF_MAX=$max";
         }
@@ -139,16 +139,16 @@ while( <VEP>) {
         if ($CADD) {
             push @add_info_field,"CADD=$CADD";
         }
-        ## HomAltCount
-        my $hac = $doobi->{INFO}->{CSQ}->[0]->{gnomADg_nhomalt};
-        my @hac = split '&', $hac;
-        if ($hac) {
-            if ($max && $max <= 0.02) {
-                push @add_info_field,"nhomalt=$hac[$index]";
-                #print STDERR "$max => $hac[$index]  $hac\n";
-            }
+        # ## HomAltCount
+        # my $hac = $doobi->{INFO}->{CSQ}->[0]->{gnomADg_nhomalt};
+        # my @hac = split '&', $hac;
+        # if ($hac) {
+        #     if ($max && $max <= 0.02) {
+        #         push @add_info_field,"nhomalt=$hac[$index]";
+        #         #print STDERR "$max => $hac[$index]  $hac\n";
+        #     }
             
-        }
+        # }
         ## CLINSIG MODIFY
         my $csM = $doobi->{INFO}->{CLNSIG};
         my @mods;
