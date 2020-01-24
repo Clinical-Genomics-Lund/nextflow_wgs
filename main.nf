@@ -868,9 +868,9 @@ process indel_vep {
 
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
-	cpus 1
+	cpus 4
 	container = '/fs1/resources/containers/container_cadd_v1.5_hg38_20200117.sif'
-	containerOptions '--bind /tmp/ --bind /local/'
+	containerOptions '--bind /local/'
 
 	input:
 		set group, file(vcf) from indel_cadd_vcf
