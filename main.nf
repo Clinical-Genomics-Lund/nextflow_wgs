@@ -23,6 +23,7 @@ PON = [F: params.GATK_PON_FEMALE, M: params.GATK_PON_MALE]
 csv = file(params.csv)
 mode = csv.countLines() > 2 ? "family" : "single"
 trio = csv.countLines() > 3 ? true : false
+println(csv)
 println(mode)
 println(trio)
 
