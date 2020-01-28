@@ -96,6 +96,7 @@ Channel
 process bwa_align_sharded {
 	cpus 50
 	memory '64 GB'
+	tag "$id"
 
 	input:
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
@@ -121,6 +122,7 @@ process bwa_align_sharded {
 // Merge the fractioned bam files
 process bwa_merge_shards {
 	cpus 50
+	tag "$id"
 
 	input:
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
@@ -146,6 +148,7 @@ process bwa_align {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	tag "$id"
 
 	input:
 		set val(group), val(id), file(r1), file(r2) from fastq
@@ -178,6 +181,7 @@ process locus_collector {
 	cpus 16
 	errorStrategy 'retry'
 	maxErrors 5
+	tag "$id"
 
 	input:
 		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
@@ -209,6 +213,7 @@ locus_collector_scores
 process dedup {
 	cpus 16
 	cache 'deep'
+	tag "$id"
 
 	input:
 		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from dedup_input
@@ -241,6 +246,7 @@ genomicshards
     .into{ bqsr_shard_shard; varcall_shard_shard }
 
 process dedup_metrics_merge {
+	tag "$id"
 
 	input:
 		set id, file(dedup) from dedup_metrics.groupTuple()
@@ -258,6 +264,7 @@ process sentieon_qc {
 	cpus 54
 	memory '64 GB'
 	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
+	tag "$id"
 
 	input:
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(qc_merged_bam).join(merged_dedup_metrics)
@@ -282,10 +289,11 @@ process sentieon_qc {
 
 // Load QC data into CDM (via middleman)
 process qc_to_cdm {
-        cpus 1
+    cpus 1
 	errorStrategy 'retry'
 	maxErrors 5
-    	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
+    publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
+	tag "$id"
 	
 	input:
 		set id, file(qc) from qc_cdm
@@ -310,6 +318,7 @@ process bqsr {
 	cpus 16
 	errorStrategy 'retry'
 	maxErrors 5
+	tag "$id"
 
 	input:
 		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams_bqsr.combine(bqsr_shard_shard)
@@ -336,6 +345,7 @@ process bqsr {
 // Merge the bqrs shards
 process merge_bqsr {
 	publishDir "${OUTDIR}/bqsr", mode: 'copy', overwrite: 'true'
+	tag "$id"
 
 	input:
 		set id, file(tables) from bqsr_table.groupTuple()
@@ -355,6 +365,7 @@ process merge_bqsr {
 process merge_dedup_bam {
 	cpus 1
 	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true'
+	tag "$id"
 
 	input:
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish
@@ -377,6 +388,7 @@ process chanjo_sambamba {
 	cpus 16
 	memory '64 GB'
 	publishDir "${OUTDIR}/cov"
+	tag "$id"
 
 	input:	
 		set group, id, file(bam), file(bai) from chanjo_bam.mix(chanjo_bam_choice)
@@ -398,6 +410,8 @@ process chanjo_sambamba {
 
 // call STRs using ExpansionHunter
 process expansionhunter {
+	tag "$id"
+
 	when:
 		params.varcall
 		
@@ -418,6 +432,8 @@ process expansionhunter {
 
 // annotate expansionhunter vcf
 process stranger {
+	tag "$id"
+
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
 
@@ -434,6 +450,7 @@ process stranger {
 // FIXME: Use env variable for picard path...
 process vcfbreakmulti_expansionhunter {
 	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
+	tag "$id"
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
@@ -455,6 +472,8 @@ process vcfbreakmulti_expansionhunter {
 // When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
 process dnascope_bam_choice {
 	cpus 54
+	tag "$id"
+
 	when:
 		params.varcall
 
@@ -492,6 +511,8 @@ all_dedup_bams_dnascope
 // Do variant calling using DNAscope, sharded
 process dnascope {
 	cpus 16
+	tag "$id"
+
 	when:
 		params.varcall
 
@@ -522,6 +543,7 @@ process dnascope {
 process merge_gvcf {
     cpus 16
 	publishDir "${OUTDIR}/gvcf", mode: 'copy' , overwrite: 'true'
+	tag "$group"
 
     input:
 		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple()
@@ -550,6 +572,7 @@ complete_vcf
 
 process gvcf_combine {
     cpus 16
+	tag "$group"
 
     input:
 	set vgroup, ph, file(vcf), file(idx) from gvcfs
@@ -572,6 +595,8 @@ process gvcf_combine {
 
 // Create ped from input variables //
 process create_ped {
+	tag "$group"
+
 	input:
 		set group, id, sex, mother, father, phenotype, diagnosis from ped
 
@@ -638,6 +663,8 @@ process madeline {
 process split_normalize {
 	cpus 1
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	tag "$group"
+
 	when:
 		params.annotate
 
@@ -658,6 +685,8 @@ process split_normalize {
 
 // Intersect VCF, exome/clinvar introns
 process intersect {
+	tag "$group"
+
 	input:
 		set group, file(vcf) from split_norm
 
@@ -673,6 +702,7 @@ process intersect {
 process add_to_loqusdb {
 	cpus 1
 	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
+	tag "$group"
 
 	input:
 		set group, file(vcf) from vcf_loqus
@@ -689,6 +719,7 @@ process add_to_loqusdb {
 process annotate_vep {
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	cpus 54
+	tag "$group"
 
 	input:
 		set group, file(vcf) from split_vep
@@ -724,8 +755,9 @@ process annotate_vep {
 
 // Annotating variants with clinvar
 process annotate_clinvar {
-        cpus 1
-        memory '32GB'
+    cpus 1
+    memory '32GB'
+	tag "$group"
 
 	input:
 		set group, file(vcf) from vep
@@ -743,6 +775,7 @@ process annotate_clinvar {
 // Annotating variants with Genmod
 process annotate_genmod {
 	cpus 2
+	tag "$group"
 
 	input:
 		set group, file(vcf) from snpsift
@@ -759,6 +792,7 @@ process annotate_genmod {
 process inher_models {
 	cpus 6
 	memory '64 GB'
+	tag "$group"
 
 	input:
 		set group, file(vcf) from genmod
@@ -778,6 +812,7 @@ process inher_models {
 // Modifying CLNSIG field to allow it to be used by genmod score properly:
 process modify_vcf {
 	cpus 1
+	tag "$group"
 
 	input:
 		set group, file(vcf) from inhermod
@@ -798,6 +833,7 @@ process loqdb {
 	queue 'bigmem'
 	errorStrategy 'retry'
 	maxErrors 5
+	tag "$group"
 
 	input:
 		set group, file(vcf) from mod_vcf
@@ -813,6 +849,7 @@ process loqdb {
 // Marking splice INDELs: 
 process mark_splice {
 	cpus 1
+	tag "$group"
 
 	input:
 		set group, file(vcf) from loqdb_vcf
@@ -828,6 +865,7 @@ process mark_splice {
 // Extract all INDELs from VCF for CADD annotation
 process extract_indels_for_cadd {
 	cpus 1
+	tag "$group"
 
 	input:
 		set group, file(vcf) from split_cadd
@@ -844,6 +882,7 @@ process extract_indels_for_cadd {
 process indel_vep {
 	cpus 5
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
+	tag "$group"
 
 	input:
 		set group, file(vcf) from indel_cadd_vep
@@ -876,6 +915,7 @@ process calculate_indel_cadd {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	queue 'bigmem'
+	tag "$group"
 
 	input:
 		set group, file(vcf) from indel_cadd_vcf
@@ -893,6 +933,7 @@ process calculate_indel_cadd {
 // Add the calculated indel CADDs to the vcf
 process add_cadd_scores_to_vcf {
 	cpus 4
+	tag "$group"
 
 	input: 
 		set group, file(vcf) from splice_marked
@@ -914,6 +955,7 @@ process add_cadd_scores_to_vcf {
 // Sorting VCF according to score: 
 process genmodscore {
 	cpus 2
+	tag "$group"
 
 	input:
 		set group, file(vcf) from indel_cadd_added
@@ -942,6 +984,7 @@ process genmodscore {
 process vcf_completion {
 	cpus 16
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	tag "$group"
 
 	input:
 		set group, file(vcf) from scored_vcf
@@ -960,6 +1003,7 @@ process vcf_completion {
 process peddy {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
 	cpus 6
+	tag "$group"
 
 	input:
 		file(ped) from ped_peddy
@@ -981,6 +1025,7 @@ process peddy {
 process fastgnomad {
 	cpus 2
 	memory '16 GB'
+	tag "$group"
 
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
@@ -1000,6 +1045,8 @@ process fastgnomad {
 
 // Call UPD regions from SNP vcf
 process upd {
+	tag "$group"
+
 	input:
 		set gr, file(vcf) from vcf_upd
 		set group, id, sex, mother, father, phenotype, diagnosis from meta_upd
@@ -1018,6 +1065,8 @@ process upd {
 
 // Call ROH regions from SNP vcf
 process roh {
+	tag "$group"
+
 	input:
 		set gr, file(vcf) from vcf_roh
 
@@ -1031,9 +1080,9 @@ process roh {
 
 // Create coverage profile using GATK
 process gatkcov {
-	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'    
-    
-	cpus 2
+	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'
+	tag "$group"
+    cpus 2
 	memory '16 GB'
 
 	input:
@@ -1069,6 +1118,7 @@ process gatkcov {
 // Plot ROH, UPD and coverage in a genomic overview plot
 process overview_plot {
 	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
+	tag "$group"
 
 	input:
 		file(upd) from upd_plot
@@ -1100,6 +1150,7 @@ process create_yaml {
 	publishDir "${CRONDIR}/scout", mode: 'copy' , overwrite: 'true'
 	errorStrategy 'retry'
 	maxErrors 5
+	tag "$group"
 
 	input:
 		set group, id, file(bam), file(bai) from yaml_bam.groupTuple()
