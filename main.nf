@@ -757,7 +757,7 @@ process annotate_genmod {
 
 // # Annotating variant inheritance models:
 process inher_models {
-	cpus 8
+	cpus 6
 	memory '64 GB'
 
 	input:
@@ -869,9 +869,13 @@ process indel_vep {
 
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
-	cpus 4
-	container = '/fs1/resources/containers/container_cadd_v1.5_hg38_20200117.sif'
-	containerOptions '--bind /local/'
+	cpus 5
+	container = '/home/cadd_worker/container_cadd_v1.5_hg38_20200117.sif'
+	containerOptions '--bind /local/ --bind /home/cadd_worker/'
+	scratch '/home/cadd_worker/'
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	queue 'bigmem'
 
 	input:
 		set group, file(vcf) from indel_cadd_vcf
@@ -880,6 +884,7 @@ process calculate_indel_cadd {
 		set group, file("${group}.indel_cadd.gz") into indel_cadd
 
 	"""
+		export TMPDIR='/home/cadd_worker/'
         source activate cadd-env-v1.5
         /opt/cadd/CADD.sh -g GRCh38 -o ${group}.indel_cadd.gz $vcf
 	"""
