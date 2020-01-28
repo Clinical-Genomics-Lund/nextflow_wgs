@@ -25,5 +25,6 @@ dependencies:
     - bioconda::pybigwig=0.3.17
     - bioconda::perl-app-cpanminus=1.7044
     - bioconda::svtyper=0.7.1
+    - bioconda::perl-test-leaktrace=0.16
     - r-base
     - perl-gd
