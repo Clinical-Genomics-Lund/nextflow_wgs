@@ -41,7 +41,7 @@ else {
 }
 print "family: '$group'\n";
 print "samples: \n";
-my $count = 0;
+
 foreach my $sample (@ped) {
     my @pedline = split/\t/,$sample;
     print "  - analysis_type: $antype\n";
@@ -67,10 +67,10 @@ foreach my $sample (@ped) {
     my @match_bam = grep(/^$pedline[1]/, @bams);
     unless (scalar(@match_bam) == 1) { print STDERR "no matching bam"; exit; }
     print "    bam_path: $basedir/bam/@match_bam\n";
-    $count++;
+
 }
-print "vcf_snv: $basedir/vcf/$vcf\n"; ##obs skapa en version för exome specifikt
-print "vcf_str: $basedir/vcf/$vcf_str\n" if -s "$basedir/vcf/$vcf_str";
+print "vcf_snv: $basedir/vcf/$vcf\n"; 
+if (scalar(@bams) < 2) { print "vcf_str: $basedir/vcf/$vcf_str\n" if -s "$basedir/vcf/$vcf_str"; } ## Only print STR-vcf in singles
 
 if (scalar(@bams) > 1 ) {
     print "madeline: $basedir/ped/$xml\n";
