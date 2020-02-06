@@ -96,7 +96,7 @@ Channel
 process bwa_align_sharded {
 	cpus 50
 	memory '64 GB'
-	tag "$id"
+	tag "$id $shard"
 
 	input:
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
@@ -181,7 +181,7 @@ process locus_collector {
 	cpus 16
 	errorStrategy 'retry'
 	maxErrors 5
-	tag "$id"
+	tag "$id ($shard_name)"
 
 	input:
 		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
@@ -204,7 +204,7 @@ process locus_collector {
 // All scores are collecting per sampleID, these are joined with one unique instance of their respective merged BAM //
 // these are combined with all genomic shards. Each shard is run with merged bam + all scores. //
 locus_collector_scores
-    .groupTuple()
+    .groupTuple(by: [0,1])
     .join(merged_bam_id)
     .combine(dedup_shards)
     .set{ dedup_input }
@@ -213,7 +213,7 @@ locus_collector_scores
 process dedup {
 	cpus 16
 	cache 'deep'
-	tag "$id"
+	tag "$id ($shard_name)"
 
 	input:
 		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from dedup_input
@@ -238,7 +238,7 @@ process dedup {
 }
 
 shard_dedup_bam
-    .groupTuple()
+    .groupTuple(by: [0,1])
     .into{ all_dedup_bams_bqsr; all_dedup_bams_dnascope; all_dedup_bams_mergepublish }
 //merge genomic shards with neighbouring shard combinations
 genomicshards
@@ -318,7 +318,7 @@ process bqsr {
 	cpus 16
 	errorStrategy 'retry'
 	maxErrors 5
-	tag "$id"
+	tag "$id ($shard_name)"
 
 	input:
 		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams_bqsr.combine(bqsr_shard_shard)
@@ -511,7 +511,7 @@ all_dedup_bams_dnascope
 // Do variant calling using DNAscope, sharded
 process dnascope {
 	cpus 16
-	tag "$id"
+	tag "$id ($shard_name)"
 
 	when:
 		params.varcall
@@ -543,13 +543,13 @@ process dnascope {
 process merge_gvcf {
     cpus 16
 	publishDir "${OUTDIR}/gvcf", mode: 'copy' , overwrite: 'true'
-	tag "$group"
+	tag "$id ($group)"
 
     input:
-		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple()
+		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple(by: [0,1])
 
     output:
-		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
+		set vgroup, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
 
     script:
 		vgroup = "vcfs"
