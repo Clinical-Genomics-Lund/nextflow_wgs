@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### X.X.X
+
+#### Feature
+
+#### Fixes
+- Only plot UPDs in overview plot if > 100 informative sites
+- Don't run UPD process on duos
+
 ### 0.1.5
 
 #### Features
