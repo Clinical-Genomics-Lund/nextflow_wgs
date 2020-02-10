@@ -550,6 +550,7 @@ process merge_gvcf {
 
     output:
 		set vgroup, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
+		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens
 
     script:
 		vgroup = "vcfs"
@@ -1074,7 +1075,7 @@ process roh {
 		set gr, file("roh.txt") into roh_plot
 
 	"""
-    bcftools roh --rec-rate 1e-9 --AF-tag GNOMADAF ${vcf} -o roh.txt
+	bcftools roh --rec-rate 1e-9 --AF-tag GNOMADAF ${vcf} -o roh.txt
 	"""
 }
 
@@ -1082,14 +1083,14 @@ process roh {
 process gatkcov {
 	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'
 	tag "$group"
-    cpus 2
+	cpus 2
 	memory '16 GB'
 
 	input:
 		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.join(meta_gatkcov, by:1)
 
 	output:
-		set group, id, type, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot
+		set group, id, type, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot, cov_gens
 
 	when:
 	params.gatkcov
@@ -1142,6 +1143,21 @@ process overview_plot {
 	"""
 }
 
+process generate_gens_data {
+	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'
+	tag "$group"
+	cpus 1
+
+	input:
+		set group, id, file(gvcf), type, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[0,1])
+
+	output:
+		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz")
+
+	"""
+	generate_gens_data.pl $cov_stand $gvcf $id $params.GENS_GNOMAD
+	"""
+}
 
 
 process create_yaml {
