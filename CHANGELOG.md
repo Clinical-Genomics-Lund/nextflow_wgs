@@ -1,8 +1,11 @@
 # CHANGELOG
 
-### 1.5.2
+### 1.5.3
 
-#### Feature
+#### Fixes
+- Fix incorrect filtering of UPD calls in genomeplotter
+
+### 1.5.2
 
 #### Fixes
 - Only plot UPDs in overview plot if > 100 informative sites
