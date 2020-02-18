@@ -1054,12 +1054,30 @@ process upd {
 
 	output:
 		file("upd.bed") into upd_plot
+		set group, file("upd.sites.bed") into upd_table
 
 	when:
 		mode == "family" && trio == true
 
 	"""
 	upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
+	upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
+	"""
+}
+
+
+process upd_table {
+	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
+	tag "$group"
+
+	input:
+		set group, file(upd_sites) from upd_table
+
+	output:
+		set file("${group}.table.txt")
+
+	"""
+	upd_table.pl $upd_sites > ${group}.UPDtable.xls
 	"""
 }
 
