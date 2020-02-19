@@ -1074,7 +1074,7 @@ process upd_table {
 		set group, file(upd_sites) from upd_table
 
 	output:
-		set file("${group}.table.txt")
+		file("${group}.UPDtable.xls")
 
 	"""
 	upd_table.pl $upd_sites > ${group}.UPDtable.xls
@@ -1167,7 +1167,7 @@ process generate_gens_data {
 	cpus 1
 
 	input:
-		set group, id, file(gvcf), type, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[0,1])
+		set group, id, file(gvcf), type, file(cov_stand), file(cov_denoise) from gvcf_gens.view().join(cov_gens, by:[0,1]).view()
 
 	output:
 		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz")
