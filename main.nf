@@ -14,9 +14,6 @@ genomic_num_shards = params.genomic_shards_num
 // FASTA //
 genome_file = params.genome_file
 
-// BED FILES //
-scoutbed = params.scoutbed
-
 PON = [F: params.GATK_PON_FEMALE, M: params.GATK_PON_MALE]
 
 // Count lines of input csv, if more than 2(header + 1 ind) then mode is set to family //
@@ -68,7 +65,7 @@ Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, row.sex, row.type) }
-    .set { meta_gatkcov }
+    .set { meta_gatkcov; meta_exp }
 
 
 // Check whether genome assembly is indexed //
@@ -91,6 +88,10 @@ Channel
     .collate( 3,1, false )
     .set{ neighbour_shards }
 
+//merge genomic shards with neighbouring shard combinations
+genomicshards
+    .merge(tuple(neighbour_shards))
+    .into{ bqsr_shard_shard; varcall_shard_shard }
 
 // Align fractions of fastq files with BWA
 process bwa_align_sharded {
@@ -199,16 +200,6 @@ process locus_collector {
 	"""
 }
 
-
-// Cannot be put inside process, groupTuple + any other combining operator causes an array of issues //
-// All scores are collecting per sampleID, these are joined with one unique instance of their respective merged BAM //
-// these are combined with all genomic shards. Each shard is run with merged bam + all scores. //
-locus_collector_scores
-    .groupTuple(by: [0,1])
-    .join(merged_bam_id)
-    .combine(dedup_shards)
-    .set{ dedup_input }
-
 // Remove duplicate reads
 process dedup {
 	cpus 16
@@ -216,11 +207,11 @@ process dedup {
 	tag "$id ($shard_name)"
 
 	input:
-		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) from dedup_input
-		
+		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) \
+			from locus_collector_scores.groupTuple(by: [0,1]).join(merged_bam_id).combine(dedup_shards)
 
 	output:
-		set val(id), group, file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into shard_dedup_bam
+		set val(id), group, file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into all_dedup_bams_bqsr, all_dedup_bams_dnascope, all_dedup_bams_mergepublish
 		set id, file("${shard_name}_${id}_dedup_metrics.txt") into dedup_metrics
 
 	script:
@@ -236,14 +227,6 @@ process dedup {
 	"""
 
 }
-
-shard_dedup_bam
-    .groupTuple(by: [0,1])
-    .into{ all_dedup_bams_bqsr; all_dedup_bams_dnascope; all_dedup_bams_mergepublish }
-//merge genomic shards with neighbouring shard combinations
-genomicshards
-    .merge(tuple(neighbour_shards))
-    .into{ bqsr_shard_shard; varcall_shard_shard }
 
 process dedup_metrics_merge {
 	tag "$id"
@@ -312,8 +295,6 @@ process qc_to_cdm {
 	"""
 }
 
-
-
 process bqsr {
 	cpus 16
 	errorStrategy 'retry'
@@ -321,7 +302,8 @@ process bqsr {
 	tag "$id ($shard_name)"
 
 	input:
-		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from all_dedup_bams_bqsr.combine(bqsr_shard_shard)
+		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from \
+			all_dedup_bams_bqsr.groupTuple(by: [0,1]).combine(bqsr_shard_shard)
 
 	output:
 		set val(id), file("${shard_name}_${id}.bqsr.table") into bqsr_table
@@ -368,7 +350,7 @@ process merge_dedup_bam {
 	tag "$id"
 
 	input:
-		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish
+		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
 
 	output:
 		set bgroup, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam
@@ -390,6 +372,9 @@ process chanjo_sambamba {
 	publishDir "${OUTDIR}/cov"
 	tag "$id"
 
+	when:
+		params.varcall
+
 	input:	
 		set group, id, file(bam), file(bai) from chanjo_bam.mix(chanjo_bam_choice)
 
@@ -397,7 +382,7 @@ process chanjo_sambamba {
 		file("${id}.bwa.chanjo.cov") into chanjocov
 
 	"""
-	sambamba depth region -t ${task.cpus} -L $scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 ${bam.toRealPath()} > ${id}.bwa.chanjo.cov
+	sambamba depth region -t ${task.cpus} -L $param.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 ${bam.toRealPath()} > ${id}.bwa.chanjo.cov
 	"""
 }
 
@@ -416,7 +401,8 @@ process expansionhunter {
 		params.varcall
 		
 	input:
-		set group, id, file(bam), file(bai) from expansionhunter_bam.mix(expansionhunter_bam_choice)
+		set group, id, file(bam), file(bai), sex, type \
+			from expansionhunter_bam.mix(expansionhunter_bam_choice).join(meta_exp, by: [0,1]).filter { item -> item[5] == 'proband' }
 
 	output:
 		set group, id, file("${id}.eh.vcf") into expansionhunter_vcf
@@ -496,18 +482,6 @@ process dnascope_bam_choice {
 	"""
 }
 
-// Collect each bqsr and group by sampleID //
-bqsr_merged
-    .groupTuple()
-    .set{ bqsr_merged_grouped }
-
-// join the bqsr to all genomic sharded bams //
-// combine all with each shard and their neighbouring shards //
-all_dedup_bams_dnascope
-    .join(bqsr_merged_grouped)
-    .combine(varcall_shard_shard)
-    .set{ varcall_shard_shard_bams }
-
 // Do variant calling using DNAscope, sharded
 process dnascope {
 	cpus 16
@@ -517,7 +491,8 @@ process dnascope {
 		params.varcall
 
 	input:
-		set id, group, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) from varcall_shard_shard_bams
+		set id, group, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) \
+			from all_dedup_bams_dnascope.groupTuple(by: [0,1]).join(bqsr_merged.groupTuple()).combine(varcall_shard_shard)
 		
 	output:
 		set id, group, file("${shard_name}_${id}.gvcf.gz"), file("${shard_name}_${id}.gvcf.gz.tbi") into vcf_shard
@@ -565,18 +540,12 @@ process merge_gvcf {
     """
 }
 
-complete_vcf
-	.mix(complete_vcf_choice)
-	.mix(gvcf_choice)
-    .groupTuple()
-    .set{ gvcfs }
-
 process gvcf_combine {
     cpus 16
 	tag "$group"
 
     input:
-	set vgroup, ph, file(vcf), file(idx) from gvcfs
+	set vgroup, ph, file(vcf), file(idx) from complete_vcf.mix(complete_vcf_choice).mix(gvcf_choice).groupTuple()
 	set val(group), val(id), r1, r2 from vcf_info
 
     output:
@@ -1018,9 +987,6 @@ process peddy {
 	python -m peddy -p ${task.cpus} $vcf $ped --prefix $group
 	"""
 }
-
-
-
 
 // Extract all variants (from whole genome) with a gnomAD af > x%
 process fastgnomad {
