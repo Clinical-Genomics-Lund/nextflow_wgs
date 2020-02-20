@@ -65,7 +65,7 @@ Channel
     .fromPath(params.csv)
     .splitCsv(header:true)
     .map{ row-> tuple(row.group, row.id, row.sex, row.type) }
-    .set { meta_gatkcov; meta_exp }
+    .into { meta_gatkcov; meta_exp }
 
 
 // Check whether genome assembly is indexed //
@@ -126,7 +126,7 @@ process bwa_merge_shards {
 	tag "$id"
 
 	input:
-		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple()
+		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
 
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam, qc_merged_bam
@@ -353,7 +353,7 @@ process merge_dedup_bam {
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
 
 	output:
-		set bgroup, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam
+		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam
 
 	script:
 		bams_sorted_str = bams.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' -i ')
@@ -382,7 +382,7 @@ process chanjo_sambamba {
 		file("${id}.bwa.chanjo.cov") into chanjocov
 
 	"""
-	sambamba depth region -t ${task.cpus} -L $param.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 ${bam.toRealPath()} > ${id}.bwa.chanjo.cov
+	sambamba depth region -t ${task.cpus} -L $params.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 ${bam.toRealPath()} > ${id}.bwa.chanjo.cov
 	"""
 }
 
@@ -524,7 +524,7 @@ process merge_gvcf {
 		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple(by: [0,1])
 
     output:
-		set vgroup, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
+		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
 		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens
 
     script:
