@@ -175,7 +175,8 @@ sub parse_variant {
 
     # Parse VEP annotation field, if any
     if( $var{ INFO }->{ CSQ } ) {
-	$var{ INFO }->{ CSQ } = parse_VEP_CSQ( $var{INFO}->{CSQ}, $meta->{INFO}->{CSQ} );
+        $var{ _CSQstr } = $var{INFO}->{CSQ};
+	    $var{ INFO }->{ CSQ } = parse_VEP_CSQ( $var{INFO}->{CSQ}, $meta->{INFO}->{CSQ} );
     }
 
     my @FORMAT = split /:/, $var_data[8];
@@ -183,7 +184,7 @@ sub parse_variant {
     
     # Genotypes for each sample
     for ( 9 .. (@var_data-1) ) {
-	push @{$var{ GT }}, parse_genotype( $var_data[8], $var_data[$_], $head->[$_] );
+	    push @{$var{ GT }}, parse_genotype( $var_data[8], $var_data[$_], $head->[$_] );
     }
 
     return \%var;
