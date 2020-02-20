@@ -91,7 +91,7 @@ else {
     print "default_gene_panels: [$panels_str]\n";
 }
 print "rank_model_version: 4.1\n";
-print "rank_score_threshold: 0\n";
+print "rank_score_threshold: -1\n";
 print "human_genome_build: $genome\n";
 
 
