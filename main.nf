@@ -1162,12 +1162,12 @@ process overview_plot {
 }
 
 process generate_gens_data {
-	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	cpus 1
 
 	input:
-		set group, id, file(gvcf), type, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1]).view()
+		set group, id, file(gvcf), g, type, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1]).view()
 
 	output:
 		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz")
