@@ -353,7 +353,7 @@ process merge_dedup_bam {
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
 
 	output:
-		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam
+		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit
 
 	script:
 		bams_sorted_str = bams.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' -i ')
@@ -442,7 +442,7 @@ process vcfbreakmulti_expansionhunter {
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
 
 	output:
-		file "${id}.expansionhunter.vcf.gz" into expansionhunter_scout
+		file("${id}.expansionhunter.vcf.gz") into expansionhunter_scout
 
 	"""
 	java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
@@ -601,7 +601,7 @@ process create_ped {
 // collects each individual's ped-line and creates one ped-file
 ped_ch
     .collectFile(sort: true, storeDir: "${OUTDIR}/ped/")
-    .into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus }
+    .into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound }
 
 
 //madeline ped, run if family mode
@@ -960,7 +960,7 @@ process vcf_completion {
 		set group, file(vcf) from scored_vcf
 
 	output:
-		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, vcf_yaml
+		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, vcf_yaml, snv_sv_vcf
 
 	"""
 	bgzip -@ ${task.cpus} $vcf -f
@@ -1141,6 +1141,289 @@ process generate_gens_data {
 	"""
 	generate_gens_data.pl $cov_stand $gvcf $id $params.GENS_GNOMAD
 	"""
+}
+
+process manta {
+	cpus = 56
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	tag "$group"
+	time '24h'
+	memory '150GB'
+
+	input:
+		set group, id, file(bam), file(bai) from bam_manta
+
+	output:
+		set group, id, file("${id}.manta.vcf.gz"), file("${id}.manta.vcf.gz.tbi") into called_manta
+
+	script:
+		bams = bam.join('--bam ')
+	"""
+	configManta.py --bam $bams --reference $genome_file --runDir .
+	python runWorkflow.py -m local -j ${task.cpus}
+	mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
+	mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
+	"""
+}
+
+process tiddit {
+	cpus = 2
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'   
+	time '24h'
+	tag "$id"
+	memory '32GB'
+
+	input:
+		set group, id, file(bam), file(bai) from bam_tiddit
+
+	output:
+		set group, id, file("${id}.tiddit.filtered.vcf") into called_tiddit
+
+	"""
+	TIDDIT.py --sv -o ${id}.tiddit --bam $bam
+	grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
+	"""
+}
+
+
+process cnvnator {
+    cpus = 24
+	container = '/fs1/resources/containers/wgs_cnvnator_2019-09-06.sif'
+	scratch '/local/scratch'
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	time '10h'
+	tag "$id"
+	memory '80GB'
+
+	input:
+		set group, id, file(bam), file(bai) from bam_nator
+
+	output:
+		set group, id, file("${id}.cnvnator_calls*") into cnvnator_subchr
+
+	shell:
+	'''
+	for chr in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 'X' 'Y'; do
+	  cnvnator -root !{id}.root.$chr -chrom $chr -tree !{bam} &&
+	  cnvnator -root !{id}.root.$chr -chrom $chr -his 100 &&
+	  cnvnator -root !{id}.root.$chr -chrom $chr -stat 100 &&
+	  cnvnator -root !{id}.root.$chr -chrom $chr -partition 100 &&
+	  cnvnator -root !{id}.root.$chr -chrom $chr -call 100  > !{id}.cnvnator_calls_$chr &
+	done
+	wait
+	'''
+}
+
+
+process merge_cnvnator {
+	cpus 20
+	container = '/fs1/resources/containers/wgs_cnvnator_2019-09-06.sif'
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	tag "$group"
+	memory '32GB'
+
+	input:
+		set group, id, file(chr_vcf) from cnvnator_subchr
+	output:
+		set group, id, file("${id}.cnvnator.merged.vcf") into merged_cnvnator
+
+	script:
+	parts = chr_vcf.join(' ')
+	"""
+	cat $parts >> ${id}.cnvnator.calls
+	cnvnator2VCF.pl -prefix ID -reference GRCh38 ${id}.cnvnator.calls $params.split_ref > ${id}.cnvnator.vcf
+	mergeCNVnator.pl ${id}.cnvnator.vcf > ${id}.cnvnator.merged.vcf
+	"""
+}
+
+process post_cnvnator {
+	cpus 1
+	
+	input:
+		set group, id, file(vcf) from merged_cnvnator
+
+	output:
+		set group, id, file("${id}.cnvnator.merged.renamed.vcf.gz"), file("${id}.cnvnator.merged.renamed.vcf.gz.tbi") into called_cnvnator
+	"""
+	java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar \\
+	RenameSampleInVcf INPUT=$vcf OUTPUT=${id}.cnvnator.merged.renamed.vcf NEW_SAMPLE_NAME=$id
+    bgzip ${id}.cnvnator.merged.renamed.vcf
+    tabix ${id}.cnvnator.merged.renamed.vcf.gz
+	"""
+}
+
+
+
+process svdb_merge {
+	cpus 1
+	cache 'deep'
+	tag "$group"
+	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
+
+	input:
+		set group, id, file(mantaV), file(mantaI) from called_manta.groupTuple()
+		set group, id, file(tidditV) from called_tiddit.groupTuple()
+		set group, id, file(natorV), file(natorI) from called_cnvnator.groupTuple()
+		
+	output:
+		set group, id, file("${group}.merged.vcf") into vcf_vep, annotsv_vcf
+
+	script:
+		tmp = [mantaV, tidditV, natorV]
+		vcfs = tmp.join(' ')
+
+	"""
+	source activate py3-env
+	svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 > ${group}.merged.vcf
+	"""
+}
+
+//create AnnotSV tsv file
+process annotsv {
+	container = '/fs1/resources/containers/annotsv.v2.3.sif'
+	cpus 2
+	tag "$group"
+	publishDir "${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true'
+
+	input:
+		set group, id, file(sv) from annotsv_vcf
+		
+	output:
+		set group, file("${group}_annotsv.tsv") into annotsv
+
+	"""
+	export ANNOTSV="/AnnotSV"
+	/AnnotSV/bin/AnnotSV -SvinputFile $sv \\
+	-typeOfAnnotation full \\
+	-outputDir $group \\
+	-genomeBuild GRCh38
+	mv $group/*.annotated.tsv ${group}_annotsv.tsv
+	"""
+}
+
+process vep {
+	cpus 56
+	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
+	tag "$group"
+    
+	input:
+		set group, id, file(vcf) from vcf_vep
+
+	output:
+		set group, id, file("${group}.vep.vcf") into vep_vcf
+
+	"""
+    vep \\
+		-i $vcf \\
+		-o ${group}.vep.vcf \\
+		--offline \\
+		--merged \\
+		--everything \\
+		--vcf \\
+		--no_stats \\
+		--fork ${task.cpus} \\
+		--force_overwrite \\
+		--plugin LoFtool \\
+		--fasta $params.VEP_FASTA \\
+		--dir_cache $params.VEP_CACHE \\
+		--dir_plugins $params.VEP_CACHE/Plugins \\
+		--distance 200 -cache
+	"""
+}
+
+process postprocess_vep {
+    cpus = 1
+	tag "$group"
+
+	input:
+		set group, id, file(vcf) from vep_vcf
+
+	output:
+		set group, file("${group}.vep.clean.merge.omim.vcf") into artefact_vcf
+    
+    """
+    python /fs1/viktor/nextflow_svwgs/bin/cleanVCF.py --vcf $vcf > ${group}.vep.clean.vcf
+    svdb --merge --overlap 0.9 --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
+    add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
+    """
+}
+
+// Query artefact db
+process artefact {
+	cpus 1
+	tag "$group"
+
+	input:
+		set group, file(sv) from artefact_vcf
+
+	output:
+		set group, file("${group}.artefact.vcf") into manip_vcf
+
+	"""
+	source activate py3-env
+	svdb \\
+	--sqdb $params.svdb --query \\
+	--query_vcf $sv --out_occ ACOUNT --out_frq AFRQ > ${group}.artefact.vcf
+	"""
+}
+
+
+process prescore {
+	cpus 1
+	tag "$group"
+
+	input:
+		set group, file(sv_artefact) from manip_vcf
+		file(ped) from ped_prescore
+
+	output:
+		set group, file("${group}.annotatedSV.vcf") into annotatedSV
+
+	"""
+	prescore_sv.pl \\
+	--sv $sv_artefact --ped $ped --annotsv $annotsv --osv ${group}.annotatedSV.vcf
+	"""
+}
+
+process score_sv {
+	cpus 5
+	tag "$group $mode"
+	publishDir "${OUTDIR}/sv_vcf", mode: 'copy', overwrite: 'true'
+
+	input:
+		set group, file(vcf) from annotatedSV
+		file(ped) from ped_compound
+		set group, file(snv), file(tbi) from snv_sv_vcf
+
+	output:
+		set group, file("*.vcf.gz"), file("*.tbi") into sv_recalc
+				
+	script:
+	
+		if (mode == "family") {
+			"""
+			genmod score -i $group -c $params.svrank_model -r $vcf -o ${group}.sv.scored_tmp.vcf
+			genmod sort -p -f $group ${group}.sv.scored_tmp.vcf -o ${group}.sv.scored.sorted_tmp.vcf
+			compound_finder.pl \\
+				--sv ${group}.sv.scored.sorted_tmp.vcf \\
+				--ped $ped --snv $snv \\
+				--osv ${group}.sv.scored.sorted.vcf \\
+				--osnv ${group}.snv.scored.sorted.vcf 
+			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
+			bgzip -@ ${task.cpus} ${group}.snv.scored.sorted.vcf -f
+			tabix ${group}.sv.scored.sorted.vcf.gz -f
+			tabix ${group}.snv.scored.sorted.vcf.gz -f
+			"""
+		}
+		else {
+			"""
+			genmod score -i $group -c $params.svrank_model_s -r $vcf -o ${group}.sv.scored.vcf
+			genmod sort -p -f $group ${group}.sv.scored.vcf -o ${group}.sv.scored.sorted.vcf
+			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
+			tabix ${group}.sv.scored.sorted.vcf.gz -f
+			"""
+		}
 }
 
 
