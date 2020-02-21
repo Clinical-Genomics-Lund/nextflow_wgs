@@ -7,7 +7,7 @@ use File::Basename qw(dirname);
 
 my $SCRIPT_ROOT = dirname($0);
 
-my @COV_WINDOW_SIZES = (100000, 25000, 5000, 1000, 250);
+my @COV_WINDOW_SIZES = (100000, 25000, 5000, 1000, 100);
 my @BAF_SKIP_N = (160, 40, 10, 4, 1);
 my @PREFIXES = qw( o a b c d );
 my $cov_fn = $ARGV[0];
