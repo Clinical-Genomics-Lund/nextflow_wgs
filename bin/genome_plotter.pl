@@ -7,16 +7,18 @@ use List::Util qw( max min sum );
 use POSIX 'strftime';
 use Getopt::Long;
 
+my $FONT_PATH = "/fs1/resources/fonts/OpenSans-Regular.ttf";
 my $MIN_ROH_QUAL = 85;
 
 my $date = strftime '%Y%m%d', localtime;
 
-my( $roh_in, $upd_in, $cov_in, $sample_id, $png_fn, $dict_in );
+my( $roh_in, $upd_in, $cov_in, $sample_id, $png_fn, $dict_in, $sex );
 $png_fn = "out.png";
 GetOptions( "roh=s" => \$roh_in,
 	    "upd=s" => \$upd_in,
 	    "cov=s" => \$cov_in,
 	    "dict=s" => \$dict_in,
+            "sex=s" => \$sex,
 	    "sample=s" => \$sample_id,
 	    "out=s" => \$png_fn);
 
@@ -27,8 +29,15 @@ my @chr_order = qw(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y)
 my %chr_size = read_chromosome_sizes($dict_in);
 my $max_chr_size = max( values %chr_size );
 
+# Add up sizes of autosomal chromosomes, to allow calculating ROH%
+my $autosomal_genome_size = 0;
+for(@chr_order) {
+    next if $_ eq "X" or $_ eq "Y";
+    $autosomal_genome_size += $chr_size{$_};
+}
 
-my( %roh_data, %upd_data, %cov_data );
+
+my( %roh_data, %upd_data, %cov_data, %avg_chrom );
 
 
 if( $roh_in ) {
@@ -43,7 +52,9 @@ if( $upd_in ) {
 
 if( $cov_in ) {
     print STDERR "\nReading coverage data...";
-    %cov_data = read_cov($cov_in);
+    my( $cov_data, $avg_chrom ) = read_cov($cov_in);
+    %cov_data = %$cov_data;
+    %avg_chrom = %$avg_chrom;
 }
 
 print STDERR "\nPlotting...";
@@ -75,6 +86,7 @@ my $scaleX = $W / $max_chr_size;
 $im->filledRectangle( 0, 0, $W+$x_ofs*2, $H+$y_ofs*2, $gray );
 my $y_pos = 0;
 my $roh = $roh_data{$sample_id};
+my $roh_sum = 0;
 foreach my $chr ( @chr_order ) {
 
     $im->string( gdLargeFont,
@@ -90,7 +102,7 @@ foreach my $chr ( @chr_order ) {
 
     # Plot ROH regions
     for my $rohreg ( @{ $roh->{$chr} } ) {
-
+        $roh_sum += ($rohreg->{end} - $rohreg->{start}) if $chr ne "X" and $chr ne "Y";
 	$im->filledRectangle( $x_ofs + $rohreg->{start} * $scaleX,
 			$y_ofs + $y_pos * $chr_spacing + 3,
 			$x_ofs + $rohreg->{end} * $scaleX,
@@ -102,7 +114,7 @@ foreach my $chr ( @chr_order ) {
     # Plot UPD regions
     for my $updreg ( @{ $upd_data{$chr} } ) {
 	my $info = $updreg->{info};
-	next if $info->{INFORMATIVE_SITES} < 100;
+	next if !$info->{INFORMATIVE_SITES} or $info->{INFORMATIVE_SITES} < 100;
 	$im->filledRectangle( $x_ofs + $updreg->{start} * $scaleX,
 			$y_ofs + $y_pos * $chr_spacing + 61,
 			$x_ofs + $updreg->{end} * $scaleX + 1,
@@ -132,7 +144,35 @@ foreach my $chr ( @chr_order ) {
     
     $y_pos++;
 }
-    
+
+$im->stringFT( $black, $FONT_PATH, 32, 0, $W - 300, $H - 80, $sample_id);
+
+$im->stringFT( $black, $FONT_PATH, 22, 0, $W - 300, $H - 40,
+             sprintf("ROH: %.2f%%", 100*($roh_sum/$autosomal_genome_size)) );
+
+
+# Print estimated average chromosomal copy numbers
+$im->stringFT( $black, $FONT_PATH, 20, 0, $W - 780, $H - 629, "Estimated chromosomal copy numbers");
+my $i = 0;
+for my $chr (@chr_order ) {
+    my $cn;
+    next if $sex eq "F" and $chr eq "Y";
+
+    my $col = $black;
+    if( $sex and $sex eq "M" and $chr eq "X" ) {
+        $cn = 2**$avg_chrom{$chr};
+        $col = $red if $cn > 1.1 or $cn < 0.9;
+    }
+    else {
+        $cn = 2*2**$avg_chrom{$chr};
+        $col = $red if $cn > 2.1 or $cn < 1.9;
+    }
+
+    my $spacer = "  " x (2-length($chr));
+    $im->stringFT( $black, $FONT_PATH, 20, 0, $W - 600, $H - 600+25*$i, $spacer.$chr.":");
+    $im->stringFT( $col, $FONT_PATH, 20, 0, $W - 540, $H - 600+25*$i, sprintf("%.2f", $cn));
+    $i++;
+}    
 
 
 open( PNG, ">".$png_fn );
@@ -198,10 +238,15 @@ sub read_cov {
     my $cn_sum;
     my $step = 11;
     my @pos;
+    my %nval_chrom;
+    my %sum_chrom;
+    my %avg_chrom;
     while( <COV> ) {
 	$cnt++;
 	next if /^\@/ or /^CONTIG/;
 	my( $chr, $start, $stop, $cn ) = split /\t/;
+        $nval_chrom{$chr}++;
+        $sum_chrom{$chr}+=$cn;
 	push( @pos, $start );
 	$cn_sum += $cn;
 
@@ -211,5 +256,13 @@ sub read_cov {
 	    $cn_sum = 0;
 	}
     }
-    return %cov;
+
+    foreach my $chr ( keys %nval_chrom ) {
+        $avg_chrom{$chr} = 0;
+        if( $nval_chrom{$chr} > 0 ) {
+            $avg_chrom{$chr} = $sum_chrom{$chr} / $nval_chrom{$chr};
+        }
+    }
+
+    return \%cov, \%avg_chrom;
 }
