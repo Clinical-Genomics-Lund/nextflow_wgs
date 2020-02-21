@@ -1,5 +1,5 @@
 Bootstrap:docker
-From:nfcore/base
+From:nfcore/base:1.7
 
 %labels
 	MAINTAINER Viktor henmyr <viktor.henmyr@skane.se>
