@@ -1376,6 +1376,7 @@ process prescore {
 	input:
 		set group, file(sv_artefact) from manip_vcf
 		file(ped) from ped_prescore
+		set group, file(annotsv) from annotsv
 
 	output:
 		set group, file("${group}.annotatedSV.vcf") into annotatedSV
