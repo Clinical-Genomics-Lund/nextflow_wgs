@@ -275,7 +275,7 @@ process qc_to_cdm {
     cpus 1
 	errorStrategy 'retry'
 	maxErrors 5
-    publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
+	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
 	
 	input:
@@ -516,28 +516,28 @@ process dnascope {
 
 // Merge gvcf shards
 process merge_gvcf {
-    cpus 16
+	cpus 16
 	publishDir "${OUTDIR}/gvcf", mode: 'copy' , overwrite: 'true'
 	tag "$id ($group)"
 
-    input:
+	input:
 		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple(by: [0,1])
 
-    output:
+	output:
 		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
 		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens
 
-    script:
+	script:
 		vgroup = "vcfs"
 		vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' ')
 		ph = "normalpath"
-    """
-    sentieon driver \\
-        -t ${task.cpus} \\
-        --passthru \\
-        --algo DNAscope \\
-        --merge ${id}.dnascope.gvcf.gz $vcfs_sorted
-    """
+	"""
+	sentieon driver \\
+		-t ${task.cpus} \\
+		--passthru \\
+		--algo DNAscope \\
+		--merge ${id}.dnascope.gvcf.gz $vcfs_sorted
+	"""
 }
 
 process gvcf_combine {
@@ -1150,6 +1150,9 @@ process manta {
 	time '24h'
 	memory '150GB'
 
+	when:
+		params.sv
+
 	input:
 		set group, id, file(bam), file(bai) from bam_manta
 
@@ -1173,6 +1176,9 @@ process tiddit {
 	tag "$id"
 	memory '32GB'
 
+	when:
+		params.sv
+
 	input:
 		set group, id, file(bam), file(bai) from bam_tiddit
 
@@ -1195,6 +1201,9 @@ process cnvnator {
 	time '10h'
 	tag "$id"
 	memory '80GB'
+
+	when
+		params.sv
 
 	input:
 		set group, id, file(bam), file(bai) from bam_nator
@@ -1248,8 +1257,8 @@ process post_cnvnator {
 	"""
 	java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar \\
 	RenameSampleInVcf INPUT=$vcf OUTPUT=${id}.cnvnator.merged.renamed.vcf NEW_SAMPLE_NAME=$id
-    bgzip ${id}.cnvnator.merged.renamed.vcf
-    tabix ${id}.cnvnator.merged.renamed.vcf.gz
+	bgzip ${id}.cnvnator.merged.renamed.vcf
+	tabix ${id}.cnvnator.merged.renamed.vcf.gz
 	"""
 }
 
@@ -1302,7 +1311,7 @@ process annotsv {
 	"""
 }
 
-process vep {
+process vep_sv {
 	cpus 56
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	tag "$group"
@@ -1314,7 +1323,7 @@ process vep {
 		set group, id, file("${group}.vep.vcf") into vep_vcf
 
 	"""
-    vep \\
+	vep \\
 		-i $vcf \\
 		-o ${group}.vep.vcf \\
 		--offline \\
