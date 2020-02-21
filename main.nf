@@ -1068,7 +1068,7 @@ process gatkcov {
 	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	cpus 2
-	memory '16 GB'
+	memory '32 GB'
 
 	input:
 		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.join(meta_gatkcov, by:1)
@@ -1082,19 +1082,19 @@ process gatkcov {
 	"""
 	source activate gatk4-env
 
-	gatk CollectReadCounts \
-		-I $bam -L $params.COV_INTERVAL_LIST \
+	gatk CollectReadCounts \\
+		-I $bam -L $params.COV_INTERVAL_LIST \\
 		--interval-merging-rule OVERLAPPING_ONLY -O ${bam}.hdf5
 
-	gatk --java-options "-Xmx12g" DenoiseReadCounts \
-		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex]} \
-		--standardized-copy-ratios ${id}.standardizedCR.tsv \
+	gatk --java-options "-Xmx30g" DenoiseReadCounts \\
+		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex]} \\
+		--standardized-copy-ratios ${id}.standardizedCR.tsv \\
 		--denoised-copy-ratios ${id}.denoisedCR.tsv
 
-	gatk PlotDenoisedCopyRatios \
-		--standardized-copy-ratios ${id}.standardizedCR.tsv \
-		--denoised-copy-ratios ${id}.denoisedCR.tsv \
-		--sequence-dictionary $params.GENOMEDICT \
+	gatk PlotDenoisedCopyRatios \\
+		--standardized-copy-ratios ${id}.standardizedCR.tsv \\
+		--denoised-copy-ratios ${id}.denoisedCR.tsv \\
+		--sequence-dictionary $params.GENOMEDICT \\
 		--minimum-contig-length 46709983 --output . --output-prefix $id
 	"""
 }
