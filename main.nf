@@ -1202,7 +1202,7 @@ process cnvnator {
 	tag "$id"
 	memory '80GB'
 
-	when
+	when:
 		params.sv
 
 	input:
