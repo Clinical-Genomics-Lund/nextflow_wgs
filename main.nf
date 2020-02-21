@@ -398,7 +398,7 @@ process expansionhunter {
 	tag "$id"
 
 	when:
-		params.varcall
+		params.str
 		
 	input:
 		set group, id, file(bam), file(bai), sex, type \
