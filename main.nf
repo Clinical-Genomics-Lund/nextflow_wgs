@@ -1074,7 +1074,7 @@ process gatkcov {
 		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.join(meta_gatkcov, by:1)
 
 	output:
-		set group, id, type, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot, cov_gens
+		set group, id, type, sex, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot, cov_gens
 
 	when:
 	params.gatkcov
@@ -1108,7 +1108,7 @@ process overview_plot {
 	input:
 		file(upd) from upd_plot
 		set gr, file(roh) from roh_plot
-		set group, id, type, file(cov_stand), file(cov_denoised) from cov_plot.groupTuple()
+		set group, id, type, sex, file(cov_stand), file(cov_denoised) from cov_plot.groupTuple()
 
 
 	output:
@@ -1122,6 +1122,7 @@ process overview_plot {
 		 --sample ${id[proband_idx]} \\
 		 --upd $upd \\
 		 --roh $roh \\
+		 --sex ${sex[proband_id]} \\
 		 --cov ${cov_denoised[proband_idx]} \\
 		 --out ${id[proband_idx]}.genomic_overview.png
 	"""
@@ -1133,7 +1134,7 @@ process generate_gens_data {
 	cpus 1
 
 	input:
-		set id, group, file(gvcf), g, type, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1])
+		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1])
 
 	output:
 		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz"), file("${id}.cov.bed.gz.tbi"), file("${id}.baf.bed.gz.tbi")

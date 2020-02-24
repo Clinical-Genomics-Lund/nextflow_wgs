@@ -159,7 +159,7 @@ for my $chr (@chr_order ) {
     next if $sex eq "F" and $chr eq "Y";
 
     my $col = $black;
-    if( $sex and $sex eq "M" and $chr eq "X" ) {
+    if( $sex and $sex eq "M" and ($chr eq "X" or $chr eq "Y")) {
         $cn = 2**$avg_chrom{$chr};
         $col = $red if $cn > 1.1 or $cn < 0.9;
     }
