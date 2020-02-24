@@ -972,6 +972,7 @@ process vcf_completion {
 // Running PEDDY: 
 process peddy {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
+	container = '/fs1/resources/containers/wgs_20200115.sif'
 	cpus 6
 	tag "$group"
 
@@ -1390,7 +1391,7 @@ process prescore {
 process score_sv {
 	cpus 5
 	tag "$group $mode"
-	publishDir "${OUTDIR}/sv_vcf", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
 	input:
 		set group, file(vcf) from annotatedSV
