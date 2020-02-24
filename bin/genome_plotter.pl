@@ -114,7 +114,7 @@ foreach my $chr ( @chr_order ) {
     # Plot UPD regions
     for my $updreg ( @{ $upd_data{$chr} } ) {
 	my $info = $updreg->{info};
-	next if !$info->{INFORMATIVE_SITES} or $info->{INFORMATIVE_SITES} < 100;
+	next if !$info->{INF_SITES} or $info->{INF_SITES} < 100;
 	$im->filledRectangle( $x_ofs + $updreg->{start} * $scaleX,
 			$y_ofs + $y_pos * $chr_spacing + 61,
 			$x_ofs + $updreg->{end} * $scaleX + 1,
