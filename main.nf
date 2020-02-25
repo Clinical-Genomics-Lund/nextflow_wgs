@@ -1271,12 +1271,16 @@ process svdb_merge {
 		set group, id, file("${group}.merged.vcf") into vcf_vep, annotsv_vcf
 
 	script:
-		tmp = [mantaV, tidditV, natorV]
+		mantaVs = mantaV.collect {it + ':manta ' }
+		tidditVs = tidditV.collect {it + ':tiddit ' }
+		natorVs = natorV.collect {it + ':cnvnator ' }
+		tmp = mantaVs + tidditVs + natorVs
 		vcfs = tmp.join(' ')
+
 
 	"""
 	source activate py3-env
-	svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 > ${group}.merged.vcf
+	svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,cnvnator > ${group}.merged.vcf
 	"""
 }
 
@@ -1329,6 +1333,7 @@ process vep {
 		--fasta $params.VEP_FASTA \\
 		--dir_cache $params.VEP_CACHE \\
 		--dir_plugins $params.VEP_CACHE/Plugins \\
+		--max_sv_size 50000000
 		--distance 200 -cache
 	"""
 }
