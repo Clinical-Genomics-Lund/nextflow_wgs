@@ -300,11 +300,12 @@ sub readSV {
 	my %SV;
 	while ( my $A = $vcf->next_var() ) {
 		my %INFO;
-		
+		#print Dumper($A);
 		my $ref = $A->{REF};
 		my $alt = $A->{ALT};
 		my $pos = $A->{POS};
 		my $chrom = $A->{CHROM};
+		my $id = $A->{ID};
 
 		## VCF STRING ##
 		$INFO{ vcf_str } = $A->{vcf_str};
@@ -376,7 +377,7 @@ sub readSV {
 			$INFO{ LOWP } = $lowestP;
 		}
 		## CHROMOSOME -> VARIANT -> ABOVE HASH
-		$SV{$chrom}{"$pos\_$ref\_$alt"} = \%INFO;
+		$SV{$chrom}{"$pos\_$ref\_$id"} = \%INFO;
 		#print Dumper($A);
 	}
 	return \%SV;
