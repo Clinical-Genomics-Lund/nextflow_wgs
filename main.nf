@@ -1254,8 +1254,6 @@ process post_cnvnator {
 	"""
 }
 
-
-
 process svdb_merge {
 	cpus 1
 	cache 'deep'
@@ -1271,17 +1269,13 @@ process svdb_merge {
 		set group, id, file("${group}.merged.vcf") into vcf_vep, annotsv_vcf
 
 	script:
-		mantaVs = mantaV.collect {it + ':manta ' }
-		tidditVs = tidditV.collect {it + ':tiddit ' }
-		natorVs = natorV.collect {it + ':cnvnator ' }
-		tmp = mantaVs + tidditVs + natorVs
+		tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + natorV.collect {it + ':cnvnator ' }
 		vcfs = tmp.join(' ')
 
-
-	"""
-	source activate py3-env
-	svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,cnvnator > ${group}.merged.vcf
-	"""
+		"""
+		source activate py3-env
+		svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,cnvnator > ${group}.merged.vcf
+		"""
 }
 
 //create AnnotSV tsv file
