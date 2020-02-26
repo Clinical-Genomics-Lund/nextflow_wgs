@@ -281,7 +281,9 @@ sub annotsv {
 				}
 			}
 			#### DBVAR STATUS ####
-			$add_anno{dbVar_status} = $line[first_index { $_ eq "dbVar_status" } @header];
+			my @dbvar =  split/;/,$line[first_index { $_ eq "dbVar_status" } @header];
+			my $dbvar = join(',',@dbvar);
+			$add_anno{dbVar_status} = $dbvar;
 			#### ANNOTSV RANKING ####
 			$add_anno{AnnotSVrank} = $line[first_index { $_ eq "AnnotSV ranking" } @header];
 			$add_anno{gnomadmax} = $line[first_index { $_ eq "GD_POPMAX_AF"} @header];
