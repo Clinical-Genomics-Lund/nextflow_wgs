@@ -26,10 +26,10 @@ println(trio)
 
 // Input channels for alignment, variant calling and annotation //
 Channel
-    .fromPath(params.csv)
-    .splitCsv(header:true)
-    .map{ row-> tuple(row.group, row.id, file(row.read1), file(row.read2)) }
-    .into { input_files; vcf_info }
+	.fromPath(params.csv)
+	.splitCsv(header:true)
+	.map{ row-> tuple(row.group, row.id, file(row.read1), file(row.read2)) }
+	.into { input_files; vcf_info }
 
 fastq = Channel.create()
 bam_choice = Channel.create()
@@ -49,49 +49,49 @@ bam_choice
 
 // Input channels for various meta information //
 Channel
-    .fromPath(params.csv)
-    .splitCsv(header:true)
-    .map{ row-> tuple(row.id, row.diagnosis, row.read1, row.read2) }
-    .set{ qc_extra }
+	.fromPath(params.csv)
+	.splitCsv(header:true)
+	.map{ row-> tuple(row.id, row.diagnosis, row.read1, row.read2) }
+	.set{ qc_extra }
 
 Channel
-    .fromPath(params.csv)
-    .splitCsv(header:true)
-    .map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis) }
-    .into { ped; yml_diag; meta_upd }
+	.fromPath(params.csv)
+	.splitCsv(header:true)
+	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type) }
+	.into { ped; yml_diag; meta_upd; meta_str }
 
 
 Channel
-    .fromPath(params.csv)
-    .splitCsv(header:true)
-    .map{ row-> tuple(row.group, row.id, row.sex, row.type) }
-    .into { meta_gatkcov; meta_exp }
+	.fromPath(params.csv)
+	.splitCsv(header:true)
+	.map{ row-> tuple(row.group, row.id, row.sex, row.type) }
+	.into { meta_gatkcov; meta_exp}
 
 
 // Check whether genome assembly is indexed //
 if(genome_file ){
-    bwaId = Channel
-            .fromPath("${genome_file}.bwt")
-            .ifEmpty { exit 1, "BWA index not found: ${genome_file}.bwt" }
+	bwaId = Channel
+			.fromPath("${genome_file}.bwt")
+			.ifEmpty { exit 1, "BWA index not found: ${genome_file}.bwt" }
 }
 
 // Create genomic shards //
 Channel
-    .fromPath(params.genomic_shards_file)
-    .splitCsv(header:false)
-    .into { locuscollector_shards; dedup_shards; genomicshards }
+	.fromPath(params.genomic_shards_file)
+	.splitCsv(header:false)
+	.into { locuscollector_shards; dedup_shards; genomicshards }
 
 // A channel to pair neighbouring bams and vcfs. 0 and top value removed later
 // Needs to be 0..n+1 where n is number of shards in shards.csv
 Channel
-    .from( 0..(genomic_num_shards+1) )
-    .collate( 3,1, false )
-    .set{ neighbour_shards }
+	.from( 0..(genomic_num_shards+1) )
+	.collate( 3,1, false )
+	.set{ neighbour_shards }
 
 //merge genomic shards with neighbouring shard combinations
 genomicshards
-    .merge(tuple(neighbour_shards))
-    .into{ bqsr_shard_shard; varcall_shard_shard }
+	.merge(tuple(neighbour_shards))
+	.into{ bqsr_shard_shard; varcall_shard_shard }
 
 // Align fractions of fastq files with BWA
 process bwa_align_sharded {
@@ -133,7 +133,7 @@ process bwa_merge_shards {
 
 	when:
 		params.shardbwa
-    
+	
 	script:
 		bams = shard.sort(false) { a, b -> a.getBaseName() <=> b.getBaseName() } .join(' ')
 
@@ -272,7 +272,7 @@ process sentieon_qc {
 
 // Load QC data into CDM (via middleman)
 process qc_to_cdm {
-    cpus 1
+	cpus 1
 	errorStrategy 'retry'
 	maxErrors 5
 	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
@@ -422,14 +422,26 @@ process stranger {
 
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
+        set group, id, sex, mother, father, phenotype, diagnosis, type from meta_str.filter{ item -> item[7] == 'proband' }
 
 	output:
 		set group, id, file("${id}.eh.stranger.vcf") into expansionhunter_vcf_anno
 
-	"""
-	source activate py3-env
-	stranger ${eh_vcf} > ${id}.eh.stranger.vcf
-	"""
+	script:
+		if (mode == "family") {
+			"""
+			familyfy_str.pl --vcf ${eh_vcf} --mother $mother --father $father --out ${eh_vcf}.family
+			source activate py3-env
+			stranger ${eh_vcf}.family > ${id}.eh.stranger.vcf
+			"""
+		}
+		else {
+			"""
+			source activate py3-env
+			stranger ${eh_vcf} > ${id}.eh.stranger.vcf
+			"""
+		}
+	
 }
 
 // split multiallelic sites in expansionhunter vcf
@@ -541,17 +553,17 @@ process merge_gvcf {
 }
 
 process gvcf_combine {
-    cpus 16
+	cpus 16
 	tag "$group"
 
-    input:
+	input:
 	set vgroup, ph, file(vcf), file(idx) from complete_vcf.mix(complete_vcf_choice).mix(gvcf_choice).groupTuple()
 	set val(group), val(id), r1, r2 from vcf_info
 
-    output:
+	output:
 	set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
 
-    script:
+	script:
 		all_gvcfs = vcf.join(' -v ')
 
 	"""
@@ -568,7 +580,7 @@ process create_ped {
 	tag "$group"
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis from ped
+		set group, id, sex, mother, father, phenotype, diagnosis, type from ped
 
 	output:
 		file("${group}.ped") into ped_ch
@@ -600,8 +612,8 @@ process create_ped {
 
 // collects each individual's ped-line and creates one ped-file
 ped_ch
-    .collectFile(sort: true, storeDir: "${OUTDIR}/ped/")
-    .into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound }
+	.collectFile(sort: true, storeDir: "${OUTDIR}/ped/")
+	.into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound }
 
 
 //madeline ped, run if family mode
@@ -725,8 +737,8 @@ process annotate_vep {
 
 // Annotating variants with clinvar
 process annotate_clinvar {
-    cpus 1
-    memory '32GB'
+	cpus 1
+	memory '32GB'
 	tag "$group"
 
 	input:
@@ -895,8 +907,8 @@ process calculate_indel_cadd {
 
 	"""
 		export TMPDIR='/home/cadd_worker/'
-        source activate cadd-env-v1.5
-        /opt/cadd/CADD.sh -g GRCh38 -o ${group}.indel_cadd.gz $vcf
+		source activate cadd-env-v1.5
+		/opt/cadd/CADD.sh -g GRCh38 -o ${group}.indel_cadd.gz $vcf
 	"""
 }
 
@@ -997,7 +1009,7 @@ process fastgnomad {
 
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
-    input:
+	input:
 		set group, file(vcf) from vcf_gnomad
 
 	output:
@@ -1017,7 +1029,7 @@ process upd {
 
 	input:
 		set gr, file(vcf) from vcf_upd
-		set group, id, sex, mother, father, phenotype, diagnosis from meta_upd
+		set group, id, sex, mother, father, phenotype, diagnosis, type from meta_upd.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("upd.bed") into upd_plot
@@ -1195,7 +1207,7 @@ process tiddit {
 
 
 process cnvnator {
-    cpus = 24
+	cpus = 24
 	container = '/fs1/resources/containers/wgs_cnvnator_2019-09-06.sif'
 	scratch '/local/scratch'
 	stageInMode 'copy'
@@ -1315,7 +1327,7 @@ process vep_sv {
 	cpus 56
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	tag "$group"
-    
+	
 	input:
 		set group, id, file(vcf) from vcf_vep
 
@@ -1343,7 +1355,7 @@ process vep_sv {
 }
 
 process postprocess_vep {
-    cpus = 1
+	cpus = 1
 	tag "$group"
 
 	input:
@@ -1351,12 +1363,12 @@ process postprocess_vep {
 
 	output:
 		set group, file("${group}.vep.clean.merge.omim.vcf") into artefact_vcf
-    
-    """
-    python /fs1/viktor/nextflow_svwgs/bin/cleanVCF.py --vcf $vcf > ${group}.vep.clean.vcf
-    svdb --merge --overlap 0.9 --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
-    add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
-    """
+	
+	"""
+	python /fs1/viktor/nextflow_svwgs/bin/cleanVCF.py --vcf $vcf > ${group}.vep.clean.vcf
+	svdb --merge --overlap 0.9 --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
+	add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
+	"""
 }
 
 // Query artefact db
@@ -1454,7 +1466,7 @@ process create_yaml {
 		set file(ped_check),file(json),file(peddy_ped),file(html), file(hetcheck_csv), file(sexcheck), file(vs_html) from peddy_files
 		file(ped) from ped_scout
 		file(xml) from madeline_ped.ifEmpty('single')
-		set group, id, sex, mother, father, phenotype, diagnosis from yml_diag
+		set group, id, sex, mother, father, phenotype, diagnosis, type from yml_diag
 
 	output:
 		set group, file("${group}.yaml") into yaml
