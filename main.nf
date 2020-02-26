@@ -1406,6 +1406,7 @@ process score_sv {
 			"""
 			genmod score -i $group -c $params.svrank_model -r $vcf -o ${group}.sv.scored_tmp.vcf
 			genmod sort -p -f $group ${group}.sv.scored_tmp.vcf -o ${group}.sv.scored.sorted_tmp.vcf
+			#bcftools sort -O v -o ${group}.sv.scored.sorted_tmp.vcf ${group}.sv.scored_tmp.vcf //byta till bcftools?
 			compound_finder.pl \\
 				--sv ${group}.sv.scored.sorted_tmp.vcf \\
 				--ped $ped --snv $snv \\
@@ -1421,6 +1422,7 @@ process score_sv {
 			"""
 			genmod score -i $group -c $params.svrank_model_s -r $vcf -o ${group}.sv.scored.vcf
 			genmod sort -p -f $group ${group}.sv.scored.vcf -o ${group}.sv.scored.sorted.vcf
+			#bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
 			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
 			"""
