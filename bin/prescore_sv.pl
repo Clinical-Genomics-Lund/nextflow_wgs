@@ -238,7 +238,7 @@ sub annotsv {
 			push @descriptions, "##INFO=<ID=IMH_AF,Number=1,Type=Float,Description=\"Ira M. Hall’s Allele frequency of matched CNV type\">\n";
 			push @descriptions, "##INFO=<ID=dbVar_status,Number=1,Type=String,Description=\"dbVar_status pathogenesis\">\n";
 			push @descriptions, "##INFO=<ID=AnnotSVrank,Number=1,Type=Integer,Description=\"AnnotSV ranking 1-5\">\n";
-			push @descriptions, "##INFO=<ID=gnomadmax,Number=1,Type=Float,Description=\"gnomad popmax AF\">\n";
+			push @descriptions, "##INFO=<ID=gnomad_svAF,Number=1,Type=Float,Description=\"gnomad popmax AF\">\n";
 			
 		}
 		
@@ -248,9 +248,11 @@ sub annotsv {
 			#### CHROM POS ####
 			my $chrom = $line[first_index { $_ eq "SV chrom" } @header];
 			my $start = $line[first_index { $_ eq "SV start" } @header];
-			my $end = $line[first_index { $_ eq "SV end" } @header];
+			my $end = $line[first_index { $_ eq "SV end" } @header];	
 			my $ref = $line[first_index { $_ eq "REF" } @header];
 			my $alt = $line[first_index { $_ eq "ALT" } @header];
+			my $ID = $line[first_index { $_ eq "ID" } @header];
+			if (!defined $end) { $end = $alt; }
 			#### MORBID GENE ####
 			$add_anno{morbidGenes} = $line[first_index { $_ eq "morbidGenes" } @header];
 			#### HAPLOTYPE INSUFFICIENCY ####
@@ -284,7 +286,7 @@ sub annotsv {
 			$add_anno{AnnotSVrank} = $line[first_index { $_ eq "AnnotSV ranking" } @header];
 			$add_anno{gnomadmax} = $line[first_index { $_ eq "GD_POPMAX_AF"} @header];
 
-			$av_annot{$chrom}{"$start\_$ref\_$alt"} = \%add_anno;
+			$av_annot{$chrom}{"$start\_$end"} = \%add_anno;
 		}
 		
 	}
@@ -306,6 +308,8 @@ sub readSV {
 		my $pos = $A->{POS};
 		my $chrom = $A->{CHROM};
 		my $id = $A->{ID};
+		my $end = $A->{INFO}->{END};
+		if (!defined $end) { $end = $alt; }
 
 		## VCF STRING ##
 		$INFO{ vcf_str } = $A->{vcf_str};
@@ -377,7 +381,7 @@ sub readSV {
 			$INFO{ LOWP } = $lowestP;
 		}
 		## CHROMOSOME -> VARIANT -> ABOVE HASH
-		$SV{$chrom}{"$pos\_$ref\_$id"} = \%INFO;
+		$SV{$chrom}{"$pos\_$end"} = \%INFO;
 		#print Dumper($A);
 	}
 	return \%SV;
