@@ -275,7 +275,7 @@ process qc_to_cdm {
     cpus 1
 	errorStrategy 'retry'
 	maxErrors 5
-    publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
+	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
 	
 	input:
@@ -398,7 +398,7 @@ process expansionhunter {
 	tag "$id"
 
 	when:
-		params.varcall
+		params.str
 		
 	input:
 		set group, id, file(bam), file(bai), sex, type \
@@ -516,28 +516,28 @@ process dnascope {
 
 // Merge gvcf shards
 process merge_gvcf {
-    cpus 16
+	cpus 16
 	publishDir "${OUTDIR}/gvcf", mode: 'copy' , overwrite: 'true'
 	tag "$id ($group)"
 
-    input:
+	input:
 		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple(by: [0,1])
 
-    output:
+	output:
 		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
 		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens
 
-    script:
+	script:
 		vgroup = "vcfs"
 		vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' ')
 		ph = "normalpath"
-    """
-    sentieon driver \\
-        -t ${task.cpus} \\
-        --passthru \\
-        --algo DNAscope \\
-        --merge ${id}.dnascope.gvcf.gz $vcfs_sorted
-    """
+	"""
+	sentieon driver \\
+		-t ${task.cpus} \\
+		--passthru \\
+		--algo DNAscope \\
+		--merge ${id}.dnascope.gvcf.gz $vcfs_sorted
+	"""
 }
 
 process gvcf_combine {
@@ -1069,13 +1069,13 @@ process gatkcov {
 	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	cpus 2
-	memory '16 GB'
+	memory '32 GB'
 
 	input:
 		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.join(meta_gatkcov, by:1)
 
 	output:
-		set group, id, type, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot, cov_gens
+		set group, id, type, sex, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot, cov_gens
 
 	when:
 	params.gatkcov
@@ -1083,19 +1083,19 @@ process gatkcov {
 	"""
 	source activate gatk4-env
 
-	gatk CollectReadCounts \
-		-I $bam -L $params.COV_INTERVAL_LIST \
+	gatk CollectReadCounts \\
+		-I $bam -L $params.COV_INTERVAL_LIST \\
 		--interval-merging-rule OVERLAPPING_ONLY -O ${bam}.hdf5
 
-	gatk --java-options "-Xmx12g" DenoiseReadCounts \
-		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex]} \
-		--standardized-copy-ratios ${id}.standardizedCR.tsv \
+	gatk --java-options "-Xmx30g" DenoiseReadCounts \\
+		-I ${bam}.hdf5 --count-panel-of-normals ${PON[sex]} \\
+		--standardized-copy-ratios ${id}.standardizedCR.tsv \\
 		--denoised-copy-ratios ${id}.denoisedCR.tsv
 
-	gatk PlotDenoisedCopyRatios \
-		--standardized-copy-ratios ${id}.standardizedCR.tsv \
-		--denoised-copy-ratios ${id}.denoisedCR.tsv \
-		--sequence-dictionary $params.GENOMEDICT \
+	gatk PlotDenoisedCopyRatios \\
+		--standardized-copy-ratios ${id}.standardizedCR.tsv \\
+		--denoised-copy-ratios ${id}.denoisedCR.tsv \\
+		--sequence-dictionary $params.GENOMEDICT \\
 		--minimum-contig-length 46709983 --output . --output-prefix $id
 	"""
 }
@@ -1109,7 +1109,7 @@ process overview_plot {
 	input:
 		file(upd) from upd_plot
 		set gr, file(roh) from roh_plot
-		set group, id, type, file(cov_stand), file(cov_denoised) from cov_plot.groupTuple()
+		set group, id, type, sex, file(cov_stand), file(cov_denoised) from cov_plot.groupTuple()
 
 
 	output:
@@ -1123,6 +1123,7 @@ process overview_plot {
 		 --sample ${id[proband_idx]} \\
 		 --upd $upd \\
 		 --roh $roh \\
+		 --sex ${sex[proband_id]} \\
 		 --cov ${cov_denoised[proband_idx]} \\
 		 --out ${id[proband_idx]}.genomic_overview.png
 	"""
@@ -1134,7 +1135,7 @@ process generate_gens_data {
 	cpus 1
 
 	input:
-		set id, group, file(gvcf), g, type, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1])
+		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1])
 
 	output:
 		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz"), file("${id}.cov.bed.gz.tbi"), file("${id}.baf.bed.gz.tbi")
@@ -1150,6 +1151,9 @@ process manta {
 	tag "$group"
 	time '24h'
 	memory '150GB'
+
+	when:
+		params.sv
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta
@@ -1174,6 +1178,9 @@ process tiddit {
 	tag "$id"
 	memory '32GB'
 
+	when:
+		params.sv
+
 	input:
 		set group, id, file(bam), file(bai) from bam_tiddit
 
@@ -1196,6 +1203,9 @@ process cnvnator {
 	time '10h'
 	tag "$id"
 	memory '80GB'
+
+	when:
+		params.sv
 
 	input:
 		set group, id, file(bam), file(bai) from bam_nator
@@ -1249,8 +1259,8 @@ process post_cnvnator {
 	"""
 	java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar \\
 	RenameSampleInVcf INPUT=$vcf OUTPUT=${id}.cnvnator.merged.renamed.vcf NEW_SAMPLE_NAME=$id
-    bgzip ${id}.cnvnator.merged.renamed.vcf
-    tabix ${id}.cnvnator.merged.renamed.vcf.gz
+	bgzip ${id}.cnvnator.merged.renamed.vcf
+	tabix ${id}.cnvnator.merged.renamed.vcf.gz
 	"""
 }
 
@@ -1301,7 +1311,7 @@ process annotsv {
 	"""
 }
 
-process vep {
+process vep_sv {
 	cpus 56
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	tag "$group"
@@ -1313,7 +1323,7 @@ process vep {
 		set group, id, file("${group}.vep.vcf") into vep_vcf
 
 	"""
-    vep \\
+	vep \\
 		-i $vcf \\
 		-o ${group}.vep.vcf \\
 		--offline \\

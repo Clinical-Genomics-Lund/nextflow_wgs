@@ -114,7 +114,7 @@ foreach my $chr ( @chr_order ) {
     # Plot UPD regions
     for my $updreg ( @{ $upd_data{$chr} } ) {
 	my $info = $updreg->{info};
-	next if !$info->{INFORMATIVE_SITES} or $info->{INFORMATIVE_SITES} < 100;
+	next if !$info->{INF_SITES} or $info->{INF_SITES} < 100;
 	$im->filledRectangle( $x_ofs + $updreg->{start} * $scaleX,
 			$y_ofs + $y_pos * $chr_spacing + 61,
 			$x_ofs + $updreg->{end} * $scaleX + 1,
@@ -159,7 +159,7 @@ for my $chr (@chr_order ) {
     next if $sex eq "F" and $chr eq "Y";
 
     my $col = $black;
-    if( $sex and $sex eq "M" and $chr eq "X" ) {
+    if( $sex and $sex eq "M" and ($chr eq "X" or $chr eq "Y")) {
         $cn = 2**$avg_chrom{$chr};
         $col = $red if $cn > 1.1 or $cn < 0.9;
     }
