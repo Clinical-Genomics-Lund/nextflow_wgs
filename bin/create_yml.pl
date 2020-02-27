@@ -2,20 +2,29 @@
 use MongoDB;
 use strict;
 use Data::Dumper;
+use Getopt::Long;
+my %opt = ();
+GetOptions( \%opt, 'b=s', 'g=s', 'd=s', 'p=s', 'snv=s', 'sv=s', 'str=s', 'out=s', 'genome=s', 'antype=s', 'ped=s', 'dir=s' );
+my $vcf = $opt{snv};
+my $vcf_str = $opt{str};
+my $vcf_sv = $opt{sv};
+my $out = $opt{out};
+open (OUT,'>',$out);
+
+
+
 my $antype = "wgs";
 my $genome = "38";
 my $kit = "Intersected WGS";
 
-my $BAMS = $ARGV[0];
+my $BAMS = $opt{b};
 my @bams = split/,/, $BAMS;
-my $group = $ARGV[1];
+my $group = $opt{g};
 
-my $basedir = $ARGV[2];
-my $diagnosis = $ARGV[3];
+my $basedir = $opt{dir};
+my $diagnosis = $opt{d};
 
-my $PED = $group.".ped";
-my $vcf = $group.".scored.vcf.gz";
-my $vcf_str = $group.".expansionhunter.vcf.gz";
+my $PED = $opt{ped};
 my $xml = $group.".ped.madeline.xml";
 my $peddy_ped = $group.".peddy.ped";
 my $ped_check = $group.".ped_check.csv";
@@ -29,82 +38,83 @@ while ( <PED> ) {
 
 }
 close PED;
-print "---\n";
+print OUT "---\n";
 my $institute;
 if ($diagnosis eq "validering") {
-    print "owner: wgsvalidering\n";
+    print OUT "owner: wgsvalidering\n";
     $institute = "klingen";
 }
 else {
-    print "owner: klingen\n";
+    print OUT "owner: klingen\n";
     $institute = "klingen";
 }
-print "family: '$group'\n";
-print "samples: \n";
+print OUT "family: '$group'\n";
+print OUT "samples: \n";
 
 foreach my $sample (@ped) {
     my @pedline = split/\t/,$sample;
-    print "  - analysis_type: $antype\n";
-    print "    sample_id: '$pedline[1]'\n";
-    print "    sample_name: '$pedline[1]'\n";
-    print "    mother: '$pedline[3]'\n";
-    print "    father: '$pedline[2]'\n";
-    print "    capture_kit: $kit\n";
+    print OUT "  - analysis_type: $antype\n";
+    print OUT "    sample_id: '$pedline[1]'\n";
+    print OUT "    sample_name: '$pedline[1]'\n";
+    print OUT "    mother: '$pedline[3]'\n";
+    print OUT "    father: '$pedline[2]'\n";
+    print OUT "    capture_kit: $kit\n";
     if ($pedline[5] == 1) {
-        print "    phenotype: unaffected\n";
+        print OUT "    phenotype: unaffected\n";
     }
     elsif ($pedline[5] == 2) {
-        print "    phenotype: affected\n";
+        print OUT "    phenotype: affected\n";
     }
     else { print STDERR "not a valid phenotype!\n" }
     if ($pedline[4] == 1) {
-        print "    sex: male\n";
+        print OUT "    sex: male\n";
     }
     elsif ($pedline[4] == 2) {
-        print "    sex: female\n";
+        print OUT "    sex: female\n";
     }
     else { print STDERR "not a valid sex!\n" }
     my @match_bam = grep(/^$pedline[1]/, @bams);
     unless (scalar(@match_bam) == 1) { print STDERR "no matching bam"; exit; }
-    print "    bam_path: $basedir/bam/@match_bam\n";
+    print OUT "    bam_path: $basedir/bam/@match_bam\n";
 
 }
-print "vcf_snv: $basedir/vcf/$vcf\n"; 
-if (scalar(@bams) < 2) { print "vcf_str: $basedir/vcf/$vcf_str\n" if -s "$basedir/vcf/$vcf_str"; } ## Only print STR-vcf in singles
+print OUT "vcf_snv: $basedir/vcf/$vcf\n"; 
+print OUT "vcf_str: $basedir/vcf/$vcf_str\n";
+print OUT "vcf_sv: $basedir/vcf/$vcf_sv\n";
 
 if (scalar(@bams) > 1 ) {
-    print "madeline: $basedir/ped/$xml\n";
+    print OUT "madeline: $basedir/ped/$xml\n";
 }
-print "peddy_ped: $basedir/ped/$peddy_ped\n";
-print "peddy_check: $basedir/ped/$ped_check\n";
-print "peddy_sex: $basedir/ped/$sexcheck\n";
+print OUT "peddy_ped: $basedir/ped/$peddy_ped\n";
+print OUT "peddy_check: $basedir/ped/$ped_check\n";
+print OUT "peddy_sex: $basedir/ped/$sexcheck\n";
 my $gene_panels = get_genelist($institute);
-print "gene_panels: [";
-print join ",", @$gene_panels;
-print "]\n";
+print OUT "gene_panels: [";
+print OUT join ",", @$gene_panels;
+print OUT "]\n";
 if ($diagnosis eq "pediatrics") {
-    print "default_gene_panels: []\n";
+    print OUT "default_gene_panels: []\n";
 }
 else {
     my @panels = split /\+/, $diagnosis;
     my $panels_str = '"'. join('","', @panels). '"';
-    print "default_gene_panels: [$panels_str]\n";
+    print OUT "default_gene_panels: [$panels_str]\n";
 }
-print "rank_model_version: 4.1\n";
-print "rank_score_threshold: -1\n";
-print "human_genome_build: $genome\n";
+print OUT "rank_model_version: 4.1\n";
+print OUT "rank_score_threshold: -1\n";
+print OUT "human_genome_build: $genome\n";
 
 
 sub get_genelist {
     my $institute = shift;
     my $host = 'mongodb://cmdscout2.lund.skane.se/scout';
-    if( $ARGV[4] ) {
-        if( $ENV{$ARGV[4]} ) {
-	        my $port = $ENV{$ARGV[4]};
+    if( $opt{p} ) {
+        if( $ENV{$opt{p}} ) {
+	        my $port = $ENV{$opt{p}};
 	        $host = "mongodb://localhost:$port/loqusdb";
         }
         else {
-	        die "No port envvar set for $ARGV[4]";
+	        die "No port envvar set for $opt{p}";
         }
     }
     my $client = MongoDB->connect($host);
