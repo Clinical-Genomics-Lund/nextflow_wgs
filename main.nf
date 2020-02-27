@@ -396,6 +396,7 @@ process chanjo_sambamba {
 // call STRs using ExpansionHunter
 process expansionhunter {
 	tag "$id"
+	cpus 2
 
 	when:
 		params.str
@@ -422,25 +423,16 @@ process stranger {
 
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
-        set group, id, sex, mother, father, phenotype, diagnosis, type from meta_str.filter{ item -> item[7] == 'proband' }
+        
 
 	output:
 		set group, id, file("${id}.eh.stranger.vcf") into expansionhunter_vcf_anno
 
-	script:
-		if (mode == "family") {
-			"""
-			familyfy_str.pl --vcf ${eh_vcf} --mother $mother --father $father --out ${eh_vcf}.family
-			source activate py3-env
-			stranger ${eh_vcf}.family > ${id}.eh.stranger.vcf
-			"""
-		}
-		else {
-			"""
-			source activate py3-env
-			stranger ${eh_vcf} > ${id}.eh.stranger.vcf
-			"""
-		}
+	"""
+	source activate py3-env
+	stranger ${eh_vcf} > ${id}.eh.stranger.vcf
+	"""
+
 	
 }
 
@@ -452,16 +444,29 @@ process vcfbreakmulti_expansionhunter {
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
+		set group, id, sex, mother, father, phenotype, diagnosis, type from meta_str.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("${id}.expansionhunter.vcf.gz") into expansionhunter_scout
 
-	"""
-	java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
-	vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${id}.expansionhunter.vcf
-	bgzip ${id}.expansionhunter.vcf
-	tabix ${id}.expansionhunter.vcf.gz
-	"""
+	script:
+		if (mode == "family") {
+			"""
+			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
+			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${id}.expansionhunter.vcf.tmp
+			familyfy_str.pl --vcf ${id}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${id}.expansionhunter.vcf
+			bgzip ${id}.expansionhunter.vcf
+			tabix ${id}.expansionhunter.vcf.gz
+			"""
+		}
+		else {
+			"""
+			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
+			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${id}.expansionhunter.vcf
+			bgzip ${id}.expansionhunter.vcf
+			tabix ${id}.expansionhunter.vcf.gz
+			"""
+		}
 }
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
@@ -972,7 +977,7 @@ process vcf_completion {
 		set group, file(vcf) from scored_vcf
 
 	output:
-		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, vcf_yaml, snv_sv_vcf
+		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf
 
 	"""
 	bgzip -@ ${task.cpus} $vcf -f
@@ -993,7 +998,7 @@ process peddy {
 		set group, file(vcf), file(idx) from vcf_peddy
 
 	output:
-		set file("${group}.ped_check.csv"),file("${group}.background_pca.json"),file("${group}.peddy.ped"),file("${group}.html"), file("${group}.het_check.csv"), file("${group}.sex_check.csv"), file("${group}.vs.html") into peddy_files
+		set file("${group}.ped_check.csv"),file("${group}.peddy.ped"), file("${group}.sex_check.csv") into peddy_files
 
 	"""
 	source activate py3-env
@@ -1420,15 +1425,16 @@ process score_sv {
 		set group, file(snv), file(tbi) from snv_sv_vcf
 
 	output:
-		set group, file("*.vcf.gz"), file("*.tbi") into sv_recalc
+		set group, file("${group}.snv.scored.sorted.vcf.gz"), file("${group}.snv.scored.sorted.vcf.gz.tbi"), \
+			file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into vcf_yaml
 				
 	script:
 	
 		if (mode == "family") {
 			"""
 			genmod score -i $group -c $params.svrank_model -r $vcf -o ${group}.sv.scored_tmp.vcf
-			genmod sort -p -f $group ${group}.sv.scored_tmp.vcf -o ${group}.sv.scored.sorted_tmp.vcf
-			#bcftools sort -O v -o ${group}.sv.scored.sorted_tmp.vcf ${group}.sv.scored_tmp.vcf //byta till bcftools?
+			#genmod sort -p -f $group ${group}.sv.scored_tmp.vcf -o ${group}.sv.scored.sorted_tmp.vcf
+			bcftools sort -O v -o ${group}.sv.scored.sorted_tmp.vcf ${group}.sv.scored_tmp.vcf 
 			compound_finder.pl \\
 				--sv ${group}.sv.scored.sorted_tmp.vcf \\
 				--ped $ped --snv $snv \\
@@ -1443,10 +1449,12 @@ process score_sv {
 		else {
 			"""
 			genmod score -i $group -c $params.svrank_model_s -r $vcf -o ${group}.sv.scored.vcf
-			genmod sort -p -f $group ${group}.sv.scored.vcf -o ${group}.sv.scored.sorted.vcf
-			#bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
+			#genmod sort -p -f $group ${group}.sv.scored.vcf -o ${group}.sv.scored.sorted.vcf
+			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
 			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
+			mv $snv ${group}.snv.scored.sorted.vcf.gz
+			mv $tbi ${group}.snv.scored.sorted.vcf.gz.tbi
 			"""
 		}
 }
@@ -1462,8 +1470,9 @@ process create_yaml {
 
 	input:
 		set group, id, file(bam), file(bai) from yaml_bam.groupTuple()
-		set group, file(vcf), file(idx) from vcf_yaml
-		set file(ped_check),file(json),file(peddy_ped),file(html), file(hetcheck_csv), file(sexcheck), file(vs_html) from peddy_files
+		set group, file(vcf), file(tbi), file(sv), file(tbi2) from vcf_yaml
+		set file(peddy_check),file(peddy_ped), file(peddy_sex) from peddy_files
+		file(str) from expansionhunter_scout
 		file(ped) from ped_scout
 		file(xml) from madeline_ped.ifEmpty('single')
 		set group, id, sex, mother, father, phenotype, diagnosis, type from yml_diag
@@ -1478,11 +1487,8 @@ process create_yaml {
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		$bams \\
-		$group \\
-		$OUTDIR \\
-		$diagnosis \\
-		PORT_CMDSCOUT2_MONGODB \\
-		> ${group}.yaml
+		--b $bams --g $group --dir $OUTDIR --d $diagnosis \\
+		--p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml \\
+		--snv $vcf --sv $sv --str $str --ped $ped
 	"""
 }
