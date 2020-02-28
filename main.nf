@@ -1140,7 +1140,7 @@ process overview_plot {
 		 --sample ${id[proband_idx]} \\
 		 --upd $upd \\
 		 --roh $roh \\
-		 --sex ${sex[proband_id]} \\
+		 --sex ${sex[proband_idx]} \\
 		 --cov ${cov_denoised[proband_idx]} \\
 		 --out ${id[proband_idx]}.genomic_overview.png
 	"""
@@ -1165,7 +1165,7 @@ process generate_gens_data {
 process manta {
 	cpus = 56
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
-	tag "$group"
+	tag "$id"
 	time '24h'
 	memory '150GB'
 
