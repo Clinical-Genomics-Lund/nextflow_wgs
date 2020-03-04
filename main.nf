@@ -1296,13 +1296,43 @@ process svdb_merge {
 		set group, id, file("${group}.merged.vcf") into vcf_vep, annotsv_vcf
 
 	script:
-		tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + natorV.collect {it + ':cnvnator ' }
-		vcfs = tmp.join(' ')
 
-		"""
-		source activate py3-env
-		svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,cnvnator > ${group}.merged.vcf
-		"""
+		if (mode == "family") {
+			vcfs = []
+			manta = []
+			tiddit = []
+			cnvnator = []
+			for (i = 1; i <= mantaV.size(); i++) {
+				tmp = mantaV[i-1] + ':manta' + "${i}"
+				tmp1 = tidditV[i-1] + ':tiddit' + "${i}"
+				tmp2 = natorV[i-1] + ':cnvnator' + "${i}"
+				vcfs = vcfs + tmp + tmp1 + tmp2
+				mt = 'manta' + "${i}"
+				tt = 'tiddit' + "${i}"
+				ct = 'cnvnator' + "${i}"
+				manta = manta + mt
+				tiddit = tiddit + tt
+				cnvnator = cnvnator + ct
+			}
+			prio = manta + tiddit + cnvnator
+			prio = prio.join(',')
+			vcfs = vcfs.join(' ')
+			"""
+			source activate py3-env
+			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio > ${group}.merged_tmp.vcf
+			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
+			"""
+		}
+
+		else {
+			tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + natorV.collect {it + ':cnvnator ' }
+			vcfs = tmp.join(' ')
+			"""
+			source activate py3-env
+			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,cnvnator > ${group}.merged.vcf
+			"""
+		}
+
 }
 
 //create AnnotSV tsv file
@@ -1354,7 +1384,7 @@ process vep_sv {
 		--fasta $params.VEP_FASTA \\
 		--dir_cache $params.VEP_CACHE \\
 		--dir_plugins $params.VEP_CACHE/Plugins \\
-		--max_sv_size 50000000
+		--max_sv_size 50000000 \\
 		--distance 200 -cache
 	"""
 }
