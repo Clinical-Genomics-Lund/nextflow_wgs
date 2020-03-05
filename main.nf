@@ -699,7 +699,7 @@ process add_to_loqusdb {
 		file("${group}.loqus") into loqusdb_done
 
 	"""
-	echo "loqusdb load -f ${ped.toRealPath()} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
+	echo "loqusdb -db loqusdb_38 load -f ${ped.toRealPath()} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
 	"""
 }
 
@@ -830,7 +830,7 @@ process loqdb {
 
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
-	/opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT2_MONGODB > ${group}.loqdb.vcf
+	/opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT2_MONGODB 38 > ${group}.loqdb.vcf
 	"""
 }
 // Marking splice INDELs: 
@@ -1401,7 +1401,7 @@ process postprocess_vep {
 	
 	"""
 	python /fs1/viktor/nextflow_svwgs/bin/cleanVCF.py --vcf $vcf > ${group}.vep.clean.vcf
-	svdb --merge --overlap 0.9 --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
+	svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
 	add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
 	"""
 }
