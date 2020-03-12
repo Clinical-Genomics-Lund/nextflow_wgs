@@ -36,13 +36,14 @@ bam_choice = Channel.create()
 vcf_choice = Channel.create()
 fastq_sharded = Channel.create()
 gvcf_choice = Channel.create()
+fastq_umi = Channel.create()
 
 // If input files are fastq -> normal path. Flags affecting; --shardbwa (sharded bwa) --align(req), --varcall(if variant calling is to be done) and --annotate(if --varcall)
 // bam -> skips align and is variant called (if --varcall is present) and annotated (if --annotate is present)
 // vcf skips align + varcall and is only annotated (if --annotate is present)
 
 // If .bam -> value 1, else if .vcf -> value 2 else if .gvcf -> value 4 else if none(.fq.gz) if params.shardbwa true -> value 3 otherwise 0
-input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : 0)))  }
+input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice, fastq_umi) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : (params.umi ? 5 : 0))))  }
 
 bam_choice
 	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice }
@@ -57,7 +58,7 @@ Channel
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
-	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type) }
+	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay) }
 	.into { ped; yml_diag; meta_upd; meta_str }
 
 
@@ -92,6 +93,34 @@ Channel
 genomicshards
 	.merge(tuple(neighbour_shards))
 	.into{ bqsr_shard_shard; varcall_shard_shard }
+
+process fastp {
+	cpus 10
+	tag "$group+$id"
+	container = '/fs1/resources/containers/container_twist-brca.sif'
+	containerOptions = '--bind /fs1/'
+
+	when:
+		params.umi
+
+	input:
+		set group, val(id), r1, r2 from fastq_umi
+
+	output:
+		set group, val(id), file("${id}_R1_a_q_u_trimmed.fq.gz"),file("${id}_R2_a_q_u_trimmed.fq.gz") into fastq_trimmed
+
+	script:
+		"""
+		fastp -i $r1 -I $r2 --stdout \\
+			-U --umi_loc=per_read --umi_len=3 \\
+			-w ${task.cpus} \\
+		| fastp --stdin --interleaved_in -f 2 -F 2 \\
+			-o ${id}_R1_a_q_u_trimmed.fq.gz \\
+			-O ${id}_R2_a_q_u_trimmed.fq.gz \\
+			-l 30 \\
+			-w ${task.cpus}
+		"""
+}
 
 // Align fractions of fastq files with BWA
 process bwa_align_sharded {
@@ -152,7 +181,7 @@ process bwa_align {
 	tag "$id"
 
 	input:
-		set val(group), val(id), file(r1), file(r2) from fastq
+		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
 
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam, qc_bam
@@ -255,17 +284,30 @@ process sentieon_qc {
 	output:
 		set id, file("${id}.QC") into qc_cdm
 
+	script:
+		target = ""
+		panel = ""
+		cov = "WgsMetricsAlgo wgs_metrics.txt"
+		assay = "wgs"
+		if( params.onco ) {
+			target = "--interval $params.intervals"
+			panel = params.panelhs + "${bam}" + params.panelhs2 
+			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
+			assay = "panel"
+		}
 	"""
 	sentieon driver \\
-		-r $genome_file -t ${task.cpus} \\
+		-r $genome_file $target \\
+		-t ${task.cpus} \\
 		-i ${bam} \\
 		--algo MeanQualityByCycle mq_metrics.txt \\
 		--algo QualDistribution qd_metrics.txt \\
 		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
 		--algo AlignmentStat aln_metrics.txt \\
 		--algo InsertSizeMetricAlgo is_metrics.txt \\
-		--algo WgsMetricsAlgo wgs_metrics.txt
-	qc_sentieon.pl $id wgs > ${id}.QC
+		--algo $cov
+	$panel
+	qc_sentieon.pl $id $assay > ${id}.QC
 	"""
 }
 
@@ -354,6 +396,7 @@ process merge_dedup_bam {
 
 	output:
 		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit
+		file("${group}.INFO") into bam_INFO
 
 	script:
 		bams_sorted_str = bams.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' -i ')
@@ -361,6 +404,7 @@ process merge_dedup_bam {
 
 	"""
 	sentieon util merge -i ${bams_sorted_str} -o ${id}_merged_dedup.bam --mergemode 10
+	echo "BAM	$id	${OUTDIR}/bam/${id}_merged_dedup.bam" > ${group}.INFO
 	"""
 }
 
@@ -444,10 +488,11 @@ process vcfbreakmulti_expansionhunter {
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
-		set group, id, sex, mother, father, phenotype, diagnosis, type from meta_str.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay from meta_str.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("${id}.expansionhunter.vcf.gz") into expansionhunter_scout
+		file("${group}.INFO") into str_INFO
 
 	script:
 		if (mode == "family") {
@@ -457,6 +502,7 @@ process vcfbreakmulti_expansionhunter {
 			familyfy_str.pl --vcf ${id}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${id}.expansionhunter.vcf
 			bgzip ${id}.expansionhunter.vcf
 			tabix ${id}.expansionhunter.vcf.gz
+			echo "STR	${OUTDIR}/vcf/${id}.expansionhunter.vcf.gz" > ${group}.INFO
 			"""
 		}
 		else {
@@ -465,6 +511,7 @@ process vcfbreakmulti_expansionhunter {
 			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${id}.expansionhunter.vcf
 			bgzip ${id}.expansionhunter.vcf
 			tabix ${id}.expansionhunter.vcf.gz
+			echo "STR	${OUTDIR}/vcf/${id}.expansionhunter.vcf.gz" > ${group}.INFO
 			"""
 		}
 }
@@ -585,10 +632,11 @@ process create_ped {
 	tag "$group"
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis, type from ped
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay from ped
 
 	output:
 		file("${group}.ped") into ped_ch
+		set id, val(group) into madde_group
 
 	script:
 		if ( sex =~ /F/) {
@@ -627,9 +675,11 @@ process madeline {
 
 	input:
 		file(ped) from ped_mad
+		set id, val(group) from madde_group
 
 	output:
 		file("${ped}.madeline.xml") into madeline_ped
+		file("${group}.INFO") into madde_INFO
 
 	when:
 		mode == "family"
@@ -643,6 +693,7 @@ process madeline {
 		-L "IndividualId" ${ped}.madeline \\
 		-o ${ped}.madeline \\
 		-x xml
+	echo "MADDE ${ped}.madeline.xml" > ${group}.INFO
 	"""
 }
 
@@ -680,9 +731,16 @@ process intersect {
 	output:
 		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus
 
-	"""
-	bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
-	"""
+	script:
+		bed = params.intersect_bed
+		if ( params.onco ) {
+			bed = params.brca_bed
+		}
+		"""
+		bedtools intersect -a $vcf -b $bed -u -header > ${group}.intersected.vcf
+		"""
+
+
 
 }
 
@@ -978,10 +1036,12 @@ process vcf_completion {
 
 	output:
 		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf
+		file("${group}.INFO") into snv_INFO
 
 	"""
 	bgzip -@ ${task.cpus} $vcf -f
 	tabix ${vcf}.gz -f
+	echo "SNV	${OUTDIR}/vcf/${group}.scored.vcf.gz" > ${group}.INFO
 	"""
 }
 
@@ -999,10 +1059,12 @@ process peddy {
 
 	output:
 		set file("${group}.ped_check.csv"),file("${group}.peddy.ped"), file("${group}.sex_check.csv") into peddy_files
+		file("${group}.INFO") into peddy_INFO
 
 	"""
 	source activate py3-env
-	python -m peddy -p ${task.cpus} $vcf $ped --prefix $group
+	python -m peddy --sites hg38 -p ${task.cpus} $vcf $ped --prefix $group
+	echo "PEDDY	${OUTDIR}/ped/${group}.ped_check.csv,${OUTDIR}/ped/${group}.peddy.ped,${OUTDIR}/ped/${group}.sex_check.csv" > ${group}.INFO
 	"""
 }
 
@@ -1034,7 +1096,7 @@ process upd {
 
 	input:
 		set gr, file(vcf) from vcf_upd
-		set group, id, sex, mother, father, phenotype, diagnosis, type from meta_upd.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay from meta_upd.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("upd.bed") into upd_plot
@@ -1095,7 +1157,7 @@ process gatkcov {
 		set group, id, type, sex, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot, cov_gens
 
 	when:
-	params.gatkcov
+		params.gatkcov
 
 	"""
 	source activate gatk4-env
@@ -1196,7 +1258,7 @@ process tiddit {
 	memory '32GB'
 
 	when:
-		params.sv
+		params.sv && !params.onco
 
 	input:
 		set group, id, file(bam), file(bai) from bam_tiddit
@@ -1222,7 +1284,7 @@ process cnvnator {
 	memory '80GB'
 
 	when:
-		params.sv
+		params.sv && !params.onco
 
 	input:
 		set group, id, file(bam), file(bai) from bam_nator
@@ -1457,6 +1519,7 @@ process score_sv {
 	output:
 		set group, file("${group}.snv.scored.sorted.vcf.gz"), file("${group}.snv.scored.sorted.vcf.gz.tbi"), \
 			file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into vcf_yaml
+		file("${group}.INFO") into sv_INFO
 				
 	script:
 	
@@ -1474,6 +1537,7 @@ process score_sv {
 			bgzip -@ ${task.cpus} ${group}.snv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
 			tabix ${group}.snv.scored.sorted.vcf.gz -f
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf,${group}.snv.scored.sorted.vcf.gz" > ${group}.INFO
 			"""
 		}
 		else {
@@ -1485,10 +1549,15 @@ process score_sv {
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
 			mv $snv ${group}.snv.scored.sorted.vcf.gz
 			mv $tbi ${group}.snv.scored.sorted.vcf.gz.tbi
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf,${group}.snv.scored.sorted.vcf.gz" > ${group}.INFO
 			"""
 		}
 }
 
+bam_INFO
+	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO)
+	.collectFile()
+	.set{ yaml_INFO }
 
 process create_yaml {
 	queue 'bigmem'
@@ -1499,26 +1568,18 @@ process create_yaml {
 	tag "$group"
 
 	input:
-		set group, id, file(bam), file(bai) from yaml_bam.groupTuple()
-		set group, file(vcf), file(tbi), file(sv), file(tbi2) from vcf_yaml
-		set file(peddy_check),file(peddy_ped), file(peddy_sex) from peddy_files
-		file(str) from expansionhunter_scout
+		file(INFO) from yaml_INFO
 		file(ped) from ped_scout
-		file(xml) from madeline_ped.ifEmpty('single')
-		set group, id, sex, mother, father, phenotype, diagnosis, type from yml_diag
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay from yml_diag
 
 	output:
 		set group, file("${group}.yaml") into yaml
 
 	script:
-		bams = bam.join(',')
-		madde = xml.name != 'single' ? "$xml" : "single"
 
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		--b $bams --g $group --dir $OUTDIR --d $diagnosis \\
-		--p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml \\
-		--snv $vcf --sv $sv --str $str --ped $ped
+		--g $group --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO
 	"""
 }
