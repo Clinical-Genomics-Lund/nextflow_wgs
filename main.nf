@@ -395,7 +395,7 @@ process merge_dedup_bam {
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
 
 	output:
-		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit
+		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel
 		file("${group}.INFO") into bam_INFO
 
 	script:
@@ -732,12 +732,9 @@ process intersect {
 		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus
 
 	script:
-		bed = params.intersect_bed
-		if ( params.onco ) {
-			bed = params.brca_bed
-		}
+
 		"""
-		bedtools intersect -a $vcf -b $bed -u -header > ${group}.intersected.vcf
+		bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
 		"""
 
 
@@ -1232,22 +1229,121 @@ process manta {
 	memory '150GB'
 
 	when:
-		params.sv
+		params.sv && !params.onco
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta
 
 	output:
-		set group, id, file("${id}.manta.vcf.gz"), file("${id}.manta.vcf.gz.tbi") into called_manta
+		set group, id, file("${id}.manta.vcf.gz") into called_manta
 
 	script:
 		bams = bam.join('--bam ')
+
 	"""
-	configManta.py --bam $bams --reference $genome_file --runDir .
+	configManta.py --bam $bams --reference $genome_file --runDir . 
 	python runWorkflow.py -m local -j ${task.cpus}
 	mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
 	mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
 	"""
+}
+
+process manta_panel {
+	cpus = 56
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	tag "$id"
+	time '24h'
+	memory '150GB'
+
+	when:
+		params.sv && params.onco
+
+	input:
+		set group, id, file(bam), file(bai) from bam_manta_panel
+
+	output:
+		set group, id, file("${id}.manta.vcf.gz") into called_manta_panel
+
+
+	"""
+	configManta.py --bam $bam --reference $genome_file --runDir . --exome --callRegions $params.bedgz --generateEvidenceBam
+	python runWorkflow.py -m local -j ${task.cpus}
+	mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
+	mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
+	"""
+}
+
+process delly_panel {
+	cpus = 5
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	tag "$id"
+	time '24h'
+	memory '150GB'
+
+	when:
+		params.sv && params.onco
+
+	input:
+		set group, id, file(bam), file(bai) from bam_delly_panel
+
+	output:
+		set group, id, file("${id}.vcf.gz") into called_delly_panel
+
+
+	"""
+	delly call -g $genome_file -o ${id}.bcf $bam 
+	bcftools view ${id}.bcf > ${id}.vcf
+	bgzip -c ${id}.vcf > ${id}.vcf.gz
+	"""
+}
+
+process svdb_merge_panel {
+	cpus 1
+	cache 'deep'
+	tag "$group"
+	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
+
+	input:
+		set group, id, file(mantaV) from called_manta_panel.groupTuple()
+		set group, id, file(dellyV) from called_delly_panel.groupTuple()
+				
+	output:
+		set group, id, file("${group}.merged.vcf") into vep_sv_panel, annotsv_panel
+
+	script:
+
+		if (mode == "family") {
+			vcfs = []
+			manta = []
+			delly = []
+			for (i = 1; i <= mantaV.size(); i++) {
+				tmp = mantaV[i-1] + ':manta' + "${i}"
+				tmp1 = dellyV[i-1] + ':delly' + "${i}"
+				vcfs = vcfs + tmp + tmp1
+				mt = 'manta' + "${i}"
+				dt = 'delly' + "${i}"
+				manta = manta + mt
+				delly = delly + dt
+			}
+			prio = manta + delly
+			prio = prio.join(',')
+			vcfs = vcfs.join(' ')
+			"""
+			source activate py3-env
+			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio > ${group}.merged_tmp.vcf
+			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
+			"""
+		}
+
+		else {
+			tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' }
+			vcfs = tmp.join(' ')
+			"""
+			source activate py3-env
+			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,delly > ${group}.merged.vcf
+			"""
+		}
+
 }
 
 process tiddit {
@@ -1350,7 +1446,7 @@ process svdb_merge {
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
 
 	input:
-		set group, id, file(mantaV), file(mantaI) from called_manta.groupTuple()
+		set group, id, file(mantaV) from called_manta.groupTuple()
 		set group, id, file(tidditV) from called_tiddit.groupTuple()
 		set group, id, file(natorV), file(natorI) from called_cnvnator.groupTuple()
 		
@@ -1405,7 +1501,7 @@ process annotsv {
 	publishDir "${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true'
 
 	input:
-		set group, id, file(sv) from annotsv_vcf
+		set group, id, file(sv) from annotsv_vcf.mix(annotsv_panel)
 		
 	output:
 		set group, file("${group}_annotsv.tsv") into annotsv
@@ -1413,9 +1509,9 @@ process annotsv {
 	"""
 	export ANNOTSV="/AnnotSV"
 	/AnnotSV/bin/AnnotSV -SvinputFile $sv \\
-	-typeOfAnnotation full \\
-	-outputDir $group \\
-	-genomeBuild GRCh38
+		-typeOfAnnotation full \\
+		-outputDir $group \\
+		-genomeBuild GRCh38
 	mv $group/*.annotated.tsv ${group}_annotsv.tsv
 	"""
 }
@@ -1426,7 +1522,7 @@ process vep_sv {
 	tag "$group"
 	
 	input:
-		set group, id, file(vcf) from vcf_vep
+		set group, id, file(vcf) from vcf_vep.mix(vep_sv_panel)
 
 	output:
 		set group, id, file("${group}.vep.vcf") into vep_vcf
@@ -1464,6 +1560,8 @@ process postprocess_vep {
 	"""
 	python /fs1/viktor/nextflow_svwgs/bin/cleanVCF.py --vcf $vcf > ${group}.vep.clean.vcf
 	svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
+	sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.vcf
+	sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
 	add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
 	"""
 }
@@ -1537,7 +1635,7 @@ process score_sv {
 			bgzip -@ ${task.cpus} ${group}.snv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
 			tabix ${group}.snv.scored.sorted.vcf.gz -f
-			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf,${group}.snv.scored.sorted.vcf.gz" > ${group}.INFO
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.scored.sorted.vcf.gz" > ${group}.INFO
 			"""
 		}
 		else {
@@ -1549,11 +1647,13 @@ process score_sv {
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
 			mv $snv ${group}.snv.scored.sorted.vcf.gz
 			mv $tbi ${group}.snv.scored.sorted.vcf.gz.tbi
-			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf,${group}.snv.scored.sorted.vcf.gz" > ${group}.INFO
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.scored.sorted.vcf.gz" > ${group}.INFO
 			"""
 		}
 }
 
+// Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
+// If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
 bam_INFO
 	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO)
 	.collectFile()
