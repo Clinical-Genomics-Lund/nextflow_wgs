@@ -2,7 +2,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 LATEST_CONTAINER_BUILD="$( ls -t $DIR/container/wgs_*.sif |head -n1)"
 CONTAINER_BASENAME=${LATEST_CONTAINER_BUILD##*/}
-PIPELINE_DEST="/fs1/pipelines/wgs_germline"
+PIPELINE_DEST="/fs1/pipelines/wgs_germline38"
 CONTAINER_DEST=/fs1/resources/containers/$CONTAINER_BASENAME
 DEST_HOST="rs-fs1.lunarc.lu.se"
 
