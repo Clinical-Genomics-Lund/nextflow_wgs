@@ -1040,13 +1040,19 @@ process upd {
 		file("upd.bed") into upd_plot
 		set group, file("upd.sites.bed") into upd_table
 
-	when:
-		mode == "family" && trio == true
-
-	"""
-	upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
-	upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
-	"""
+	script:
+		if( mode == "family" && trio == true ) {
+			"""
+			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
+			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
+			"""
+		}
+		else {
+			"""
+			touch upd.bed
+			touch upd.sites.bed
+			"""
+		}
 }
 
 
@@ -1059,6 +1065,9 @@ process upd_table {
 
 	output:
 		file("${group}.UPDtable.xls")
+
+	when:
+		mode == "family" && trio == true
 
 	"""
 	upd_table.pl $upd_sites > ${group}.UPDtable.xls
@@ -1095,7 +1104,7 @@ process gatkcov {
 		set group, id, type, sex, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot, cov_gens
 
 	when:
-	params.gatkcov
+		params.gatkcov
 
 	"""
 	source activate gatk4-env
