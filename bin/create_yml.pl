@@ -65,8 +65,12 @@ close PED;
 ### PRINT YAML ####
 print OUT "---\n";
 my $institute = "klingen";
+if ($opt{assay}) { 
+    if ($opt{assay} eq 'onco' ) { $institute = "oncogen" }
+    elsif ($opt{assay} eq 'wgs_38' ) { $institute = "klingen_38" }
+}
 ### ASSAY DECIDE OWNER? ####
-print OUT "owner: klingen\n";
+print OUT "owner: $institute\n";
 print OUT "family: '$group'\n";
 print OUT "samples: \n";
 
@@ -100,16 +104,27 @@ foreach my $sample (@ped) {
 ##########################################
 
 ### Print optional variables ###
-if ($INFO{SV}) {
+
+## If trio and both SV and SNV calling has been done, SVc should be in INFO-file
+## This contains both SV and SNV info
+if ($INFO{SVc}) {
     my @tmp = split/,/,$INFO{SV};
     print OUT "vcf_snv: $tmp[1]\n"; 
     print OUT "vcf_sv: $tmp[0]\n";
 }
+## If SNV single, check for SNV, if exist, check for SV
 elsif ($INFO{SNV}) {
-    print OUT "vcf_snv: $INFO{SNV}\n"; 
+    print OUT "vcf_snv: $INFO{SNV}\n";
+    if ($INFO{SV}) {
+        print OUT "vcf_sv: $INFO{SV}\n";
+    } 
+}
+## If only SV calling
+elsif ($INFO{SV}) {
+    print OUT "vcf_sv: $INFO{SV}\n";
 }
 else {
-    print STDERR "need SNV VCF"; exit;
+    print STDERR "need at least one VCF, SV/SNV"; exit;
 }
 if ($INFO{STR}) {
     print OUT "vcf_str: $INFO{STR}\n";
