@@ -129,7 +129,7 @@ process bwa_merge_shards {
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
 
 	output:
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam, qc_merged_bam
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam
 
 	when:
 		params.shardbwa
@@ -155,7 +155,7 @@ process bwa_align {
 		set val(group), val(id), file(r1), file(r2) from fastq
 
 	output:
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam, qc_bam
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam
 
 	when:
 		params.align && !params.shardbwa
@@ -242,59 +242,6 @@ process dedup_metrics_merge {
 	"""
 }
 
-//Collect various QC data: TODO MOVE qc_sentieon to container!
-process sentieon_qc {
-	cpus 54
-	memory '64 GB'
-	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
-	tag "$id"
-
-	input:
-		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(qc_merged_bam).join(merged_dedup_metrics)
-
-	output:
-		set id, file("${id}.QC") into qc_cdm
-
-	"""
-	sentieon driver \\
-		-r $genome_file -t ${task.cpus} \\
-		-i ${bam} \\
-		--algo MeanQualityByCycle mq_metrics.txt \\
-		--algo QualDistribution qd_metrics.txt \\
-		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
-		--algo AlignmentStat aln_metrics.txt \\
-		--algo InsertSizeMetricAlgo is_metrics.txt \\
-		--algo WgsMetricsAlgo wgs_metrics.txt
-	qc_sentieon.pl $id wgs > ${id}.QC
-	"""
-}
-
-
-// Load QC data into CDM (via middleman)
-process qc_to_cdm {
-	cpus 1
-	errorStrategy 'retry'
-	maxErrors 5
-	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
-	tag "$id"
-	
-	input:
-		set id, file(qc) from qc_cdm
-		set id, diagnosis, r1, r2 from qc_extra
-
-	output:
-		file("${id}.cdm") into cdm_done
-
-	script:
-		parts = r1.split('/')
-		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
-		rundir = parts[0..idx].join("/")
-
-	"""
-	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay wgs --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
-	"""
-}
-
 process bqsr {
 	cpus 16
 	errorStrategy 'retry'
@@ -354,6 +301,7 @@ process merge_dedup_bam {
 
 	output:
 		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit
+		set id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam
 
 	script:
 		bams_sorted_str = bams.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' -i ')
@@ -364,6 +312,58 @@ process merge_dedup_bam {
 	"""
 }
 
+//Collect various QC data: TODO MOVE qc_sentieon to container!
+process sentieon_qc {
+	cpus 54
+	memory '64 GB'
+	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
+	tag "$id"
+
+	input:
+		set id, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
+
+	output:
+		set id, file("${id}.QC") into qc_cdm
+
+	"""
+	sentieon driver \\
+		-r $genome_file -t ${task.cpus} \\
+		-i ${bam} \\
+		--algo MeanQualityByCycle mq_metrics.txt \\
+		--algo QualDistribution qd_metrics.txt \\
+		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
+		--algo AlignmentStat aln_metrics.txt \\
+		--algo InsertSizeMetricAlgo is_metrics.txt \\
+		--algo WgsMetricsAlgo wgs_metrics.txt
+	qc_sentieon.pl $id wgs > ${id}.QC
+	"""
+}
+
+
+// Load QC data into CDM (via middleman)
+process qc_to_cdm {
+	cpus 1
+	errorStrategy 'retry'
+	maxErrors 5
+	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
+	tag "$id"
+	
+	input:
+		set id, file(qc) from qc_cdm
+		set id, diagnosis, r1, r2 from qc_extra
+
+	output:
+		file("${id}.cdm") into cdm_done
+
+	script:
+		parts = r1.split('/')
+		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
+		rundir = parts[0..idx].join("/")
+
+	"""
+	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay wgs --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
+	"""
+}
 
 // Calculate coverage for chanjo
 process chanjo_sambamba {
