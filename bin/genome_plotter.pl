@@ -45,7 +45,7 @@ if( $roh_in ) {
     %roh_data = read_roh($roh_in);
 }
 
-if( $upd_in ) {
+if( $upd_in and -s $upd_in ) {
     print STDERR "\nReading UPD...";
     %upd_data = read_upd($upd_in);
 }

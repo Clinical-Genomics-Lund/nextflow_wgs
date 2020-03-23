@@ -158,7 +158,7 @@ process bwa_merge_shards {
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
 
 	output:
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam, qc_merged_bam
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam
 
 	when:
 		params.shardbwa
@@ -184,7 +184,7 @@ process bwa_align {
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
 
 	output:
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam, qc_bam
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam
 
 	when:
 		params.align && !params.shardbwa
@@ -271,72 +271,6 @@ process dedup_metrics_merge {
 	"""
 }
 
-//Collect various QC data: TODO MOVE qc_sentieon to container!
-process sentieon_qc {
-	cpus 54
-	memory '64 GB'
-	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
-	tag "$id"
-
-	input:
-		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(qc_merged_bam).join(merged_dedup_metrics)
-
-	output:
-		set id, file("${id}.QC") into qc_cdm
-
-	script:
-		target = ""
-		panel = ""
-		cov = "WgsMetricsAlgo wgs_metrics.txt"
-		assay = "wgs"
-		if( params.onco ) {
-			target = "--interval $params.intervals"
-			panel = params.panelhs + "${bam}" + params.panelhs2 
-			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
-			assay = "panel"
-		}
-	"""
-	sentieon driver \\
-		-r $genome_file $target \\
-		-t ${task.cpus} \\
-		-i ${bam} \\
-		--algo MeanQualityByCycle mq_metrics.txt \\
-		--algo QualDistribution qd_metrics.txt \\
-		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
-		--algo AlignmentStat aln_metrics.txt \\
-		--algo InsertSizeMetricAlgo is_metrics.txt \\
-		--algo $cov
-	$panel
-	qc_sentieon.pl $id $assay > ${id}.QC
-	"""
-}
-
-
-// Load QC data into CDM (via middleman)
-process qc_to_cdm {
-	cpus 1
-	errorStrategy 'retry'
-	maxErrors 5
-	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
-	tag "$id"
-	
-	input:
-		set id, file(qc) from qc_cdm
-		set id, diagnosis, r1, r2 from qc_extra
-
-	output:
-		file("${id}.cdm") into cdm_done
-
-	script:
-		parts = r1.split('/')
-		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
-		rundir = parts[0..idx].join("/")
-
-	"""
-	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay wgs --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
-	"""
-}
-
 process bqsr {
 	cpus 16
 	errorStrategy 'retry'
@@ -396,6 +330,7 @@ process merge_dedup_bam {
 
 	output:
 		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel
+		set id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam
 		file("${group}.INFO") into bam_INFO
 
 	script:
@@ -408,6 +343,58 @@ process merge_dedup_bam {
 	"""
 }
 
+//Collect various QC data: TODO MOVE qc_sentieon to container!
+process sentieon_qc {
+	cpus 54
+	memory '64 GB'
+	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
+	tag "$id"
+
+	input:
+		set id, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
+
+	output:
+		set id, file("${id}.QC") into qc_cdm
+
+	"""
+	sentieon driver \\
+		-r $genome_file -t ${task.cpus} \\
+		-i ${bam} \\
+		--algo MeanQualityByCycle mq_metrics.txt \\
+		--algo QualDistribution qd_metrics.txt \\
+		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
+		--algo AlignmentStat aln_metrics.txt \\
+		--algo InsertSizeMetricAlgo is_metrics.txt \\
+		--algo WgsMetricsAlgo wgs_metrics.txt
+	qc_sentieon.pl $id wgs > ${id}.QC
+	"""
+}
+
+
+// Load QC data into CDM (via middleman)
+process qc_to_cdm {
+	cpus 1
+	errorStrategy 'retry'
+	maxErrors 5
+	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
+	tag "$id"
+	
+	input:
+		set id, file(qc) from qc_cdm
+		set id, diagnosis, r1, r2 from qc_extra
+
+	output:
+		file("${id}.cdm") into cdm_done
+
+	script:
+		parts = r1.split('/')
+		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
+		rundir = parts[0..idx].join("/")
+
+	"""
+	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay wgs --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
+	"""
+}
 
 // Calculate coverage for chanjo
 process chanjo_sambamba {
@@ -1099,13 +1086,19 @@ process upd {
 		file("upd.bed") into upd_plot
 		set group, file("upd.sites.bed") into upd_table
 
-	when:
-		mode == "family" && trio == true
-
-	"""
-	upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
-	upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
-	"""
+	script:
+		if( mode == "family" && trio == true ) {
+			"""
+			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
+			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
+			"""
+		}
+		else {
+			"""
+			touch upd.bed
+			touch upd.sites.bed
+			"""
+		}
 }
 
 
@@ -1118,6 +1111,9 @@ process upd_table {
 
 	output:
 		file("${group}.UPDtable.xls")
+
+	when:
+		mode == "family" && trio == true
 
 	"""
 	upd_table.pl $upd_sites > ${group}.UPDtable.xls
@@ -1561,7 +1557,7 @@ process postprocess_vep {
 	python /fs1/viktor/nextflow_svwgs/bin/cleanVCF.py --vcf $vcf > ${group}.vep.clean.vcf
 	svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
 	sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.vcf
-	sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
+    sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
 	add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
 	"""
 }
