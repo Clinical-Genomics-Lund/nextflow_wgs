@@ -108,7 +108,7 @@ foreach my $sample (@ped) {
 ## If trio and both SV and SNV calling has been done, SVc should be in INFO-file
 ## This contains both SV and SNV info
 if ($INFO{SVc}) {
-    my @tmp = split/,/,$INFO{SV};
+    my @tmp = split/,/,$INFO{SVc};
     print OUT "vcf_snv: $tmp[1]\n"; 
     print OUT "vcf_sv: $tmp[0]\n";
 }
