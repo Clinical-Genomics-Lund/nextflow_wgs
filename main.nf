@@ -58,9 +58,9 @@ Channel
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
-	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay) }
+	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay ) }
 	.into { ped; yml_diag; meta_upd; meta_str }
-
+//(row.containsKey("ffpe") ? row.ffpe : false)
 
 Channel
 	.fromPath(params.csv)
@@ -96,7 +96,7 @@ genomicshards
 
 process fastp {
 	cpus 10
-	tag "$group+$id"
+	tag "$id"
 	container = '/fs1/resources/containers/container_twist-brca.sif'
 	containerOptions = '--bind /fs1/'
 
@@ -388,7 +388,7 @@ process merge_bqsr {
 
 process merge_dedup_bam {
 	cpus 1
-	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
 	tag "$id"
 
 	input:
@@ -1025,7 +1025,7 @@ process genmodscore {
 // Bgzipping and indexing VCF: 
 process vcf_completion {
 	cpus 16
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 	tag "$group"
 
 	input:
@@ -1607,16 +1607,13 @@ process prescore {
 process score_sv {
 	cpus 5
 	tag "$group $mode"
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 
 	input:
 		set group, file(vcf) from annotatedSV
-		file(ped) from ped_compound
-		set group, file(snv), file(tbi) from snv_sv_vcf
 
 	output:
-		set group, file("${group}.snv.scored.sorted.vcf.gz"), file("${group}.snv.scored.sorted.vcf.gz.tbi"), \
-			file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into vcf_yaml
+		set group, file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore
 		file("${group}.INFO") into sv_INFO
 				
 	script:
@@ -1624,38 +1621,60 @@ process score_sv {
 		if (mode == "family") {
 			"""
 			genmod score -i $group -c $params.svrank_model -r $vcf -o ${group}.sv.scored_tmp.vcf
-			#genmod sort -p -f $group ${group}.sv.scored_tmp.vcf -o ${group}.sv.scored.sorted_tmp.vcf
-			bcftools sort -O v -o ${group}.sv.scored.sorted_tmp.vcf ${group}.sv.scored_tmp.vcf 
-			compound_finder.pl \\
-				--sv ${group}.sv.scored.sorted_tmp.vcf \\
-				--ped $ped --snv $snv \\
-				--osv ${group}.sv.scored.sorted.vcf \\
-				--osnv ${group}.snv.scored.sorted.vcf 
+			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored_tmp.vcf 
 			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
-			bgzip -@ ${task.cpus} ${group}.snv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
-			tabix ${group}.snv.scored.sorted.vcf.gz -f
-			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.scored.sorted.vcf.gz" > ${group}.INFO
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}.INFO
 			"""
 		}
 		else {
 			"""
 			genmod score -i $group -c $params.svrank_model_s -r $vcf -o ${group}.sv.scored.vcf
-			#genmod sort -p -f $group ${group}.sv.scored.vcf -o ${group}.sv.scored.sorted.vcf
 			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
 			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
-			mv $snv ${group}.snv.scored.sorted.vcf.gz
-			mv $tbi ${group}.snv.scored.sorted.vcf.gz.tbi
-			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.scored.sorted.vcf.gz" > ${group}.INFO
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}.INFO
 			"""
 		}
+}
+
+process compound_finder {
+	cpus 5
+	tag "$group $mode"
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+
+	when:
+		mode == "family"
+
+	input:
+		set group, file(vcf), file(tbi) from sv_rescore
+		file(ped) from ped_compound
+		set group, file(snv), file(tbi) from snv_sv_vcf
+
+	output:
+		set group, file("${group}.snv.rescored.sorted.vcf.gz"), file("${group}.snv.rescored.sorted.vcf.gz.tbi"), \
+			file("${group}.sv.rescored.sorted.vcf.gz"), file("${group}.sv.rescored.sorted.vcf.gz.tbi") into vcf_yaml
+		file("${group}.INFO") into svcompound_INFO
+				
+	script:
+		"""
+		compound_finder.pl \\
+			--sv $vcf --ped $ped --snv $snv \\
+			--osv ${group}.sv.rescored.sorted.vcf \\
+			--osnv ${group}.snv.rescored.sorted.vcf 
+		bgzip -@ ${task.cpus} ${group}.sv.rescored.sorted.vcf -f
+		bgzip -@ ${task.cpus} ${group}.snv.rescored.sorted.vcf -f
+		tabix ${group}.sv.rescored.sorted.vcf.gz -f
+		tabix ${group}.snv.rescored.sorted.vcf.gz -f
+		echo "SVc	${OUTDIR}/vcf/${group}.sv.rescored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.rescored.sorted.vcf.gz" > ${group}.INFO
+		"""
+
 }
 
 // Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
 // If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
 bam_INFO
-	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO)
+	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO)
 	.collectFile()
 	.set{ yaml_INFO }
 
@@ -1680,6 +1699,6 @@ process create_yaml {
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		--g $group --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO
+		--g $group --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay $assay
 	"""
 }
