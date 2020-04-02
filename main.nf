@@ -58,9 +58,9 @@ Channel
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
-	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay ) }
+	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay, (row.containsKey("ffpe") ? row.ffpe : false) ) }
 	.into { ped; yml_diag; meta_upd; meta_str }
-//(row.containsKey("ffpe") ? row.ffpe : false)
+
 
 Channel
 	.fromPath(params.csv)
@@ -330,7 +330,7 @@ process merge_dedup_bam {
 
 	output:
 		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel
-		set id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam
+		set id, group, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam, bam_melt
 		file("${group}.INFO") into bam_INFO
 
 	script:
@@ -351,22 +351,35 @@ process sentieon_qc {
 	tag "$id"
 
 	input:
-		set id, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
+		set id, group, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
 
 	output:
-		set id, file("${id}.QC") into qc_cdm
+		set id, file("${id}.QC") into qc_cdm, qc_melt
 
+	script:
+		target = ""
+		panel = ""
+		cov = "WgsMetricsAlgo wgs_metrics.txt"
+		assay = "wgs"
+		if( params.onco ) {
+			target = "--interval $params.intervals"
+			panel = params.panelhs + "${bam}" + params.panelhs2 
+			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
+			assay = "panel"
+		}
 	"""
 	sentieon driver \\
-		-r $genome_file -t ${task.cpus} \\
+		-r $genome_file $target \\
+		-t ${task.cpus} \\
 		-i ${bam} \\
 		--algo MeanQualityByCycle mq_metrics.txt \\
 		--algo QualDistribution qd_metrics.txt \\
 		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
 		--algo AlignmentStat aln_metrics.txt \\
 		--algo InsertSizeMetricAlgo is_metrics.txt \\
-		--algo WgsMetricsAlgo wgs_metrics.txt
-	qc_sentieon.pl $id wgs > ${id}.QC
+		--algo $cov
+	$panel
+	qc_sentieon.pl $id $assay > ${id}.QC
 	"""
 }
 
@@ -475,7 +488,7 @@ process vcfbreakmulti_expansionhunter {
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay from meta_str.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, ffpe from meta_str.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("${id}.expansionhunter.vcf.gz") into expansionhunter_scout
@@ -505,6 +518,76 @@ process vcfbreakmulti_expansionhunter {
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
+process melt_qc_val {
+	tag "$id"
+
+	when:
+		params.onco
+
+	input:
+		set id, qc from qc_melt
+
+	output:
+		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) into qc_melt_val
+	
+	script:
+		// Collect qc-data if possible from normal sample, if only tumor; tumor
+		qc.readLines().each{
+			if (it =~ /\"(ins_size_dev)\" : \"(\S+)\"/) {
+				ins_dev = it =~ /\"(ins_size_dev)\" : \"(\S+)\"/
+			}
+			if (it =~ /\"(mean_coverage)\" : \"(\S+)\"/) {
+				coverage = it =~ /\"(mean_coverage)\" : \"(\S+)\"/
+			}
+			if (it =~ /\"(ins_size)\" : \"(\S+)\"/) {
+				ins_size = it =~ /\"(ins_size)\" : \"(\S+)\"/
+			}
+		}
+		// might need to be defined for -resume to work "def INS_SIZE" and so on....
+		INS_SIZE = ins_size[0][2]
+		MEAN_DEPTH = coverage[0][2]
+		COV_DEV = ins_dev[0][2]
+		"""
+		echo hej > hej
+		"""
+}
+
+// MELT always give VCFs for each type of element defined in mei_list
+// If none found -> 0 byte vcf. merge_melt.pl merges the three, if all empty
+// it creates a vcf with only header from params.meltheader
+// merge_melt.pl gives output ${id}.melt.merged.vcf
+process melt {
+	cpus 3
+	errorStrategy 'retry'
+	container = '/fs1/resources/containers/container_twist-brca.sif'
+	tag "$id"
+
+	input:
+		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.join(qc_melt_val)
+
+	when:
+		params.onco
+
+	output:
+		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
+
+	"""
+	java -jar  /opt/MELT.jar Single \\
+		-bamfile $bam \\
+		-r 150 \\
+		-h $genome_file \\
+		-n $params.bed_melt \\
+		-z 50000 \\
+		-d 50 -t $params.mei_list \\
+		-w . \\
+		-b 1/2/3/4/5/6/7/8/9/10/11/12/14/15/16/18/19/20/21/22 \\
+		-c $MEAN_DEPTH \\
+		-cov $COV_DEV \\
+		-e $INS_SIZE
+	merge_melt.pl $params.meltheader $id
+	"""
+
+}
 
 // When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
 process dnascope_bam_choice {
@@ -619,11 +702,13 @@ process create_ped {
 	tag "$group"
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay from ped
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, ffpe from ped
+		
 
 	output:
 		file("${group}.ped") into ped_ch
 		set id, val(group) into madde_group
+		file("${group}.INFO") into tissue_INFO
 
 	script:
 		if ( sex =~ /F/) {
@@ -647,6 +732,7 @@ process create_ped {
 
 	"""
 	echo "${group}\t${id}\t${father}\t${mother}\t${sex}\t${phenotype}" > ${group}.ped
+	echo "TISSUE $id $ffpe" > ${group}.INFO
 	"""
 }
 
@@ -1057,8 +1143,10 @@ process fastgnomad {
 	cpus 2
 	memory '16 GB'
 	tag "$group"
-
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+
+	when:
+		!params.onco
 
 	input:
 		set group, file(vcf) from vcf_gnomad
@@ -1080,7 +1168,7 @@ process upd {
 
 	input:
 		set gr, file(vcf) from vcf_upd
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay from meta_upd.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, ffpe from meta_upd.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("upd.bed") into upd_plot
@@ -1206,6 +1294,9 @@ process generate_gens_data {
 	tag "$group"
 	cpus 1
 
+	when:
+		!params.onco
+
 	input:
 		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1])
 
@@ -1249,7 +1340,7 @@ process manta_panel {
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
 	time '24h'
-	memory '150GB'
+	memory '50GB'
 
 	when:
 		params.sv && params.onco
@@ -1274,7 +1365,7 @@ process delly_panel {
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
 	time '24h'
-	memory '150GB'
+	memory '50GB'
 
 	when:
 		params.sv && params.onco
@@ -1302,9 +1393,11 @@ process svdb_merge_panel {
 	input:
 		set group, id, file(mantaV) from called_manta_panel.groupTuple()
 		set group, id, file(dellyV) from called_delly_panel.groupTuple()
+		set group, id, file(melt) from melt_vcf.groupTuple()
 				
 	output:
-		set group, id, file("${group}.merged.vcf") into vep_sv_panel, annotsv_panel
+		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
+		//set group, id, file("${group}.merged.filtered.vcf") into annotsv_panel
 
 	script:
 
@@ -1328,6 +1421,8 @@ process svdb_merge_panel {
 			source activate py3-env
 			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio > ${group}.merged_tmp.vcf
 			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
+			filter_panel_cnv.pl ${group}.merged.vcf $params.intersect_bed > ${group}.merged.filtered.vcf
+			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
 			"""
 		}
 
@@ -1337,6 +1432,8 @@ process svdb_merge_panel {
 			"""
 			source activate py3-env
 			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,delly > ${group}.merged.vcf
+			filter_panel_cnv.pl ${group}.merged.vcf $params.intersect_bed > ${group}.merged.filtered.vcf
+			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
 			"""
 		}
 
@@ -1670,7 +1767,7 @@ process compound_finder {
 // Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
 // If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
 bam_INFO
-	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO)
+	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO)
 	.collectFile()
 	.set{ yaml_INFO }
 
@@ -1685,7 +1782,7 @@ process create_yaml {
 	input:
 		file(INFO) from yaml_INFO
 		file(ped) from ped_scout
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay from yml_diag
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, ffpe from yml_diag
 
 	output:
 		set group, file("${group}.yaml") into yaml
