@@ -40,6 +40,9 @@ while ( <INFO> ) {
         $INFO{BAM}->{$tmp[1]} = $tmp[2];
         
     }
+    elsif ($tmp[0] eq "TISSUE") {
+        $INFO{TISSUE}->{$tmp[1]} = $tmp[2];
+    }
     else {
         $INFO{$tmp[0]} = $tmp[1];
     }
@@ -66,7 +69,7 @@ close PED;
 print OUT "---\n";
 my $institute = "klingen";
 if ($opt{assay}) { 
-    if ($opt{assay} eq 'onco' ) { $institute = "oncogen" }
+    if ($opt{assay} eq 'onco-solid' ) { $institute = "oncogen" }
     elsif ($opt{assay} eq 'wgs_38' ) { $institute = "klingen_38" }
 }
 ### ASSAY DECIDE OWNER? ####
@@ -83,6 +86,10 @@ foreach my $sample (@ped) {
     print OUT "    mother: '$pedline[3]'\n";
     print OUT "    father: '$pedline[2]'\n";
     print OUT "    capture_kit: $kit\n";
+    unless ($INFO{TISSUE}{$pedline[1]} eq 'false') {
+        print OUT "    tissue_type: '$INFO{TISSUE}{$pedline[1]}'\n";
+    }
+
     if ($pedline[5] == 1) {
         print OUT "    phenotype: unaffected\n";
     }
