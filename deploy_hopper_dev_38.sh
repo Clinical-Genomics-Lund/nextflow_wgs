@@ -8,7 +8,6 @@ scp $DIR/main.nf $DEST_HOST:$PIPELINE_DEST
 
 # Copy configuration file
 scp $DIR/configs/nextflow.hopper.config $DEST_HOST:$PIPELINE_DEST/nextflow.config
-scp $DIR/configs/onco.config $DEST_HOST:$PIPELINE_DEST/onco.config
 
 # Copy other files
 scp $DIR/shards_38.csv $DEST_HOST:$PIPELINE_DEST
