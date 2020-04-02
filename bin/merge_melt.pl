@@ -22,7 +22,14 @@ my %qcval = (
     'PASS' => 'PASS',
     'rSD' => "Ratio of LP to RP is greater than 2.0 standard deviations"
 );
-
+my %assess = (
+    0 => 'No overlapping reads at site',
+    1 => 'Imprecise breakpoint due to greater than expected distance between evidence',
+    2 => 'discordant pair evidence only -- No split read information',
+    3 => 'left side TSD evidence only',
+    4 => 'right side TSD evidence only',
+    5 => 'TSD decided with split reads -> highest possible quality'
+);
 
 my @files;
 push @files,$alu,$line1,$sva;
@@ -42,6 +49,7 @@ foreach my $file (@files) {
         
         if ($header =~ /^##INFO/ && $count == 1) {
             print OUT '##INFO=<ID=END,Number=.,Type=Integer,Description="END position set to start position for insertions">'."\n";
+            print OUT '##INFO=<ID=SCOUT_CUSTOM,Number=.,Type=String,Description="Custom annotations for scout">'."\n";
             $count++;
         }
         if ($header =~ /^#CHROM/) {
@@ -63,25 +71,37 @@ foreach my $file (@files) {
         ## Filter variants due to low quality for sample
         if ($a->{FILTER} =~ /ac0/) { next; }
 
-        ## Print first 7 columns of vcf
-        print OUT join("\t",@str[0..6])."\t";
-        
-        ## ADD END to info and change SVTYPE to INS
-        my @INFO = split/;/,$str[7];
-        splice @INFO, 5, 0, "END=$start";
-        my $ref = \@INFO;
-        ${$ref}[3] = "SVTYPE=INS";
+        ## Print first 6 columns of vcf
+        print OUT join("\t",@str[0..5])."\t";
+        ## All variants PASS, anything above is filtered out
+        ## anyhting below is included
+        print OUT "PASS\t";
+ 
 
         my @alt = split/:/,$a->{ALT};
         my $alt = $alt[2];
         $alt =~ s/>//g;
         my $event = $a->{INFO}->{INTERNAL};
         $event =~ s/\,/_/g;
+        
+        my $meinfo = $a->{INFO}->{MEINFO};
+        $meinfo =~ s/\,/ /g;
 
+        my @scoutcustom;
+        my @newinfo;
+        push @newinfo,"SVTYPE=INS";
+        push @newinfo,"END=$start";
+        push @scoutcustom,"SCOUT_CUSTOM=Repeat Element|".$alt;
+        push @scoutcustom,"Subtype|".$meinfo;
+        push @scoutcustom,"Consequence|".$event;
+        push @scoutcustom,"Target Site Duplication|".$a->{INFO}->{TSD};
+        push @scoutcustom,"Filter|".$qcval{$a->{FILTER}};
+        push @scoutcustom,"Assess|".$assess{$a->{INFO}->{ASSESS}};
+        print OUT join(';',@newinfo).";";
+        print OUT join(',',@scoutcustom)."\t";
 
-        push @$ref,"SCOUT_CUSTOM=Type|".$alt.","."Filter|".$qcval{$a->{FILTER}}.","."Consequence|".$event;
-        print OUT join(';',@$ref)."\t";
-        print OUT join("\t",@str[8..$#str]);
+        print OUT "GT"."\t".$a->{GT}->[0]->{GT};
+        #print OUT join("\t",@str[8..$#str]);
         print OUT "\n";
 
     }
