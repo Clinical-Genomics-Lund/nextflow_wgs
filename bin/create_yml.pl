@@ -45,8 +45,8 @@ if ($diagnosis eq "validering") {
     $institute = "klingen";
 }
 else {
-    print OUT "owner: klingen\n";
-    $institute = "klingen";
+    print OUT "owner: klingen_38\n";
+    $institute = "klingen_38";
 }
 print OUT "family: '$group'\n";
 print OUT "samples: \n";
