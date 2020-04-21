@@ -1467,7 +1467,8 @@ process score_sv {
 
 	output:
 		set group, file("${group}.snv.scored.sorted.vcf.gz"), file("${group}.snv.scored.sorted.vcf.gz.tbi"), \
-			file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into vcf_yaml
+		file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into vcf_yaml
+		set group, file("${group}.sv.scored.sorted.vcf.gz") into svvcf_bed
 				
 	script:
 	
@@ -1500,6 +1501,20 @@ process score_sv {
 		}
 }
 
+process svvcf_to_bed {
+	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
+	tag "group"
+
+	input:
+		set group, file(vcf) from svvcf_bed
+
+	output:
+		file("${group}.sv.bed")
+
+	"""
+	svvcf_to_bed.pl $vcf > ${group}.sv.bed
+	"""
+}
 
 process create_yaml {
 	queue 'bigmem'
