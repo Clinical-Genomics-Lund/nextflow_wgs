@@ -810,8 +810,6 @@ process intersect {
 		bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
 		"""
 
-
-
 }
 
 process add_to_loqusdb {
