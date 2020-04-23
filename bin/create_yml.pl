@@ -100,7 +100,7 @@ else {
     my $panels_str = '"'. join('","', @panels). '"';
     print OUT "default_gene_panels: [$panels_str]\n";
 }
-print OUT "rank_model_version: 4.1\n";
+print OUT "rank_model_version: 5.0\n";
 print OUT "rank_score_threshold: -1\n";
 print OUT "human_genome_build: $genome\n";
 
