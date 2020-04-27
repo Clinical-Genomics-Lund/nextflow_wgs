@@ -1768,6 +1768,20 @@ bam_INFO
 	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO)
 	.collectFile()
 	.set{ yaml_INFO }
+process svvcf_to_bed {
+	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
+	tag "group"
+
+	input:
+		set group, file(vcf) from svvcf_bed
+
+	output:
+		file("${group}.sv.bed")
+
+	"""
+	svvcf_to_bed.pl $vcf > ${group}.sv.bed
+	"""
+}
 
 process create_yaml {
 	queue 'bigmem'
