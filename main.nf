@@ -58,7 +58,7 @@ Channel
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
-	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay, (row.containsKey("ffpe") ? row.ffpe : false) ) }
+	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay, row.clarity_sample_id, (row.containsKey("ffpe") ? row.ffpe : false) ) }
 	.into { ped; yml_diag; meta_upd; meta_str }
 
 
@@ -488,7 +488,7 @@ process vcfbreakmulti_expansionhunter {
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, ffpe from meta_str.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe from meta_str.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("${id}.expansionhunter.vcf.gz") into expansionhunter_scout
@@ -702,7 +702,7 @@ process create_ped {
 	tag "$group"
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, ffpe from ped
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe from ped
 		
 
 	output:
@@ -866,40 +866,59 @@ process annotate_vep {
 	"""
 }
 
-// Annotating variants with clinvar
-process annotate_clinvar {
-	cpus 1
+// gene, clinvar, loqusdb, enigma(onco)
+process vcfanno {
+	cpus params.cpu_some
+	errorStrategy 'retry'
+	cache false
 	memory '32GB'
-	tag "$group"
+	time '2h'
 
 	input:
 		set group, file(vcf) from vep
 
 	output:
-		set group, file("${group}.clinvar.vcf") into snpsift
+		set group, file("${group}.clinvar.loqusdb.gene.vcf") into vcfanno_vcf
 
 	"""
-	SnpSift -Xmx60g annotate $params.CLINVAR \\
-		-info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
+	vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno $vcf > ${group}.clinvar.loqusdb.gene.vcf
 	"""
-
 }
+
+// Annotating variants with clinvar
+// process annotate_clinvar {
+// 	cpus 1
+// 	memory '32GB'
+// 	tag "$group"
+
+// 	input:
+// 		set group, file(vcf) from vep
+
+// 	output:
+// 		set group, file("${group}.clinvar.vcf") into snpsift
+
+// 	"""
+// 	SnpSift -Xmx60g annotate $params.CLINVAR \\
+// 		-info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
+// 	"""
+
+// }
 
 // Annotating variants with Genmod
-process annotate_genmod {
-	cpus 2
-	tag "$group"
+// process annotate_genmod {
+// 	cpus 2
+// 	tag "$group"
 
-	input:
-		set group, file(vcf) from snpsift
+// 	input:
+// 		set group, file(vcf) from snpsift
 
-	output:
-		set group, file("${group}.genmod.vcf") into genmod
+// 	output:
+// 		set group, file("${group}.genmod.vcf") into genmod
 
-	"""
-	genmod annotate --genome-build 38 --annotate_regions $vcf -o ${group}.genmod.vcf
-	"""
-}
+// 	"""
+// 	genmod annotate --genome-build 38 --annotate_regions $vcf -o ${group}.genmod.vcf
+// 	"""
+// }
 
 // # Annotating variant inheritance models:
 process inher_models {
@@ -908,7 +927,7 @@ process inher_models {
 	tag "$group"
 
 	input:
-		set group, file(vcf) from genmod
+		set group, file(vcf) from vcfanno_vcf
 		file(ped) from ped_inher
 
 	output:
@@ -941,31 +960,32 @@ process modify_vcf {
 
 // Adding loqusdb allele frequency to info-field: 
 // ssh needs to work from anywhere, filesystems mounted on cmdscout
-process loqdb {
-	cpus 1
-	queue 'bigmem'
-	errorStrategy 'retry'
-	maxErrors 5
-	tag "$group"
+// process loqdb {
+// 	cpus 1
+// 	queue 'bigmem'
+// 	errorStrategy 'retry'
+// 	maxErrors 5
+// 	tag "$group"
 
-	input:
-		set group, file(vcf) from mod_vcf
+// 	input:
+// 		set group, file(vcf) from mod_vcf
 
-	output:
-		set group, file("${group}.loqdb.vcf") into loqdb_vcf
+// 	output:
+// 		set group, file("${group}.loqdb.vcf") into loqdb_vcf
 
-	"""
-	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
-	/opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT2_MONGODB 38 > ${group}.loqdb.vcf
-	"""
-}
+// 	"""
+// 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
+// 	/opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT2_MONGODB 38 > ${group}.loqdb.vcf
+// 	"""
+// }
+
 // Marking splice INDELs: 
 process mark_splice {
 	cpus 1
 	tag "$group"
 
 	input:
-		set group, file(vcf) from loqdb_vcf
+		set group, file(vcf) from mod_vcf
 
 	output:
 		set group, file("${group}.marksplice.vcf") into splice_marked
@@ -1166,7 +1186,7 @@ process upd {
 
 	input:
 		set gr, file(vcf) from vcf_upd
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, ffpe from meta_upd.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe from meta_upd.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("upd.bed") into upd_plot
@@ -1706,6 +1726,7 @@ process score_sv {
 	output:
 		set group, file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore
 		file("${group}.INFO") into sv_INFO
+		set group, file("${group}.sv.scored.sorted.vcf.gz") into svvcf_bed
 				
 	script:
 	
@@ -1794,7 +1815,7 @@ process create_yaml {
 	input:
 		file(INFO) from yaml_INFO
 		file(ped) from ped_scout
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, ffpe from yml_diag
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe from yml_diag
 
 	output:
 		set group, file("${group}.yaml") into yaml
@@ -1804,6 +1825,6 @@ process create_yaml {
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		--g $group --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay $assay
+		--g $group,$clarity_sample_id --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay $assay
 	"""
 }
