@@ -148,7 +148,7 @@ foreach my $chr ( @chr_order ) {
 $im->stringFT( $black, $FONT_PATH, 32, 0, $W - 300, $H - 80, $sample_id);
 
 $im->stringFT( $black, $FONT_PATH, 22, 0, $W - 300, $H - 40,
-             sprintf("ROH: %.2f%%", 100*($roh_sum/$autosomal_genome_size)) );
+             sprintf("LOH: %.2f%%", 100*($roh_sum/$autosomal_genome_size)) );
 
 
 # Print estimated average chromosomal copy numbers
