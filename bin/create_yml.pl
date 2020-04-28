@@ -20,7 +20,9 @@ if ($opt{assay}) { $assay = $opt{assay}; }
 
 ### Group ###
 if (!defined $opt{g}) { print STDERR "need group name"; exit;}
-my $group = $opt{g};
+my @g_c = split/,/,$opt{g};
+my $group = $g_c[0];
+my $clarity_id = $g_c[1];
 
 ### Open out, default $group.yaml ###
 my $out = "$group.yaml";
@@ -75,6 +77,7 @@ if ($opt{assay}) {
 ### ASSAY DECIDE OWNER? ####
 print OUT "owner: $institute\n";
 print OUT "family: '$group'\n";
+print OUT "lims_id: '$clarity_id'\n";
 print OUT "samples: \n";
 
 ### MATCH ped inidividuals with bams ###
