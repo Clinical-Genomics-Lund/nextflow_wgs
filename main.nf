@@ -58,7 +58,7 @@ Channel
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
-	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay, row.clarity_sample_id, (row.containsKey("ffpe") ? row.ffpe : false) ) }
+	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay, row.clarity_sample_id, (row.containsKey("ffpe") ? row.ffpe : false), (row.containsKey("analysis") ? row.analysis : false) ) }
 	.into { ped; yml_diag; meta_upd; meta_str }
 
 
@@ -488,7 +488,7 @@ process vcfbreakmulti_expansionhunter {
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe from meta_str.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from meta_str.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("${id}.expansionhunter.vcf.gz") into expansionhunter_scout
@@ -702,7 +702,7 @@ process create_ped {
 	tag "$group"
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe from ped
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from ped
 		
 
 	output:
@@ -1186,7 +1186,7 @@ process upd {
 
 	input:
 		set gr, file(vcf) from vcf_upd
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe from meta_upd.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from meta_upd.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("upd.bed") into upd_plot
@@ -1815,7 +1815,7 @@ process create_yaml {
 	input:
 		file(INFO) from yaml_INFO
 		file(ped) from ped_scout
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe from yml_diag
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from yml_diag
 
 	output:
 		set group, file("${group}.yaml") into yaml
