@@ -34,6 +34,8 @@ foreach my $header (@header) {
     
     if ($header =~ /^##INFO/ && $count == 1) {
         print '##INFO=<ID=SCOUT_CUSTOM,Number=.,Type=String,Description="Custom annotations for scout">'."\n";
+        print '##INFO=<ID=MELT_RANK,Number=.,Type=Number,Description="Evidence level 1-5, 5highest">'."\n";
+        print '##INFO=<ID=MELT_QC,Number=.,Type=String,Description="Quality of call">'."\n";
         $count++;
     }
     else {
@@ -49,6 +51,7 @@ while ( my $a = $vcf->next_var() ) {
     #print Dumper($a);
     my $delly = 0;
     my $manta = 0;
+    my $cnvkit = 0;
     my @callers = split/-/,$a->{INFO}->{set};
     foreach my $caller (@callers) {
         if ($caller =~ /delly/) {
@@ -57,14 +60,17 @@ while ( my $a = $vcf->next_var() ) {
         elsif ($caller =~ /manta/) {
             $manta = 1;
         }
+        elsif ($caller =~ /cnvkit/) {
+            $cnvkit = 1;
+        }
         elsif ($caller =~ /Intersection/) {
-            $delly = 1; $manta = 1;
+            $delly = 1; $manta = 1; $cnvkit = 1;
         }
     }
     next if ($a->{INFO}->{SVTYPE} eq 'BND');
     ## Filter delly-only variants
     my $check = 1;
-    if ($delly == 1 && $manta == 0) {
+    if ($delly == 1 && $manta == 0 && $cnvkit == 0) {
         $check = delly($a);
     }
     
@@ -81,6 +87,7 @@ while ( my $a = $vcf->next_var() ) {
     my @foundin;
     if ($manta) { push @foundin,"manta"; }
     if ($delly) { push @foundin,"delly"; }
+    if ($cnvkit) { push @foundin,"cnvkit"; }
     #print Dumper($a);
     push @INFO,"SCOUT_CUSTOM=Caller|".join('&',@foundin);
     print join(';',@INFO)."\t";
