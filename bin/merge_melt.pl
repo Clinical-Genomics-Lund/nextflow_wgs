@@ -67,7 +67,7 @@ foreach my $file (@files) {
         my $start = $a -> {POS};
 
         ## Filter variants in introns and invalid positions
-        if ($a->{INFO}->{INTERNAL} =~ /INTRONIC|null/) { next; }
+        if ($a->{INFO}->{INTERNAL} =~ /INTRONIC|null|PROMOTER/) { next; }
         ## Filter variants due to low quality for sample
         if ($a->{FILTER} =~ /ac0/) { next; }
 
@@ -98,6 +98,8 @@ foreach my $file (@files) {
         push @scoutcustom,"Filter|".$qcval{$a->{FILTER}};
         push @scoutcustom,"Assess|".$assess{$a->{INFO}->{ASSESS}};
         print OUT join(';',@newinfo).";";
+        print OUT "MELT_RANK=".$a->{INFO}->{ASSESS}.";";
+        print OUT "MELT_QC=".$a->{FILTER}.";";
         print OUT join(',',@scoutcustom)."\t";
 
         print OUT "GT"."\t".$a->{GT}->[0]->{GT};
