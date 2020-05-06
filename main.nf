@@ -329,7 +329,7 @@ process merge_dedup_bam {
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
 
 	output:
-		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel
+		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel
 		set id, group, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam, bam_melt
 		file("${group}.INFO") into bam_INFO
 
@@ -349,6 +349,7 @@ process sentieon_qc {
 	memory '64 GB'
 	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
+	cache 'deep'
 
 	input:
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
@@ -528,7 +529,7 @@ process melt_qc_val {
 		set id, qc from qc_melt
 
 	output:
-		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) into qc_melt_val
+		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) into qc_melt_val, qc_cnvkit_val
 	
 	script:
 		// Collect qc-data if possible from normal sample, if only tumor; tumor
@@ -679,11 +680,11 @@ process gvcf_combine {
 	tag "$group"
 
 	input:
-	set vgroup, ph, file(vcf), file(idx) from complete_vcf.mix(complete_vcf_choice).mix(gvcf_choice).groupTuple()
-	set val(group), val(id), r1, r2 from vcf_info
+		set vgroup, ph, file(vcf), file(idx) from complete_vcf.mix(complete_vcf_choice).mix(gvcf_choice).groupTuple()
+		set val(group), val(id), r1, r2 from vcf_info
 
 	output:
-	set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
+		set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
 
 	script:
 		all_gvcfs = vcf.join(' -v ')
@@ -775,6 +776,7 @@ process split_normalize {
 	cpus 1
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 	tag "$group"
+	cache 'deep'
 
 	when:
 		params.annotate
@@ -802,7 +804,7 @@ process intersect {
 		set group, file(vcf) from split_norm
 
 	output:
-		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus
+		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
 
 	script:
 
@@ -1402,6 +1404,34 @@ process delly_panel {
 	"""
 }
 
+process cnvkit_panel {
+	cpus = 5
+	container = '/fs1/resources/containers/twistmyeloid_active.sif'
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	tag "$id"
+	time '24h'
+	memory '20GB'
+
+	when:
+		params.sv && params.onco
+
+	input:
+		set group, id, file(bam), file(bai) from bam_cnvkit_panel
+		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from qc_cnvkit_val
+		set group, file(vcf) from vcf_cnvkit
+	
+	output:
+		set group, id, file("${id}.cnvkit_filtered.vcf") into called_cnvkit_panel
+
+	"""
+	cnvkit.py batch $bam -r $params.cnvkit_reference -p 5 -d results/
+	cnvkit.py call results/*.cns -v $vcf -o ${id}.call.cns
+	filter_cnvkit.pl ${id}.call.cns $MEAN_DEPTH > ${id}.filtered
+	cnvkit.py export vcf ${id}.filtered > ${id}.cnvkit_filtered.vcf
+	"""
+
+}
+
 process svdb_merge_panel {
 	cpus 1
 	cache 'deep'
@@ -1412,48 +1442,23 @@ process svdb_merge_panel {
 		set group, id, file(mantaV) from called_manta_panel.groupTuple()
 		set group, id, file(dellyV) from called_delly_panel.groupTuple()
 		set group, id, file(melt) from melt_vcf.groupTuple()
+		set group, id, file(cnvkitV) from called_cnvkit_panel.groupTuple()
 				
 	output:
 		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
 		//set group, id, file("${group}.merged.filtered.vcf") into annotsv_panel
 
 	script:
+		tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' } + cnvkitV.collect {it + ':cnvkit ' }
+		vcfs = tmp.join(' ')
 
-		if (mode == "family") {
-			vcfs = []
-			manta = []
-			delly = []
-			for (i = 1; i <= mantaV.size(); i++) {
-				tmp = mantaV[i-1] + ':manta' + "${i}"
-				tmp1 = dellyV[i-1] + ':delly' + "${i}"
-				vcfs = vcfs + tmp + tmp1
-				mt = 'manta' + "${i}"
-				dt = 'delly' + "${i}"
-				manta = manta + mt
-				delly = delly + dt
-			}
-			prio = manta + delly
-			prio = prio.join(',')
-			vcfs = vcfs.join(' ')
-			"""
-			source activate py3-env
-			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio > ${group}.merged_tmp.vcf
-			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
-			filter_panel_cnv.pl ${group}.merged.vcf $params.intersect_bed > ${group}.merged.filtered.vcf
-			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
-			"""
-		}
+		"""
+		source activate py3-env
+		svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,delly,cnvkit > ${group}.merged.vcf
+		filter_panel_cnv.pl ${group}.merged.vcf $params.intersect_bed > ${group}.merged.filtered.vcf
+		vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
+		"""
 
-		else {
-			tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' }
-			vcfs = tmp.join(' ')
-			"""
-			source activate py3-env
-			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,delly > ${group}.merged.vcf
-			filter_panel_cnv.pl ${group}.merged.vcf $params.intersect_bed > ${group}.merged.filtered.vcf
-			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
-			"""
-		}
 
 }
 
