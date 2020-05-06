@@ -71,8 +71,8 @@ close PED;
 print OUT "---\n";
 my $institute = "klingen";
 if ($opt{assay}) { 
-    if ($opt{assay} eq 'onco-solid' ) { $institute = "oncogen" }
-    elsif ($opt{assay} eq 'wgs_38' ) { $institute = "klingen_38" }
+    if ($opt{assay} eq 'oncov1-0' ) { $institute = "oncogen" }
+    elsif ($opt{assay} eq 'wgs_hg38' ) { $institute = "klingen_38" }
 }
 ### ASSAY DECIDE OWNER? ####
 print OUT "owner: $institute\n";
