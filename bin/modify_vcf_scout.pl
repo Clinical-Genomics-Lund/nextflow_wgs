@@ -155,12 +155,16 @@ while( <VEP>) {
         if (defined $csM) {
             my @CSm = split/,/,$csM;
             foreach my $entry (@CSm) {
-                if ($clinmod{$entry}) {
-                    push @mods,$clinmod{$entry};
+                my @split_slash = (split '/', $entry);
+                foreach my $entry_slash (@split_slash) {
+                    if ($clinmod{$entry_slash}) {
+                        push @mods,$clinmod{$entry_slash};
+                    }
+                    else {
+                        push @mods,"_255_";
+                    }
                 }
-                else {
-                    push @mods,"_255_";
-                }
+
             }
             push @add_info_field, "CLNSIG_MOD=".join('|',@mods);
         }
