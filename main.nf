@@ -827,7 +827,7 @@ process add_to_loqusdb {
 		file("${group}.loqus") into loqusdb_done
 
 	"""
-	echo "loqusdb -db loqusdb_38 load -f ${ped.toRealPath()} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
+	echo "loqusdb -db $params.loqusdb load -f ${ped.toRealPath()} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
 	"""
 }
 
@@ -1830,6 +1830,6 @@ process create_yaml {
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		--g $group,$clarity_sample_id --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay $assay
+		--g $group,$clarity_sample_id --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis
 	"""
 }
