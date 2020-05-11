@@ -16,7 +16,12 @@ if ($opt{genome}) { $genome = $opt{genome}; }
 
 ### Assay ###
 my $assay = "wgs";
-if ($opt{assay}) { $assay = $opt{assay}; }
+my $analysis = "";
+if ($opt{assay}) { 
+    my @a_a = split/,/,$opt{assay};
+    $assay = $a_a[0];
+    $analysis = $a_a[1];
+}
 
 ### Group ###
 if (!defined $opt{g}) { print STDERR "need group name"; exit;}
@@ -53,6 +58,10 @@ while ( <INFO> ) {
 close INFO;
 ####################################################
 
+## Rankmodel version
+my $rankm = "5.0";
+my $svrankm = "5.0";
+if ($opt{assay} eq 'oncov1-0' ) { $rankm = "1.0-b"; my $svrankm = "1.0-b"; }
 
 my $kit = "Intersected WGS";
 my $diagnosis = $opt{d};
@@ -71,8 +80,9 @@ close PED;
 print OUT "---\n";
 my $institute = "klingen";
 if ($opt{assay}) { 
-    if ($opt{assay} eq 'oncov1-0' ) { $institute = "oncogen" }
-    elsif ($opt{assay} eq 'wgs_hg38' ) { $institute = "klingen_38" }
+    if ($assay eq 'oncov1-0' && $analysis eq 'screening' ) { $institute = "oncogen" }
+    elsif ($assay eq 'oncov1-0' && $analysis eq 'predictive' ) { $institute = "oncogen" }
+    elsif ($assay eq 'wgs_hg38' ) { $institute = "klingen_38" }
 }
 ### ASSAY DECIDE OWNER? ####
 print OUT "owner: $institute\n";
@@ -167,7 +177,8 @@ else {
     my $panels_str = '"'. join('","', @panels). '"';
     print OUT "default_gene_panels: [$panels_str]\n";
 }
-print OUT "rank_model_version: 5.0\n";
+print OUT "rank_model_version: $rankm\n";
+print OUT "sv_rank_model_version: $svrankm\n";
 print OUT "rank_score_threshold: -1\n";
 print OUT "human_genome_build: $genome\n";
 
