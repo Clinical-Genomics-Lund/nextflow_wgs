@@ -112,6 +112,10 @@ sub delly {
     if ($len <= 1000 && $a->{INFO}->{IMPRECISE}) {
         $check = 0;
     }
+    ## remove precise called variants smaller than 300bp
+    elsif ($len <= 300) {
+        $check = 0;
+    }
     ## remove inversions called with IMPRECISE method
     elsif ($a->{INFO}->{SVTYPE} eq 'INV' && $a->{INFO}->{IMPRECISE}) {
         $check = 0;
