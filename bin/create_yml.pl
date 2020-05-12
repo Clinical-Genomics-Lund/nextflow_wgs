@@ -82,6 +82,7 @@ my $institute = "klingen";
 if ($opt{assay}) { 
     if ($assay eq 'oncov1-0' && $analysis eq 'screening' ) { $institute = "oncogen" }
     elsif ($assay eq 'oncov1-0' && $analysis eq 'predictive' ) { $institute = "oncogen" }
+    elsif ($assay eq 'oncov1-0' ) { $institute = "oncogen" }
     elsif ($assay eq 'wgs_hg38' ) { $institute = "klingen_38" }
 }
 ### ASSAY DECIDE OWNER? ####
