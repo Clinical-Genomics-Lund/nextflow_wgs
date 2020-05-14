@@ -1798,6 +1798,9 @@ process svvcf_to_bed {
 	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 	tag "group"
 
+	when:
+		!params.onco
+
 	input:
 		set group, file(vcf) from svvcf_bed
 
