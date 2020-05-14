@@ -89,17 +89,30 @@ foreach my $file (@files) {
 
         my @scoutcustom;
         my @newinfo;
+        my @qcf = (split ';', $a->{FILTER});
+        my $qcf = '';
+        foreach my $s (@qcf) {
+            if ($s eq 'lc') {
+                $qcf = 'lc';
+            }
+            elsif ($s eq 'PASS') {
+                $qcf = 'PASS';
+            }
+            else {
+                $qcf = $qcf[0];
+            }
+        }
         push @newinfo,"SVTYPE=INS";
         push @newinfo,"END=$start";
         push @scoutcustom,"SCOUT_CUSTOM=Repeat Element|".$alt;
         push @scoutcustom,"Subtype|".$meinfo;
         push @scoutcustom,"Consequence|".$event;
         push @scoutcustom,"Target Site Duplication|".$a->{INFO}->{TSD};
-        push @scoutcustom,"Filter|".$qcval{$a->{FILTER}};
+        push @scoutcustom,"Filter|".$qcval{$qcf};
         push @scoutcustom,"Assess|".$assess{$a->{INFO}->{ASSESS}};
         print OUT join(';',@newinfo).";";
         print OUT "MELT_RANK=".$a->{INFO}->{ASSESS}.";";
-        print OUT "MELT_QC=".$a->{FILTER}.";";
+        print OUT "MELT_QC=".$qcf.";";
         print OUT join(',',@scoutcustom)."\t";
 
         print OUT "GT"."\t".$a->{GT}->[0]->{GT};
