@@ -406,7 +406,7 @@ process qc_to_cdm {
 		rundir = parts[0..idx].join("/")
 
 	"""
-	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay wgs --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
+	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
 	"""
 }
 
