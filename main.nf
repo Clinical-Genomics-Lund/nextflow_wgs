@@ -92,7 +92,7 @@ Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, row.id, row.sex, row.type) }
-	.into { meta_gatkcov; meta_exp}
+	.into { meta_gatkcov; meta_exp; meta_svbed}
 
 
 // Check whether genome assembly is indexed //
@@ -418,10 +418,12 @@ process qc_to_cdm {
 	maxErrors 5
 	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
+
+	when:
+		!params.noupload
 	
 	input:
-		set id, file(qc) from qc_cdm
-		set id, diagnosis, r1, r2 from qc_extra
+		set id, file(qc), diagnosis, r1, r2 from qc_cdm.join(qc_extra)
 
 	output:
 		file("${id}.cdm") into cdm_done
@@ -522,6 +524,8 @@ process vcfbreakmulti_expansionhunter {
 		file("${group}.INFO") into str_INFO
 
 	script:
+		if (father == "") { father = "null" }
+		if (mother == "") { mother = "null" }
 		if (mode == "family") {
 			"""
 			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
@@ -844,6 +848,9 @@ process add_to_loqusdb {
 	cpus 1
 	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
 	tag "$group"
+
+	when:
+		!params.noupload
 
 	input:
 		set group, file(vcf) from vcf_loqus
@@ -1829,12 +1836,14 @@ process svvcf_to_bed {
 
 	input:
 		set group, file(vcf) from svvcf_bed
+		set group, id, sex, type from meta_svbed.filter { item -> item[3] == 'proband' }
 
 	output:
 		file("${group}.sv.bed")
 
+
 	"""
-	svvcf_to_bed.pl $vcf > ${group}.sv.bed
+	cnv2bed.pl --cnv $vcf --pb $id > ${group}.sv.bed
 	"""
 }
 
@@ -1845,6 +1854,9 @@ process create_yaml {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$group"
+
+	when:
+		!params.noupload
 
 	input:
 		file(INFO) from yaml_INFO
