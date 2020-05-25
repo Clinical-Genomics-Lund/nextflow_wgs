@@ -478,6 +478,8 @@ process vcfbreakmulti_expansionhunter {
 		file("${id}.expansionhunter.vcf.gz") into expansionhunter_scout
 
 	script:
+		if (father == "") { father = "null" }
+		if (mother == "") { mother = "null" }
 		if (mode == "family") {
 			"""
 			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}

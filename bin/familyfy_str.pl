@@ -17,10 +17,10 @@ my $out = $opt{out};
 open (OUT,'>',$out);
 
 my @extra_individuals;
-if ($father) {
+if ($father ne "null") {
 	push @extra_individuals,$father;
 }
-if ($mother) {
+if ($mother ne "null") {
 	push @extra_individuals,$mother;
 }
 
