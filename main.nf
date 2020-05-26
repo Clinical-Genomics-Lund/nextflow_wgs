@@ -91,7 +91,7 @@ Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, row.id, row.sex, row.type) }
-	.into { meta_gatkcov; meta_exp; meta_svbed}
+	.into { meta_gatkcov; meta_exp; meta_svbed; meta_pod}
 
 
 // Check whether genome assembly is indexed //
@@ -648,7 +648,7 @@ process create_ped {
 // collects each individual's ped-line and creates one ped-file
 ped_ch
 	.collectFile(sort: true, storeDir: "${OUTDIR}/ped/")
-	.into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound }
+	.into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound; ped_pod }
 
 
 //madeline ped, run if family mode
@@ -1051,7 +1051,7 @@ process fastgnomad {
 		set group, file(vcf) from vcf_gnomad
 
 	output:
-		set group, file("${group}.SNPs.vcf") into vcf_upd, vcf_roh
+		set group, file("${group}.SNPs.vcf") into vcf_upd, vcf_roh, vcf_pod
 
 	"""
 	gzip -c $vcf > ${vcf}.gz
@@ -1501,7 +1501,7 @@ process score_sv {
 	output:
 		set group, file("${group}.snv.scored.sorted.vcf.gz"), file("${group}.snv.scored.sorted.vcf.gz.tbi"), \
 		file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into vcf_yaml
-		set group, file("${group}.sv.scored.sorted.vcf.gz") into svvcf_bed
+		set group, file("${group}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
 				
 	script:
 	
@@ -1548,6 +1548,29 @@ process svvcf_to_bed {
 
 	"""
 	cnv2bed.pl --cnv $vcf --pb $id > ${group}.sv.bed
+	"""
+}
+
+process plot_pod {
+	container = '/fs1/resources/containers/POD_2020-05-19.sif'
+	publishDir "${OUTDIR}/pod", mode: 'copy' , overwrite: 'true'
+	tag "$group"
+	time '1h'
+
+	input:
+		set group, file(snv) from vcf_pod
+		set group, file(cnv) from svvcf_pod
+		file(ped) from ped_pod
+		set group, id, sex, type from meta_pod.filter { item -> item[3] == 'proband' }		
+
+	output:
+		set file("${group}_POD_karyotype.pdf"), file("${group}_POD_results.html")
+
+	when:
+		mode == "family" && trio == true
+
+	"""
+	parental_origin_of_duplication.pl --snv $snv --cnv $cnv --proband $id --ped $ped
 	"""
 }
 
