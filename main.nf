@@ -388,12 +388,13 @@ process sentieon_qc {
 		panel = ""
 		cov = "WgsMetricsAlgo wgs_metrics.txt"
 		assay = "wgs"
-		if( params.onco ) {
+		if( params.onco || params.exome) {
 			target = "--interval $params.intervals"
 			panel = params.panelhs + "${bam}" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
 			assay = "panel"
 		}
+		
 	"""
 	sentieon driver \\
 		-r $genome_file $target \\
@@ -1199,7 +1200,7 @@ process fastgnomad {
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
 	when:
-		!params.onco
+		!params.onco && !params.exome
 
 	input:
 		set group, file(vcf) from vcf_gnomad
@@ -1348,7 +1349,7 @@ process generate_gens_data {
 	cpus 1
 
 	when:
-		!params.onco
+		!params.onco && !params.exome
 
 	input:
 		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1])
@@ -1369,7 +1370,7 @@ process manta {
 	memory '150GB'
 
 	when:
-		params.sv && !params.onco
+		params.sv && !params.onco && !params.exome
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta
@@ -1503,7 +1504,8 @@ process tiddit {
 	memory '32GB'
 
 	when:
-		params.sv && !params.onco
+		params.sv && !params.onco &&  !params.exome
+
 
 	input:
 		set group, id, file(bam), file(bai) from bam_tiddit
@@ -1529,7 +1531,7 @@ process cnvnator {
 	memory '80GB'
 
 	when:
-		params.sv && !params.onco
+		params.sv && !params.onco  &&  !params.exome
 
 	input:
 		set group, id, file(bam), file(bai) from bam_nator
@@ -1832,7 +1834,7 @@ process svvcf_to_bed {
 	tag "group"
 
 	when:
-		!params.onco
+		!params.onco && !params.exome
 
 	input:
 		set group, file(vcf) from svvcf_bed
