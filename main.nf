@@ -1564,7 +1564,7 @@ process plot_pod {
 		set group, id, sex, type from meta_pod.filter { item -> item[3] == 'proband' }		
 
 	output:
-		set file("${group}_POD_karyotype.pdf"), file("${group}_POD_results.html")
+		set file("${id}_POD_karyotype.pdf"), file("${id}_POD_results.html")
 
 	when:
 		mode == "family" && trio == true
