@@ -92,7 +92,7 @@ Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, row.id, row.sex, row.type) }
-	.into { meta_gatkcov; meta_exp; meta_svbed}
+	.into { meta_gatkcov; meta_exp; meta_svbed; meta_pod}
 
 
 // Check whether genome assembly is indexed //
@@ -771,7 +771,7 @@ process create_ped {
 // collects each individual's ped-line and creates one ped-file
 ped_ch
 	.collectFile(sort: true, storeDir: "${OUTDIR}/ped/")
-	.into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound }
+	.into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound; ped_pod }
 
 
 //madeline ped, run if family mode
@@ -1195,7 +1195,7 @@ process peddy {
 // Extract all variants (from whole genome) with a gnomAD af > x%
 process fastgnomad {
 	cpus 2
-	memory '16 GB'
+	memory '32 GB'
 	tag "$group"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
@@ -1206,7 +1206,7 @@ process fastgnomad {
 		set group, file(vcf) from vcf_gnomad
 
 	output:
-		set group, file("${group}.SNPs.vcf") into vcf_upd, vcf_roh
+		set group, file("${group}.SNPs.vcf") into vcf_upd, vcf_roh, vcf_pod
 
 	"""
 	gzip -c $vcf > ${vcf}.gz
@@ -1283,7 +1283,8 @@ process gatkcov {
 	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	cpus 2
-	memory '32 GB'
+	memory '60 GB'
+	time '5h'
 
 	input:
 		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.join(meta_gatkcov, by:1)
@@ -1319,6 +1320,7 @@ process gatkcov {
 process overview_plot {
 	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 	tag "$group"
+	time '1h'
 
 	input:
 		file(upd) from upd_plot
@@ -1347,6 +1349,7 @@ process generate_gens_data {
 	publishDir "${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	cpus 1
+	time '1h'
 
 	when:
 		!params.onco && !params.exome
@@ -1366,7 +1369,7 @@ process manta {
 	cpus = 56
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
-	time '24h'
+	time '5h'
 	memory '150GB'
 
 	when:
@@ -1766,7 +1769,7 @@ process score_sv {
 	output:
 		set group, file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore
 		file("${group}.INFO") into sv_INFO
-		set group, file("${group}.sv.scored.sorted.vcf.gz") into svvcf_bed
+		set group, file("${group}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
 				
 	script:
 	
@@ -1846,6 +1849,29 @@ process svvcf_to_bed {
 
 	"""
 	cnv2bed.pl --cnv $vcf --pb $id > ${group}.sv.bed
+	"""
+}
+
+process plot_pod {
+	container = '/fs1/resources/containers/POD_2020-05-19.sif'
+	publishDir "${OUTDIR}/pod", mode: 'copy' , overwrite: 'true'
+	tag "$group"
+	time '1h'
+
+	input:
+		set group, file(snv) from vcf_pod
+		set group, file(cnv) from svvcf_pod
+		file(ped) from ped_pod
+		set group, id, sex, type from meta_pod.filter { item -> item[3] == 'proband' }		
+
+	output:
+		set file("${id}_POD_karyotype.pdf"), file("${id}_POD_results.html")
+
+	when:
+		mode == "family" && trio == true
+
+	"""
+	parental_origin_of_duplication.pl --snv $snv --cnv $cnv --proband $id --ped $ped
 	"""
 }
 
