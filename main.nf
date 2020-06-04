@@ -776,7 +776,7 @@ process annotate_vep {
 // Annotating variants with clinvar
 process annotate_clinvar {
 	cpus 1
-	memory '32GB'
+	memory '65GB'
 	tag "$group"
 
 	input:
@@ -1035,14 +1035,14 @@ process peddy {
 
 	"""
 	source activate py3-env
-	python -m peddy -p ${task.cpus} $vcf $ped --prefix $group
+	python -m peddy -p ${task.cpus} $vcf $ped --prefix $group --sites hg38
 	"""
 }
 
 // Extract all variants (from whole genome) with a gnomAD af > x%
 process fastgnomad {
 	cpus 2
-	memory '16 GB'
+	memory '32 GB'
 	tag "$group"
 
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
@@ -1128,7 +1128,8 @@ process gatkcov {
 	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	cpus 2
-	memory '32 GB'
+	memory '60 GB'
+	time '5h'
 
 	input:
 		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.join(meta_gatkcov, by:1)
@@ -1164,6 +1165,7 @@ process gatkcov {
 process overview_plot {
 	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 	tag "$group"
+	time '1h'
 
 	input:
 		file(upd) from upd_plot
@@ -1192,6 +1194,7 @@ process generate_gens_data {
 	publishDir "${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	cpus 1
+	time '1h'
 
 	input:
 		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1])
@@ -1208,7 +1211,7 @@ process manta {
 	cpus = 56
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
-	time '24h'
+	time '5h'
 	memory '150GB'
 
 	when:
