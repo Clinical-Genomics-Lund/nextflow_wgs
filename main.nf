@@ -125,6 +125,7 @@ process fastp {
 	tag "$id"
 	container = '/fs1/resources/containers/container_twist-brca.sif'
 	containerOptions = '--bind /fs1/'
+	time '1h'
 
 	when:
 		params.umi
@@ -151,8 +152,9 @@ process fastp {
 // Align fractions of fastq files with BWA
 process bwa_align_sharded {
 	cpus 50
-	memory '64 GB'
+	memory '120 GB'
 	tag "$id $shard"
+	time '5h'
 
 	input:
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
@@ -179,6 +181,8 @@ process bwa_align_sharded {
 process bwa_merge_shards {
 	cpus 50
 	tag "$id"
+	time '1h'
+	memory '120 GB'
 
 	input:
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
@@ -200,7 +204,7 @@ process bwa_merge_shards {
 // ALTERNATIVE PATH: Unsharded BWA, utilize local scratch space.
 process bwa_align {
 	cpus 50
-	memory '64 GB'
+	memory '120 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
@@ -238,6 +242,8 @@ process locus_collector {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$id ($shard_name)"
+	memory '20 GB'
+	time '1h'
 
 	input:
 		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
@@ -260,6 +266,8 @@ process dedup {
 	cpus 16
 	cache 'deep'
 	tag "$id ($shard_name)"
+	time '1h'
+	memory '20 GB'
 
 	input:
 		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) \
@@ -285,6 +293,9 @@ process dedup {
 
 process dedup_metrics_merge {
 	tag "$id"
+	time '5m'
+	memory '1 GB'
+	cpus 1
 
 	input:
 		set id, file(dedup) from dedup_metrics.groupTuple()
@@ -302,6 +313,8 @@ process bqsr {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$id ($shard_name)"
+	memory '20 GB'
+	time '20m'
 
 	input:
 		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from \
@@ -330,6 +343,8 @@ process bqsr {
 process merge_bqsr {
 	publishDir "${OUTDIR}/bqsr", mode: 'copy', overwrite: 'true'
 	tag "$id"
+	memory '10 GB'
+	time '10m'
 
 	input:
 		set id, file(tables) from bqsr_table.groupTuple()
@@ -350,6 +365,8 @@ process merge_dedup_bam {
 	cpus 1
 	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
 	tag "$id"
+	memory '40 GB'
+	time '3h'
 
 	input:
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
@@ -376,6 +393,7 @@ process sentieon_qc {
 	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
 	cache 'deep'
+	time '2h'
 
 	input:
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
@@ -419,6 +437,7 @@ process qc_to_cdm {
 	maxErrors 5
 	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
+	time '10m'
 
 	when:
 		!params.noupload
@@ -471,6 +490,8 @@ process chanjo_sambamba {
 process expansionhunter {
 	tag "$id"
 	cpus 2
+	time '5h'
+	memory '40 GB'
 
 	when:
 		params.str
@@ -494,6 +515,8 @@ process expansionhunter {
 // annotate expansionhunter vcf
 process stranger {
 	tag "$id"
+	memory '1 GB'
+	time '10m'
 
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
@@ -515,6 +538,8 @@ process stranger {
 process vcfbreakmulti_expansionhunter {
 	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
 	tag "$id"
+	time '10m'
+	memory '40 GB'
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
@@ -552,6 +577,8 @@ process vcfbreakmulti_expansionhunter {
 /////////////////////////////////////////////////////////////////////////
 process melt_qc_val {
 	tag "$id"
+	time '2m'
+	memory '50 MB'
 
 	when:
 		params.onco
@@ -593,6 +620,8 @@ process melt {
 	errorStrategy 'retry'
 	container = '/fs1/resources/containers/container_twist-brca.sif'
 	tag "$id"
+	memory '40 GB'
+	time '3h'
 
 	input:
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.join(qc_melt_val)
@@ -652,6 +681,8 @@ process dnascope_bam_choice {
 process dnascope {
 	cpus 16
 	tag "$id ($shard_name)"
+	memory '10 GB'
+	time '30m'
 
 	when:
 		params.varcall
@@ -685,6 +716,8 @@ process merge_gvcf {
 	cpus 16
 	publishDir "${OUTDIR}/gvcf", mode: 'copy' , overwrite: 'true'
 	tag "$id ($group)"
+	memory '5 GB'
+	time '2h'
 
 	input:
 		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple(by: [0,1])
@@ -709,6 +742,8 @@ process merge_gvcf {
 process gvcf_combine {
 	cpus 16
 	tag "$group"
+	memory '5 GB'
+	time '5h'
 
 	input:
 		set vgroup, ph, file(vcf), file(idx) from complete_vcf.mix(complete_vcf_choice).mix(gvcf_choice).groupTuple()
@@ -732,6 +767,7 @@ process gvcf_combine {
 // Create ped from input variables //
 process create_ped {
 	tag "$group"
+	time '5m'
 
 	input:
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from ped
@@ -777,6 +813,9 @@ ped_ch
 //madeline ped, run if family mode
 process madeline {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
+	memory '1 GB'
+	time '30m'
+
 
 	input:
 		file(ped) from ped_mad
@@ -808,6 +847,8 @@ process split_normalize {
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 	tag "$group"
 	cache 'deep'
+	memory '1 GB'
+	time '1h'
 
 	when:
 		params.annotate
@@ -830,6 +871,8 @@ process split_normalize {
 // Intersect VCF, exome/clinvar introns
 process intersect {
 	tag "$group"
+	memory '1 GB'
+	time '15m'
 
 	input:
 		set group, file(vcf) from split_norm
@@ -849,6 +892,8 @@ process add_to_loqusdb {
 	cpus 1
 	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
 	tag "$group"
+	memory '1 MB'
+	time '5m'
 
 	when:
 		!params.noupload
@@ -869,6 +914,8 @@ process annotate_vep {
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	cpus 54
 	tag "$group"
+	memory '150 GB'
+	time '5h'
 
 	input:
 		set group, file(vcf) from split_vep
@@ -906,9 +953,8 @@ process annotate_vep {
 process vcfanno {
 	cpus params.cpu_some
 	errorStrategy 'retry'
-	cache false
 	memory '32GB'
-	time '2h'
+	time '20m'
 
 	input:
 		set group, file(vcf) from vep
@@ -961,6 +1007,7 @@ process inher_models {
 	cpus 6
 	memory '64 GB'
 	tag "$group"
+	time '10m'
 
 	input:
 		set group, file(vcf) from vcfanno_vcf
@@ -981,6 +1028,8 @@ process inher_models {
 process modify_vcf {
 	cpus 1
 	tag "$group"
+	memory '1 GB'
+	time '10m'
 
 	input:
 		set group, file(vcf) from inhermod
@@ -1019,6 +1068,8 @@ process modify_vcf {
 process mark_splice {
 	cpus 1
 	tag "$group"
+	memory '1 GB'
+	time '5m'
 
 	input:
 		set group, file(vcf) from mod_vcf
@@ -1035,6 +1086,8 @@ process mark_splice {
 process extract_indels_for_cadd {
 	cpus 1
 	tag "$group"
+	memory '1 GB'
+	time '5m'
 
 	input:
 		set group, file(vcf) from split_cadd
@@ -1052,6 +1105,8 @@ process indel_vep {
 	cpus 5
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	tag "$group"
+	memory '10 GB'
+	time '3h'
 
 	input:
 		set group, file(vcf) from indel_cadd_vep
@@ -1085,6 +1140,8 @@ process calculate_indel_cadd {
 	stageOutMode 'copy'
 	queue 'bigmem'
 	tag "$group"
+	memory '15 GB'
+	time '3h'
 
 	input:
 		set group, file(vcf) from indel_cadd_vcf
@@ -1103,6 +1160,8 @@ process calculate_indel_cadd {
 process add_cadd_scores_to_vcf {
 	cpus 4
 	tag "$group"
+	memory '1 GB'
+	time '5m'
 
 	input: 
 		set group, file(vcf) from splice_marked
@@ -1125,6 +1184,8 @@ process add_cadd_scores_to_vcf {
 process genmodscore {
 	cpus 2
 	tag "$group"
+	memory '10 GB'
+	time '30m'
 
 	input:
 		set group, file(vcf) from indel_cadd_added
@@ -1198,6 +1259,7 @@ process fastgnomad {
 	memory '32 GB'
 	tag "$group"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	time '2h'
 
 	when:
 		!params.onco && !params.exome
@@ -1219,6 +1281,8 @@ process fastgnomad {
 // Call UPD regions from SNP vcf
 process upd {
 	tag "$group"
+	time '10m'
+	memory '1 GB'
 
 	input:
 		set gr, file(vcf) from vcf_upd
@@ -1247,6 +1311,8 @@ process upd {
 process upd_table {
 	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 	tag "$group"
+	time '10m'
+	memory '1 GB'
 
 	input:
 		set group, file(upd_sites) from upd_table
@@ -1266,6 +1332,8 @@ process upd_table {
 // Call ROH regions from SNP vcf
 process roh {
 	tag "$group"
+	time '10m'
+	memory '1 GB'
 
 	input:
 		set gr, file(vcf) from vcf_roh
@@ -1320,7 +1388,8 @@ process gatkcov {
 process overview_plot {
 	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 	tag "$group"
-	time '1h'
+	time '20m'
+	memory '5 GB'
 
 	input:
 		file(upd) from upd_plot
@@ -1349,7 +1418,8 @@ process generate_gens_data {
 	publishDir "${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	cpus 1
-	time '1h'
+	time '3h'
+	memory '5 GB'
 
 	when:
 		!params.onco && !params.exome
@@ -1370,7 +1440,7 @@ process manta {
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
 	time '5h'
-	memory '150GB'
+	memory '150 GB'
 
 	when:
 		params.sv && !params.onco && !params.exome
@@ -1396,8 +1466,8 @@ process manta_panel {
 	cpus = 56
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
-	time '24h'
-	memory '50GB'
+	time '1h'
+	memory '150 GB'
 
 	when:
 		params.sv && params.onco
@@ -1421,8 +1491,8 @@ process delly_panel {
 	cpus = 5
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
-	time '24h'
-	memory '50GB'
+	time '3h'
+	memory '10 GB'
 
 	when:
 		params.sv && params.onco
@@ -1446,8 +1516,8 @@ process cnvkit_panel {
 	container = '/fs1/resources/containers/twistmyeloid_active.sif'
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
-	time '24h'
-	memory '20GB'
+	time '20m'
+	memory '20 GB'
 
 	when:
 		params.sv && params.onco
@@ -1474,6 +1544,8 @@ process svdb_merge_panel {
 	cache 'deep'
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
+	time '10m'
+	memory '1 GB'
 
 	input:
 		set group, id, file(mantaV) from called_manta_panel.groupTuple()
@@ -1502,9 +1574,9 @@ process svdb_merge_panel {
 process tiddit {
 	cpus = 2
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'   
-	time '24h'
+	time '6h'
 	tag "$id"
-	memory '32GB'
+	memory '10 GB'
 
 	when:
 		params.sv && !params.onco &&  !params.exome
@@ -1529,9 +1601,9 @@ process cnvnator {
 	scratch '/local/scratch'
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	time '10h'
+	time '5h'
 	tag "$id"
-	memory '80GB'
+	memory '80 GB'
 
 	when:
 		params.sv && !params.onco  &&  !params.exome
@@ -1557,11 +1629,12 @@ process cnvnator {
 
 
 process merge_cnvnator {
-	cpus 20
+	cpus 5
 	container = '/fs1/resources/containers/wgs_cnvnator_2019-09-06.sif'
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$group"
-	memory '32GB'
+	memory '1 GB'
+	time '10m'
 
 	input:
 		set group, id, file(chr_vcf) from cnvnator_subchr
@@ -1579,6 +1652,8 @@ process merge_cnvnator {
 
 process post_cnvnator {
 	cpus 1
+	time '10m'
+	memory '40 GB'
 	
 	input:
 		set group, id, file(vcf) from merged_cnvnator
@@ -1598,6 +1673,8 @@ process svdb_merge {
 	cache 'deep'
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
+	time '30m'
+	memory '1 GB'
 
 	input:
 		set group, id, file(mantaV) from called_manta.groupTuple()
@@ -1653,6 +1730,8 @@ process annotsv {
 	cpus 2
 	tag "$group"
 	publishDir "${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true'
+	time '5h'
+	memory '20 GB'
 
 	input:
 		set group, id, file(sv) from annotsv_vcf.mix(annotsv_panel)
@@ -1674,6 +1753,8 @@ process vep_sv {
 	cpus 56
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	tag "$group"
+	memory '150 GB'
+	time '1h'
 	
 	input:
 		set group, id, file(vcf) from vcf_vep.mix(vep_sv_panel)
@@ -1724,6 +1805,8 @@ process postprocess_vep {
 process artefact {
 	cpus 1
 	tag "$group"
+	time '20m'
+	memory '10 GB'
 
 	input:
 		set group, file(sv) from artefact_vcf
@@ -1743,6 +1826,8 @@ process artefact {
 process prescore {
 	cpus 1
 	tag "$group"
+	memory '10 GB'
+	time '30m'
 
 	input:
 		set group, file(sv_artefact) from manip_vcf
@@ -1762,6 +1847,8 @@ process score_sv {
 	cpus 5
 	tag "$group $mode"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	memory '10 GB'
+	time '2h'
 
 	input:
 		set group, file(vcf) from annotatedSV
@@ -1797,6 +1884,8 @@ process compound_finder {
 	cpus 5
 	tag "$group $mode"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	memory '10 GB'
+	time '2h'
 
 	when:
 		mode == "family"
@@ -1835,6 +1924,8 @@ bam_INFO
 process svvcf_to_bed {
 	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 	tag "group"
+	memory '1 GB'
+	time '10m'
 
 	when:
 		!params.onco && !params.exome
@@ -1856,7 +1947,8 @@ process plot_pod {
 	container = '/fs1/resources/containers/POD_2020-05-19.sif'
 	publishDir "${OUTDIR}/pod", mode: 'copy' , overwrite: 'true'
 	tag "$group"
-	time '1h'
+	time '20m'
+	memory '1 GB'
 
 	input:
 		set group, file(snv) from vcf_pod
@@ -1882,6 +1974,9 @@ process create_yaml {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$group"
+	time '5m'
+	memory '1 GB'
+
 
 	when:
 		!params.noupload
