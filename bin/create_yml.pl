@@ -61,7 +61,7 @@ close INFO;
 ## Rankmodel version
 my $rankm = "5.0";
 my $svrankm = "5.0";
-if ($opt{assay} eq 'oncov1-0' ) { $rankm = "1.0-b"; my $svrankm = "1.0-b"; }
+if ($assay} eq 'oncov1-0' ) { $rankm = "SNV-RM-v5.0 "; my $svrankm = "SV-Panel-RM-v1.0"; }
 
 my $kit = "Intersected WGS";
 my $diagnosis = $opt{d};
@@ -79,14 +79,15 @@ close PED;
 ### PRINT YAML ####
 print OUT "---\n";
 my $institute = "klingen";
+my $institute_owner = "klingen";
 if ($opt{assay}) { 
-    if ($assay eq 'oncov1-0' && $analysis eq 'screening' ) { $institute = "oncogen" }
-    elsif ($assay eq 'oncov1-0' && $analysis eq 'predictive' ) { $institute = "oncogen" }
-    elsif ($assay eq 'oncov1-0' ) { $institute = "oncogen" }
-    elsif ($assay eq 'wgs_hg38' ) { $institute = "klingen_38" }
+    if ($assay eq 'oncov1-0' && $analysis eq 'screening' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
+    elsif ($assay eq 'oncov1-0' && $analysis eq 'predictive' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
+    elsif ($assay eq 'oncov1-0' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
+    elsif ($assay eq 'wgs_hg38' ) { $institute = "klingen_38"; }
 }
 ### ASSAY DECIDE OWNER? ####
-print OUT "owner: $institute\n";
+print OUT "owner: $institute_owner\n";
 print OUT "family: '$group'\n";
 print OUT "lims_id: '$clarity_id'\n";
 print OUT "samples: \n";
