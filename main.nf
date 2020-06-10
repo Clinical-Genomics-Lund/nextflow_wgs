@@ -71,7 +71,7 @@ gvcf_choice = Channel.create()
 input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : 0)))  }
 
 bam_choice
-	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice }
+	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice; yaml_bam_choice; cov_bam_choice; bam_manta_choice; bam_nator_choice; bam_tiddit_choice }
 
 // Input channels for various meta information //
 Channel
@@ -1132,7 +1132,7 @@ process gatkcov {
 	time '5h'
 
 	input:
-		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.join(meta_gatkcov, by:1)
+		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.mix(cov_bam_choice).join(meta_gatkcov, by:1)
 
 	output:
 		set group, id, type, sex, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot, cov_gens
@@ -1218,7 +1218,7 @@ process manta {
 		params.sv
 
 	input:
-		set group, id, file(bam), file(bai) from bam_manta
+		set group, id, file(bam), file(bai) from bam_manta.mix(bam_manta_choice)
 
 	output:
 		set group, id, file("${id}.manta.vcf.gz"), file("${id}.manta.vcf.gz.tbi") into called_manta
@@ -1244,7 +1244,7 @@ process tiddit {
 		params.sv
 
 	input:
-		set group, id, file(bam), file(bai) from bam_tiddit
+		set group, id, file(bam), file(bai) from bam_tiddit.mix(bam_tiddit_choice)
 
 	output:
 		set group, id, file("${id}.tiddit.filtered.vcf") into called_tiddit
@@ -1270,7 +1270,7 @@ process cnvnator {
 		params.sv
 
 	input:
-		set group, id, file(bam), file(bai) from bam_nator
+		set group, id, file(bam), file(bai) from bam_nator.mix(bam_nator_choice)
 
 	output:
 		set group, id, file("${id}.cnvnator_calls*") into cnvnator_subchr
@@ -1589,7 +1589,7 @@ process create_yaml {
 		!params.noupload
 
 	input:
-		set group, id, file(bam), file(bai) from yaml_bam.groupTuple()
+		set group, id, file(bam), file(bai) from yaml_bam.mix(yaml_bam_choice).groupTuple()
 		set group, file(vcf), file(tbi), file(sv), file(tbi2) from vcf_yaml
 		set file(peddy_check),file(peddy_ped), file(peddy_sex) from peddy_files
 		file(str) from expansionhunter_scout
