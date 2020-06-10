@@ -490,7 +490,7 @@ process chanjo_sambamba {
 process expansionhunter {
 	tag "$id"
 	cpus 2
-	time '5h'
+	time '10h'
 	memory '40 GB'
 
 	when:
@@ -837,7 +837,7 @@ process madeline {
 		-L "IndividualId" ${ped}.madeline \\
 		-o ${ped}.madeline \\
 		-x xml
-	echo "MADDE ${ped}.madeline.xml" > ${group}.INFO
+	echo "MADDE ${OUTDIR}/ped/${ped}.madeline.xml" > ${group}.INFO
 	"""
 }
 
@@ -952,7 +952,6 @@ process annotate_vep {
 // gene, clinvar, loqusdb, enigma(onco)
 process vcfanno {
 	cpus params.cpu_some
-	errorStrategy 'retry'
 	memory '32GB'
 	time '20m'
 
@@ -1439,7 +1438,7 @@ process manta {
 	cpus = 56
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
-	time '5h'
+	time '10h'
 	memory '150 GB'
 
 	when:
@@ -1805,7 +1804,7 @@ process postprocess_vep {
 process artefact {
 	cpus 1
 	tag "$group"
-	time '20m'
+	time '40m'
 	memory '10 GB'
 
 	input:
