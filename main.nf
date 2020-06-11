@@ -564,7 +564,6 @@ process dnascope {
 // Merge gvcf shards
 process merge_gvcf {
 	cpus 16
-	publishDir "${OUTDIR}/gvcf", mode: 'copy' , overwrite: 'true'
 	tag "$id ($group)"
 
 	input:
