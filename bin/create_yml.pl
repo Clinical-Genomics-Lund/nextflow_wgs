@@ -75,7 +75,7 @@ foreach my $sample (@ped) {
     else { print STDERR "not a valid sex!\n" }
     my @match_bam = grep(/^$pedline[1]/, @bams);
     unless (scalar(@match_bam) == 1) { print STDERR "no matching bam"; exit; }
-    print OUT "    bam_path: $basedir/bam/@match_bam\n";
+    print OUT "    bam_path: /access/wgs/bam/@match_bam\n";
 
 }
 print OUT "vcf_snv: $basedir/vcf/$vcf\n"; 
