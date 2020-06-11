@@ -1144,7 +1144,7 @@ process gatkcov {
 	source activate gatk4-env
 
 	gatk CollectReadCounts \\
-		-I $bam -L $params.COV_INTERVAL_LIST \\
+		-I ${bam.toRealPath()} -L $params.COV_INTERVAL_LIST \\
 		--interval-merging-rule OVERLAPPING_ONLY -O ${bam}.hdf5
 
 	gatk --java-options "-Xmx30g" DenoiseReadCounts \\
@@ -1223,10 +1223,9 @@ process manta {
 	output:
 		set group, id, file("${id}.manta.vcf.gz"), file("${id}.manta.vcf.gz.tbi") into called_manta
 
-	script:
-		bams = bam.join('--bam ')
+
 	"""
-	configManta.py --bam $bams --reference $genome_file --runDir .
+	configManta.py --bam ${bam.toRealPath()} --reference $genome_file --runDir .
 	python runWorkflow.py -m local -j ${task.cpus}
 	mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
 	mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
@@ -1250,7 +1249,7 @@ process tiddit {
 		set group, id, file("${id}.tiddit.filtered.vcf") into called_tiddit
 
 	"""
-	TIDDIT.py --sv -o ${id}.tiddit --bam $bam
+	TIDDIT.py --sv -o ${id}.tiddit --bam ${bam.toRealPath()}
 	grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
 	"""
 }
@@ -1274,6 +1273,9 @@ process cnvnator {
 
 	output:
 		set group, id, file("${id}.cnvnator_calls*") into cnvnator_subchr
+
+	script:
+		bam = bam.toRealPath()
 
 	shell:
 	'''
