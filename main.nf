@@ -382,7 +382,7 @@ process merge_dedup_bam {
 
 	"""
 	sentieon util merge -i ${bams_sorted_str} -o ${id}_merged_dedup.bam --mergemode 10
-	echo "BAM	$id	${OUTDIR}/bam/${id}_merged_dedup.bam" > ${group}.INFO
+	echo "BAM	$id	/access/${params.subdir}/bam/${id}_merged_dedup.bam" > ${group}.INFO
 	"""
 }
 
