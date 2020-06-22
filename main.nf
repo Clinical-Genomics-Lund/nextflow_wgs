@@ -397,7 +397,7 @@ process qc_to_cdm {
 process chanjo_sambamba {
 	cpus 16
 	memory '64 GB'
-	publishDir "${OUTDIR}/cov"
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
 	tag "$id"
 
 	when:
@@ -515,6 +515,7 @@ process dnascope_bam_choice {
 
 	output:
 		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
+		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens_choice
 
 	script:
 	vgroup = "vcfs"
@@ -1196,7 +1197,7 @@ process generate_gens_data {
 	time '1h'
 
 	input:
-		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.join(cov_gens, by:[1])
+		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.mix(gvcf_gens_choice).join(cov_gens, by:[1])
 
 	output:
 		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz"), file("${id}.cov.bed.gz.tbi"), file("${id}.baf.bed.gz.tbi")
