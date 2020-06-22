@@ -462,7 +462,7 @@ process qc_to_cdm {
 process chanjo_sambamba {
 	cpus 16
 	memory '64 GB'
-	publishDir "${OUTDIR}/cov"
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
 	tag "$id"
 
 	when:
