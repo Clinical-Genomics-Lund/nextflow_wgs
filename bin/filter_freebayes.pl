@@ -16,6 +16,9 @@ while ( my $a = $vcf->next_var() ) {
 
     if ($a->{INFO}->{CLNSIG}) {
         #print Dumper($a);
+            if ($a->{GT}->[0]->{GT} eq '0/0') {
+                next;
+            }
         if ($a->{INFO}->{CLNSIG} eq 'Pathogenic') {
             my @str = split/\t/,$a->{vcf_str};
             print join("\t",@str[0..6])."\t";
@@ -28,7 +31,7 @@ while ( my $a = $vcf->next_var() ) {
 
             print "GT:AD:DP:GQ:PGT:PID:PL\t";
             
-            print $a->{GT}->[0]->{GT}.":".$a->{GT}->[0]->{AD}.":".$a->{GT}->[0]->{DP}.":"."0".":"."0".":"."0".":"."0";
+            print $a->{GT}->[0]->{GT}.":"."100,100".":"."200".":"."0".":"."0".":"."0".":"."0";
 
 
             print "\n";
