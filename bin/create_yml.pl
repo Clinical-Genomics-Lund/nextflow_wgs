@@ -4,53 +4,95 @@ use strict;
 use Data::Dumper;
 use Getopt::Long;
 my %opt = ();
-GetOptions( \%opt, 'b=s', 'g=s', 'd=s', 'p=s', 'snv=s', 'sv=s', 'str=s', 'out=s', 'genome=s', 'antype=s', 'ped=s', 'dir=s' );
-my $vcf = $opt{snv};
-my $vcf_str = $opt{str};
-my $vcf_sv = $opt{sv};
-my $out = $opt{out};
+GetOptions( \%opt, 'g=s', 'd=s', 'p=s', 'out=s', 'genome=s', 'antype=s', 'ped=s', 'assay=s', 'files=s' );
+
+### Analysis type ###
+my $antype = "wgs";
+if ($opt{antype}) { $antype = $opt{antype}; }
+
+### Genome build ###
+my $genome = "38";
+if ($opt{genome}) { $genome = $opt{genome}; }
+
+### Assay ###
+my $assay = "wgs";
+my $analysis = "";
+if ($opt{assay}) { 
+    my @a_a = split/,/,$opt{assay};
+    $assay = $a_a[0];
+    $analysis = $a_a[1];
+}
+
+### Group ###
+if (!defined $opt{g}) { print STDERR "need group name"; exit;}
+my @g_c = split/,/,$opt{g};
+my $group = $g_c[0];
+my $clarity_id = $g_c[1];
+
+### Open out, default $group.yaml ###
+my $out = "$group.yaml";
+if ($opt{out}) { $out = $opt{out}; }
 open (OUT,'>',$out);
 
+### Read ped, save individuals ####################
+my $files = $opt{files};
+open (INFO, $files) or die "Cannot open $files\n";
+my %INFO;
+my @bams;
+while ( <INFO> ) {
 
+    my @tmp = split/\s+/,$_;
+    print STDERR $_,"\n";
+    if ($tmp[0] eq "BAM") {
+        $INFO{BAM}->{$tmp[1]} = $tmp[2];
+        
+    }
+    elsif ($tmp[0] eq "TISSUE") {
+        $INFO{TISSUE}->{$tmp[1]} = $tmp[2];
+    }
+    else {
+        $INFO{$tmp[0]} = $tmp[1];
+    }
 
-my $antype = "wgs";
-my $genome = "38";
+}
+close INFO;
+####################################################
+
+## Rankmodel version
+my $rankm = "5.0";
+my $svrankm = "5.0";
+if ($assay eq 'oncov1-0' ) { $rankm = "SNV-RM-v5.0"; $svrankm = "SV-Panel-RM-v1.0"; }
+
 my $kit = "Intersected WGS";
-
-my $BAMS = $opt{b};
-my @bams = split/,/, $BAMS;
-my $group = $opt{g};
-
-my $basedir = $opt{dir};
 my $diagnosis = $opt{d};
 
+### Read ped, save individuals ####################
 my $PED = $opt{ped};
-my $xml = $group.".ped.madeline.xml";
-my $peddy_ped = $group.".peddy.ped";
-my $ped_check = $group.".ped_check.csv";
-my $sexcheck = $group.".sex_check.csv";
-
 open (PED, $PED) or die "Cannot open $PED\n";
 my @ped;
 while ( <PED> ) {
-
     push @ped, $_;
-
 }
 close PED;
+####################################################
+
+### PRINT YAML ####
 print OUT "---\n";
-my $institute;
-if ($diagnosis eq "validering") {
-    print OUT "owner: wgsvalidering\n";
-    $institute = "klingen";
+my $institute = "klingen";
+my $institute_owner = "klingen";
+if ($opt{assay}) { 
+    if ($assay eq 'oncov1-0' && $analysis eq 'screening' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
+    elsif ($assay eq 'oncov1-0' && $analysis eq 'predictive' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
+    elsif ($assay eq 'oncov1-0' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
+    elsif ($assay eq 'wgs_hg38' ) { $institute = "klingen_38"; }
 }
-else {
-    print OUT "owner: klingen_38\n";
-    $institute = "klingen_38";
-}
+### ASSAY DECIDE OWNER? ####
+print OUT "owner: $institute_owner\n";
 print OUT "family: '$group'\n";
+print OUT "lims_id: '$clarity_id'\n";
 print OUT "samples: \n";
 
+### MATCH ped inidividuals with bams ###
 foreach my $sample (@ped) {
     my @pedline = split/\t/,$sample;
     print OUT "  - analysis_type: $antype\n";
@@ -59,6 +101,10 @@ foreach my $sample (@ped) {
     print OUT "    mother: '$pedline[3]'\n";
     print OUT "    father: '$pedline[2]'\n";
     print OUT "    capture_kit: $kit\n";
+    unless ($INFO{TISSUE}{$pedline[1]} eq 'false') {
+        print OUT "    tissue_type: '$INFO{TISSUE}{$pedline[1]}'\n";
+    }
+
     if ($pedline[5] == 1) {
         print OUT "    phenotype: unaffected\n";
     }
@@ -73,21 +119,54 @@ foreach my $sample (@ped) {
         print OUT "    sex: female\n";
     }
     else { print STDERR "not a valid sex!\n" }
-    my @match_bam = grep(/^$pedline[1]/, @bams);
-    unless (scalar(@match_bam) == 1) { print STDERR "no matching bam"; exit; }
-    print OUT "    bam_path: /access/wgs/bam/@match_bam\n";
-
+    if ($INFO{BAM}{$pedline[1]}) {
+        print OUT "    bam_path: $INFO{BAM}{$pedline[1]}\n";
+    }
 }
-print OUT "vcf_snv: $basedir/vcf/$vcf\n"; 
-print OUT "vcf_str: $basedir/vcf/$vcf_str\n";
-print OUT "vcf_sv: $basedir/vcf/$vcf_sv\n";
+##########################################
 
-if (scalar(@bams) > 1 ) {
-    print OUT "madeline: $basedir/ped/$xml\n";
+### Print optional variables ###
+
+## If trio and both SV and SNV calling has been done, SVc should be in INFO-file
+## This contains both SV and SNV info
+if ($INFO{SVc}) {
+    my @tmp = split/,/,$INFO{SVc};
+    print OUT "vcf_snv: $tmp[1]\n"; 
+    print OUT "vcf_sv: $tmp[0]\n";
 }
-print OUT "peddy_ped: $basedir/ped/$peddy_ped\n";
-print OUT "peddy_check: $basedir/ped/$ped_check\n";
-print OUT "peddy_sex: $basedir/ped/$sexcheck\n";
+## If SNV single, check for SNV, if exist, check for SV
+elsif ($INFO{SNV}) {
+    print OUT "vcf_snv: $INFO{SNV}\n";
+    if ($INFO{SV}) {
+        print OUT "vcf_sv: $INFO{SV}\n";
+    } 
+}
+## If only SV calling
+elsif ($INFO{SV}) {
+    print OUT "vcf_sv: $INFO{SV}\n";
+}
+else {
+    print STDERR "need at least one VCF, SV/SNV"; exit;
+}
+if ($INFO{STR}) {
+    print OUT "vcf_str: $INFO{STR}\n";
+}
+
+
+if ($INFO{MADDE}) {
+    print OUT "madeline: $INFO{MADDE}\n";
+}
+
+if ($INFO{PEDDY}) {
+    my @tmp = split/,/,$INFO{PEDDY};
+    print OUT "peddy_ped: $tmp[1]\n";
+    print OUT "peddy_check: $tmp[0]\n";
+    print OUT "peddy_sex: $tmp[2]\n";
+}
+
+
+
+### Print gene panels ###
 my $gene_panels = get_genelist($institute);
 print OUT "gene_panels: [";
 print OUT join ",", @$gene_panels;
@@ -100,9 +179,19 @@ else {
     my $panels_str = '"'. join('","', @panels). '"';
     print OUT "default_gene_panels: [$panels_str]\n";
 }
-print OUT "rank_model_version: 5.0\n";
+print OUT "rank_model_version: $rankm\n";
+print OUT "sv_rank_model_version: $svrankm\n";
 print OUT "rank_score_threshold: -1\n";
 print OUT "human_genome_build: $genome\n";
+
+close OUT;
+
+
+
+
+
+
+
 
 
 sub get_genelist {

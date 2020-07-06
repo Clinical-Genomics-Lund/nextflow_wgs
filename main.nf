@@ -62,13 +62,14 @@ bam_choice = Channel.create()
 vcf_choice = Channel.create()
 fastq_sharded = Channel.create()
 gvcf_choice = Channel.create()
+fastq_umi = Channel.create()
 
 // If input files are fastq -> normal path. Flags affecting; --shardbwa (sharded bwa) --align(req), --varcall(if variant calling is to be done) and --annotate(if --varcall)
 // bam -> skips align and is variant called (if --varcall is present) and annotated (if --annotate is present)
 // vcf skips align + varcall and is only annotated (if --annotate is present)
 
 // If .bam -> value 1, else if .vcf -> value 2 else if .gvcf -> value 4 else if none(.fq.gz) if params.shardbwa true -> value 3 otherwise 0
-input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : 0)))  }
+input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice, fastq_umi) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : (params.umi ? 5 : 0))))  }
 
 bam_choice
 	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice; yaml_bam_choice; cov_bam_choice; bam_manta_choice; bam_nator_choice; bam_tiddit_choice }
@@ -83,7 +84,7 @@ Channel
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
-	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type) }
+	.map{ row-> tuple(row.group, row.id, row.sex, row.mother, row.father, row.phenotype, row.diagnosis, row.type, row.assay, row.clarity_sample_id, (row.containsKey("ffpe") ? row.ffpe : false), (row.containsKey("analysis") ? row.analysis : false) ) }
 	.into { ped; yml_diag; meta_upd; meta_str }
 
 
@@ -119,11 +120,41 @@ genomicshards
 	.merge(tuple(neighbour_shards))
 	.into{ bqsr_shard_shard; varcall_shard_shard }
 
+process fastp {
+	cpus 10
+	tag "$id"
+	container = '/fs1/resources/containers/container_twist-brca.sif'
+	containerOptions = '--bind /fs1/'
+	time '1h'
+
+	when:
+		params.umi
+
+	input:
+		set group, val(id), r1, r2 from fastq_umi
+
+	output:
+		set group, val(id), file("${id}_R1_a_q_u_trimmed.fq.gz"),file("${id}_R2_a_q_u_trimmed.fq.gz") into fastq_trimmed
+
+	script:
+		"""
+		fastp -i $r1 -I $r2 --stdout \\
+			-U --umi_loc=per_read --umi_len=3 \\
+			-w ${task.cpus} \\
+		| fastp --stdin --interleaved_in -f 2 -F 2 \\
+			-o ${id}_R1_a_q_u_trimmed.fq.gz \\
+			-O ${id}_R2_a_q_u_trimmed.fq.gz \\
+			-l 30 \\
+			-w ${task.cpus}
+		"""
+}
+
 // Align fractions of fastq files with BWA
 process bwa_align_sharded {
 	cpus 50
-	memory '64 GB'
+	memory '120 GB'
 	tag "$id $shard"
+	time '5h'
 
 	input:
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
@@ -150,6 +181,8 @@ process bwa_align_sharded {
 process bwa_merge_shards {
 	cpus 50
 	tag "$id"
+	time '1h'
+	memory '120 GB'
 
 	input:
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
@@ -171,14 +204,14 @@ process bwa_merge_shards {
 // ALTERNATIVE PATH: Unsharded BWA, utilize local scratch space.
 process bwa_align {
 	cpus 50
-	memory '64 GB'
+	memory '120 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
 
 	input:
-		set val(group), val(id), file(r1), file(r2) from fastq
+		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
 
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam
@@ -209,6 +242,8 @@ process locus_collector {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$id ($shard_name)"
+	memory '20 GB'
+	time '1h'
 
 	input:
 		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
@@ -231,6 +266,8 @@ process dedup {
 	cpus 16
 	cache 'deep'
 	tag "$id ($shard_name)"
+	time '1h'
+	memory '20 GB'
 
 	input:
 		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) \
@@ -256,6 +293,9 @@ process dedup {
 
 process dedup_metrics_merge {
 	tag "$id"
+	time '5m'
+	memory '1 GB'
+	cpus 1
 
 	input:
 		set id, file(dedup) from dedup_metrics.groupTuple()
@@ -273,6 +313,8 @@ process bqsr {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$id ($shard_name)"
+	memory '20 GB'
+	time '20m'
 
 	input:
 		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from \
@@ -301,6 +343,8 @@ process bqsr {
 process merge_bqsr {
 	publishDir "${OUTDIR}/bqsr", mode: 'copy', overwrite: 'true'
 	tag "$id"
+	memory '10 GB'
+	time '10m'
 
 	input:
 		set id, file(tables) from bqsr_table.groupTuple()
@@ -319,15 +363,18 @@ process merge_bqsr {
 
 process merge_dedup_bam {
 	cpus 1
-	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
 	tag "$id"
+	memory '40 GB'
+	time '3h'
 
 	input:
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
 
 	output:
-		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit
-		set id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam
+		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes
+		set id, group, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam, bam_melt
+		file("${group}.INFO") into bam_INFO
 
 	script:
 		bams_sorted_str = bams.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' -i ')
@@ -335,6 +382,7 @@ process merge_dedup_bam {
 
 	"""
 	sentieon util merge -i ${bams_sorted_str} -o ${id}_merged_dedup.bam --mergemode 10
+	echo "BAM	$id	/access/${params.subdir}/bam/${id}_merged_dedup.bam" > ${group}.INFO
 	"""
 }
 
@@ -344,24 +392,40 @@ process sentieon_qc {
 	memory '64 GB'
 	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
+	cache 'deep'
+	time '2h'
 
 	input:
-		set id, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
+		set id, group, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
 
 	output:
-		set id, file("${id}.QC") into qc_cdm
+		set id, file("${id}.QC") into qc_cdm, qc_melt
 
+	script:
+		target = ""
+		panel = ""
+		cov = "WgsMetricsAlgo wgs_metrics.txt"
+		assay = "wgs"
+		if( params.onco || params.exome) {
+			target = "--interval $params.intervals"
+			panel = params.panelhs + "${bam}" + params.panelhs2 
+			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
+			assay = "panel"
+		}
+		
 	"""
 	sentieon driver \\
-		-r $genome_file -t ${task.cpus} \\
+		-r $genome_file $target \\
+		-t ${task.cpus} \\
 		-i ${bam} \\
 		--algo MeanQualityByCycle mq_metrics.txt \\
 		--algo QualDistribution qd_metrics.txt \\
 		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
 		--algo AlignmentStat aln_metrics.txt \\
 		--algo InsertSizeMetricAlgo is_metrics.txt \\
-		--algo WgsMetricsAlgo wgs_metrics.txt
-	qc_sentieon.pl $id wgs > ${id}.QC
+		--algo $cov
+	$panel
+	qc_sentieon.pl $id $assay > ${id}.QC
 	"""
 }
 
@@ -373,6 +437,7 @@ process qc_to_cdm {
 	maxErrors 5
 	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
+	time '10m'
 
 	when:
 		!params.noupload
@@ -389,7 +454,7 @@ process qc_to_cdm {
 		rundir = parts[0..idx].join("/")
 
 	"""
-	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay wgs --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
+	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
 	"""
 }
 
@@ -425,6 +490,8 @@ process chanjo_sambamba {
 process expansionhunter {
 	tag "$id"
 	cpus 2
+	time '10h'
+	memory '40 GB'
 
 	when:
 		params.str
@@ -448,6 +515,8 @@ process expansionhunter {
 // annotate expansionhunter vcf
 process stranger {
 	tag "$id"
+	memory '1 GB'
+	time '10m'
 
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
@@ -469,13 +538,16 @@ process stranger {
 process vcfbreakmulti_expansionhunter {
 	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
 	tag "$id"
+	time '10m'
+	memory '40 GB'
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
-		set group, id, sex, mother, father, phenotype, diagnosis, type from meta_str.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from meta_str.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("${id}.expansionhunter.vcf.gz") into expansionhunter_scout
+		file("${group}.INFO") into str_INFO
 
 	script:
 		if (father == "") { father = "null" }
@@ -487,6 +559,7 @@ process vcfbreakmulti_expansionhunter {
 			familyfy_str.pl --vcf ${id}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${id}.expansionhunter.vcf
 			bgzip ${id}.expansionhunter.vcf
 			tabix ${id}.expansionhunter.vcf.gz
+			echo "STR	${OUTDIR}/vcf/${id}.expansionhunter.vcf.gz" > ${group}.INFO
 			"""
 		}
 		else {
@@ -495,12 +568,87 @@ process vcfbreakmulti_expansionhunter {
 			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${id}.expansionhunter.vcf
 			bgzip ${id}.expansionhunter.vcf
 			tabix ${id}.expansionhunter.vcf.gz
+			echo "STR	${OUTDIR}/vcf/${id}.expansionhunter.vcf.gz" > ${group}.INFO
 			"""
 		}
 }
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
+process melt_qc_val {
+	tag "$id"
+	time '2m'
+	memory '50 MB'
+
+	when:
+		params.onco
+
+	input:
+		set id, qc from qc_melt
+
+	output:
+		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) into qc_melt_val, qc_cnvkit_val
+	
+	script:
+		// Collect qc-data if possible from normal sample, if only tumor; tumor
+		qc.readLines().each{
+			if (it =~ /\"(ins_size_dev)\" : \"(\S+)\"/) {
+				ins_dev = it =~ /\"(ins_size_dev)\" : \"(\S+)\"/
+			}
+			if (it =~ /\"(mean_coverage)\" : \"(\S+)\"/) {
+				coverage = it =~ /\"(mean_coverage)\" : \"(\S+)\"/
+			}
+			if (it =~ /\"(ins_size)\" : \"(\S+)\"/) {
+				ins_size = it =~ /\"(ins_size)\" : \"(\S+)\"/
+			}
+		}
+		// might need to be defined for -resume to work "def INS_SIZE" and so on....
+		INS_SIZE = ins_size[0][2]
+		MEAN_DEPTH = coverage[0][2]
+		COV_DEV = ins_dev[0][2]
+		"""
+		echo hej > hej
+		"""
+}
+
+// MELT always give VCFs for each type of element defined in mei_list
+// If none found -> 0 byte vcf. merge_melt.pl merges the three, if all empty
+// it creates a vcf with only header from params.meltheader
+// merge_melt.pl gives output ${id}.melt.merged.vcf
+process melt {
+	cpus 3
+	errorStrategy 'retry'
+	container = '/fs1/resources/containers/container_twist-brca.sif'
+	tag "$id"
+	memory '40 GB'
+	time '3h'
+
+	input:
+		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.join(qc_melt_val)
+
+	when:
+		params.onco
+
+	output:
+		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
+
+	"""
+	java -jar  /opt/MELT.jar Single \\
+		-bamfile $bam \\
+		-r 150 \\
+		-h $genome_file \\
+		-n $params.bed_melt \\
+		-z 50000 \\
+		-d 50 -t $params.mei_list \\
+		-w . \\
+		-b 1/2/3/4/5/6/7/8/9/10/11/12/14/15/16/18/19/20/21/22 \\
+		-c $MEAN_DEPTH \\
+		-cov $COV_DEV \\
+		-e $INS_SIZE
+	merge_melt.pl $params.meltheader $id
+	"""
+
+}
 
 // When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
 process dnascope_bam_choice {
@@ -534,6 +682,8 @@ process dnascope_bam_choice {
 process dnascope {
 	cpus 16
 	tag "$id ($shard_name)"
+	memory '10 GB'
+	time '30m'
 
 	when:
 		params.varcall
@@ -566,6 +716,8 @@ process dnascope {
 process merge_gvcf {
 	cpus 16
 	tag "$id ($group)"
+	memory '5 GB'
+	time '2h'
 
 	input:
 		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple(by: [0,1])
@@ -590,13 +742,15 @@ process merge_gvcf {
 process gvcf_combine {
 	cpus 16
 	tag "$group"
+	memory '5 GB'
+	time '5h'
 
 	input:
-	set vgroup, ph, file(vcf), file(idx) from complete_vcf.mix(complete_vcf_choice).mix(gvcf_choice).groupTuple()
-	set val(group), val(id), r1, r2 from vcf_info
+		set vgroup, ph, file(vcf), file(idx) from complete_vcf.mix(complete_vcf_choice).mix(gvcf_choice).groupTuple()
+		set val(group), val(id), r1, r2 from vcf_info
 
 	output:
-	set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
+		set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
 
 	script:
 		all_gvcfs = vcf.join(' -v ')
@@ -613,12 +767,16 @@ process gvcf_combine {
 // Create ped from input variables //
 process create_ped {
 	tag "$group"
+	time '5m'
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis, type from ped
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from ped
+		
 
 	output:
 		file("${group}.ped") into ped_ch
+		set id, val(group) into madde_group
+		file("${group}.INFO") into tissue_INFO
 
 	script:
 		if ( sex =~ /F/) {
@@ -642,6 +800,7 @@ process create_ped {
 
 	"""
 	echo "${group}\t${id}\t${father}\t${mother}\t${sex}\t${phenotype}" > ${group}.ped
+	echo "TISSUE $id $ffpe" > ${group}.INFO
 	"""
 }
 
@@ -654,12 +813,17 @@ ped_ch
 //madeline ped, run if family mode
 process madeline {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
+	memory '1 GB'
+	time '30m'
+
 
 	input:
 		file(ped) from ped_mad
+		set id, val(group) from madde_group
 
 	output:
 		file("${ped}.madeline.xml") into madeline_ped
+		file("${group}.INFO") into madde_INFO
 
 	when:
 		mode == "family"
@@ -673,6 +837,65 @@ process madeline {
 		-L "IndividualId" ${ped}.madeline \\
 		-o ${ped}.madeline \\
 		-x xml
+	echo "MADDE ${OUTDIR}/ped/${ped}.madeline.xml" > ${group}.INFO
+	"""
+}
+
+process freebayes {
+    cpus 1
+    time '2h'
+    container '/fs1/resources/containers/twistmyeloid_2020-06-17.sif'
+
+	when:
+		params.onco
+
+    input:
+        set group, id, file(bam), file(bai) from bam_freebayes
+
+    output:
+        set id, file("${id}.pathfreebayes.lines") into freebayes_concat
+
+
+    """
+    freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 $bam > ${id}.freebayes.vcf
+    vcfbreakmulti ${id}.freebayes.vcf > ${id}.freebayes.multibreak.vcf
+    bcftools norm -m-both -c w -O v -f $genome_file -o ${id}.freebayes.multibreak.norm.vcf ${id}.freebayes.multibreak.vcf
+    vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
+    grep ^# ${id}.freebayes.multibreak.norm.anno.vcf > ${id}.freebayes.multibreak.norm.anno.path.vcf
+    grep -v ^# ${id}.freebayes.multibreak.norm.anno.vcf | grep Pathogenic >> ${id}.freebayes.multibreak.norm.anno.path.vcf
+    filter_freebayes.pl ${id}.freebayes.multibreak.norm.anno.path.vcf > ${id}.pathfreebayes.lines
+    """
+}
+combined_vcf3 = Channel.create()
+combined_vcf_concat = Channel.create()
+
+if (params.onco) {
+	combined_vcf
+		.set { combined_vcf_concat }
+
+}
+
+else {
+	combined_vcf
+		.set { combined_vcf3 }
+}
+
+process concat_freebayes {
+	cpus 1
+	time '10m'
+
+	when:
+		params.onco
+
+	input:
+		set group, id, file(vcf), file(idx) from combined_vcf_concat
+		set id, file(freebayes) from freebayes_concat
+	output:
+		set group, id, file("${id}.concat.freebayes.vcf"), file("${id}.concat.freebayes.vcf.idx") into combined_vcf2
+
+	"""
+	cat $vcf $freebayes > ${id}.concat.freebayes.vcf
+	touch ${id}.concat.freebayes.vcf.idx
 	"""
 }
 
@@ -681,38 +904,58 @@ process split_normalize {
 	cpus 1
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 	tag "$group"
+	cache 'deep'
+	memory '1 GB'
+	time '1h'
 
 	when:
 		params.annotate
 
 	input:
-		set group, id, file(vcf), file(idx) from combined_vcf.mix(vcf_choice)
+		set group, id, file(vcf), file(idx) from combined_vcf2.mix(vcf_choice).mix(combined_vcf3)
 
 	output:
 		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
+		
+	script:
 
+	if (params.onco) {
+	"""
+	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
+	bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
+	vcfstreamsort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
+	cp ${group}.norm.uniq.vcf ${group}.norm.uniq.DPAF.vcf
+	"""
+	}
+	else {
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
 	bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
 	vcfstreamsort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
 	wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
 	"""
+	}
+
 
 }
 
 // Intersect VCF, exome/clinvar introns
 process intersect {
 	tag "$group"
+	memory '1 GB'
+	time '15m'
 
 	input:
 		set group, file(vcf) from split_norm
 
 	output:
-		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus
+		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
 
-	"""
-	bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
-	"""
+	script:
+
+		"""
+		bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
+		"""
 
 }
 
@@ -720,6 +963,8 @@ process add_to_loqusdb {
 	cpus 1
 	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
 	tag "$group"
+	memory '1 MB'
+	time '5m'
 
 	when:
 		!params.noupload
@@ -732,7 +977,7 @@ process add_to_loqusdb {
 		file("${group}.loqus") into loqusdb_done
 
 	"""
-	echo "loqusdb -db loqusdb_38 load -f ${ped.toRealPath()} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
+	echo "loqusdb -db $params.loqusdb load -f ${ped.toRealPath()} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
 	"""
 }
 
@@ -740,6 +985,8 @@ process annotate_vep {
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	cpus 54
 	tag "$group"
+	memory '150 GB'
+	time '5h'
 
 	input:
 		set group, file(vcf) from split_vep
@@ -773,49 +1020,67 @@ process annotate_vep {
 	"""
 }
 
-// Annotating variants with clinvar
-process annotate_clinvar {
-	cpus 1
-	memory '65GB'
-	tag "$group"
+// gene, clinvar, loqusdb, enigma(onco)
+process vcfanno {
+	cpus params.cpu_some
+	memory '32GB'
+	time '20m'
 
 	input:
 		set group, file(vcf) from vep
 
 	output:
-		set group, file("${group}.clinvar.vcf") into snpsift
+		set group, file("${group}.clinvar.loqusdb.gene.vcf") into vcfanno_vcf
 
 	"""
-	SnpSift -Xmx60g annotate $params.CLINVAR \\
-		-info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
+	vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno $vcf > ${group}.clinvar.loqusdb.gene.vcf
 	"""
-
 }
+
+// Annotating variants with clinvar
+// process annotate_clinvar {
+// 	cpus 1
+// 	memory '32GB'
+// 	tag "$group"
+
+// 	input:
+// 		set group, file(vcf) from vep
+
+// 	output:
+// 		set group, file("${group}.clinvar.vcf") into snpsift
+
+// 	"""
+// 	SnpSift -Xmx60g annotate $params.CLINVAR \\
+// 		-info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
+// 	"""
+
+// }
 
 // Annotating variants with Genmod
-process annotate_genmod {
-	cpus 2
-	tag "$group"
+// process annotate_genmod {
+// 	cpus 2
+// 	tag "$group"
 
-	input:
-		set group, file(vcf) from snpsift
+// 	input:
+// 		set group, file(vcf) from snpsift
 
-	output:
-		set group, file("${group}.genmod.vcf") into genmod
+// 	output:
+// 		set group, file("${group}.genmod.vcf") into genmod
 
-	"""
-	genmod annotate --genome-build 38 --annotate_regions $vcf -o ${group}.genmod.vcf
-	"""
-}
+// 	"""
+// 	genmod annotate --genome-build 38 --annotate_regions $vcf -o ${group}.genmod.vcf
+// 	"""
+// }
 
 // # Annotating variant inheritance models:
 process inher_models {
 	cpus 6
 	memory '64 GB'
 	tag "$group"
+	time '10m'
 
 	input:
-		set group, file(vcf) from genmod
+		set group, file(vcf) from vcfanno_vcf
 		file(ped) from ped_inher
 
 	output:
@@ -833,6 +1098,8 @@ process inher_models {
 process modify_vcf {
 	cpus 1
 	tag "$group"
+	memory '1 GB'
+	time '10m'
 
 	input:
 		set group, file(vcf) from inhermod
@@ -848,31 +1115,34 @@ process modify_vcf {
 
 // Adding loqusdb allele frequency to info-field: 
 // ssh needs to work from anywhere, filesystems mounted on cmdscout
-process loqdb {
-	cpus 1
-	queue 'bigmem'
-	errorStrategy 'retry'
-	maxErrors 5
-	tag "$group"
+// process loqdb {
+// 	cpus 1
+// 	queue 'bigmem'
+// 	errorStrategy 'retry'
+// 	maxErrors 5
+// 	tag "$group"
 
-	input:
-		set group, file(vcf) from mod_vcf
+// 	input:
+// 		set group, file(vcf) from mod_vcf
 
-	output:
-		set group, file("${group}.loqdb.vcf") into loqdb_vcf
+// 	output:
+// 		set group, file("${group}.loqdb.vcf") into loqdb_vcf
 
-	"""
-	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
-	/opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT2_MONGODB 38 > ${group}.loqdb.vcf
-	"""
-}
+// 	"""
+// 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
+// 	/opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT2_MONGODB 38 > ${group}.loqdb.vcf
+// 	"""
+// }
+
 // Marking splice INDELs: 
 process mark_splice {
 	cpus 1
 	tag "$group"
+	memory '1 GB'
+	time '5m'
 
 	input:
-		set group, file(vcf) from loqdb_vcf
+		set group, file(vcf) from mod_vcf
 
 	output:
 		set group, file("${group}.marksplice.vcf") into splice_marked
@@ -886,6 +1156,8 @@ process mark_splice {
 process extract_indels_for_cadd {
 	cpus 1
 	tag "$group"
+	memory '1 GB'
+	time '5m'
 
 	input:
 		set group, file(vcf) from split_cadd
@@ -903,6 +1175,8 @@ process indel_vep {
 	cpus 5
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	tag "$group"
+	memory '10 GB'
+	time '3h'
 
 	input:
 		set group, file(vcf) from indel_cadd_vep
@@ -936,6 +1210,8 @@ process calculate_indel_cadd {
 	stageOutMode 'copy'
 	queue 'bigmem'
 	tag "$group"
+	memory '15 GB'
+	time '3h'
 
 	input:
 		set group, file(vcf) from indel_cadd_vcf
@@ -954,6 +1230,8 @@ process calculate_indel_cadd {
 process add_cadd_scores_to_vcf {
 	cpus 4
 	tag "$group"
+	memory '1 GB'
+	time '5m'
 
 	input: 
 		set group, file(vcf) from splice_marked
@@ -976,6 +1254,8 @@ process add_cadd_scores_to_vcf {
 process genmodscore {
 	cpus 2
 	tag "$group"
+	memory '10 GB'
+	time '30m'
 
 	input:
 		set group, file(vcf) from indel_cadd_added
@@ -1003,7 +1283,7 @@ process genmodscore {
 // Bgzipping and indexing VCF: 
 process vcf_completion {
 	cpus 16
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 	tag "$group"
 
 	input:
@@ -1011,10 +1291,12 @@ process vcf_completion {
 
 	output:
 		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf
+		file("${group}.INFO") into snv_INFO
 
 	"""
 	bgzip -@ ${task.cpus} $vcf -f
 	tabix ${vcf}.gz -f
+	echo "SNV	${OUTDIR}/vcf/${group}.scored.vcf.gz" > ${group}.INFO
 	"""
 }
 
@@ -1032,10 +1314,12 @@ process peddy {
 
 	output:
 		set file("${group}.ped_check.csv"),file("${group}.peddy.ped"), file("${group}.sex_check.csv") into peddy_files
+		file("${group}.INFO") into peddy_INFO
 
 	"""
 	source activate py3-env
-	python -m peddy -p ${task.cpus} $vcf $ped --prefix $group --sites hg38
+	python -m peddy --sites hg38 -p ${task.cpus} $vcf $ped --prefix $group
+	echo "PEDDY	${OUTDIR}/ped/${group}.ped_check.csv,${OUTDIR}/ped/${group}.peddy.ped,${OUTDIR}/ped/${group}.sex_check.csv" > ${group}.INFO
 	"""
 }
 
@@ -1044,8 +1328,11 @@ process fastgnomad {
 	cpus 2
 	memory '32 GB'
 	tag "$group"
-
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	time '2h'
+
+	when:
+		!params.onco && !params.exome
 
 	input:
 		set group, file(vcf) from vcf_gnomad
@@ -1064,10 +1351,12 @@ process fastgnomad {
 // Call UPD regions from SNP vcf
 process upd {
 	tag "$group"
+	time '10m'
+	memory '1 GB'
 
 	input:
 		set gr, file(vcf) from vcf_upd
-		set group, id, sex, mother, father, phenotype, diagnosis, type from meta_upd.filter{ item -> item[7] == 'proband' }
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from meta_upd.filter{ item -> item[7] == 'proband' }
 
 	output:
 		file("upd.bed") into upd_plot
@@ -1092,6 +1381,8 @@ process upd {
 process upd_table {
 	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 	tag "$group"
+	time '10m'
+	memory '1 GB'
 
 	input:
 		set group, file(upd_sites) from upd_table
@@ -1111,6 +1402,8 @@ process upd_table {
 // Call ROH regions from SNP vcf
 process roh {
 	tag "$group"
+	time '10m'
+	memory '1 GB'
 
 	input:
 		set gr, file(vcf) from vcf_roh
@@ -1165,7 +1458,8 @@ process gatkcov {
 process overview_plot {
 	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 	tag "$group"
-	time '1h'
+	time '20m'
+	memory '5 GB'
 
 	input:
 		file(upd) from upd_plot
@@ -1194,7 +1488,11 @@ process generate_gens_data {
 	publishDir "${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	cpus 1
-	time '1h'
+	time '3h'
+	memory '5 GB'
+
+	when:
+		!params.onco && !params.exome
 
 	input:
 		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.mix(gvcf_gens_choice).join(cov_gens, by:[1])
@@ -1211,18 +1509,20 @@ process manta {
 	cpus = 56
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
-	time '5h'
-	memory '150GB'
+	time '10h'
+	memory '150 GB'
 
 	when:
-		params.sv
+		params.sv && !params.onco && !params.exome
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta.mix(bam_manta_choice)
 
 	output:
-		set group, id, file("${id}.manta.vcf.gz"), file("${id}.manta.vcf.gz.tbi") into called_manta
+		set group, id, file("${id}.manta.vcf.gz") into called_manta
 
+	script:
+		bams = bam.join('--bam ')
 
 	"""
 	configManta.py --bam ${bam.toRealPath()} --reference $genome_file --runDir .
@@ -1232,15 +1532,125 @@ process manta {
 	"""
 }
 
+process manta_panel {
+	cpus = 56
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	tag "$id"
+	time '1h'
+	memory '150 GB'
+
+	when:
+		params.sv && params.onco
+
+	input:
+		set group, id, file(bam), file(bai) from bam_manta_panel
+
+	output:
+		set group, id, file("${id}.manta.vcf.gz") into called_manta_panel
+
+
+	"""
+	configManta.py --bam ${bam.toRealPath()} --reference $genome_file --runDir . --exome --callRegions $params.bedgz --generateEvidenceBam
+	python runWorkflow.py -m local -j ${task.cpus}
+	mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
+	mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
+	"""
+}
+
+process delly_panel {
+	cpus = 5
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	tag "$id"
+	time '3h'
+	memory '10 GB'
+
+	when:
+		params.sv && params.onco
+
+	input:
+		set group, id, file(bam), file(bai) from bam_delly_panel
+
+	output:
+		set group, id, file("${id}.vcf.gz") into called_delly_panel
+
+
+	"""
+	delly call -g $genome_file -o ${id}.bcf ${bam.toRealPath()}
+	bcftools view ${id}.bcf > ${id}.vcf
+	bgzip -c ${id}.vcf > ${id}.vcf.gz
+	"""
+}
+
+process cnvkit_panel {
+	cpus = 5
+	container = '/fs1/resources/containers/twistmyeloid_active.sif'
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	tag "$id"
+	time '20m'
+	memory '20 GB'
+
+	when:
+		params.sv && params.onco
+
+	input:
+		set group, id, file(bam), file(bai) from bam_cnvkit_panel
+		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from qc_cnvkit_val
+		set group, file(vcf) from vcf_cnvkit
+	
+	output:
+		set group, id, file("${id}.cnvkit_filtered.vcf") into called_cnvkit_panel
+
+	"""
+	cnvkit.py batch ${bam.toRealPath()} -r $params.cnvkit_reference -p 5 -d results/
+	cnvkit.py call results/*.cns -v $vcf -o ${id}.call.cns
+	filter_cnvkit.pl ${id}.call.cns $MEAN_DEPTH > ${id}.filtered
+	cnvkit.py export vcf ${id}.filtered > ${id}.cnvkit_filtered.vcf
+	"""
+
+}
+
+process svdb_merge_panel {
+	cpus 1
+	cache 'deep'
+	tag "$group"
+	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
+	time '10m'
+	memory '1 GB'
+
+	input:
+		set group, id, file(mantaV) from called_manta_panel.groupTuple()
+		set group, id, file(dellyV) from called_delly_panel.groupTuple()
+		set group, id, file(melt) from melt_vcf.groupTuple()
+		set group, id, file(cnvkitV) from called_cnvkit_panel.groupTuple()
+				
+	output:
+		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
+		//set group, id, file("${group}.merged.filtered.vcf") into annotsv_panel
+
+	script:
+		tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' } + cnvkitV.collect {it + ':cnvkit ' }
+		vcfs = tmp.join(' ')
+
+		"""
+		source activate py3-env
+		svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,delly,cnvkit > ${group}.merged.vcf
+		filter_panel_cnv.pl ${group}.merged.vcf $params.intersect_bed > ${group}.merged.filtered.vcf
+		vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
+		"""
+
+
+}
+
 process tiddit {
 	cpus = 2
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'   
-	time '24h'
+	time '6h'
 	tag "$id"
-	memory '32GB'
+	memory '10 GB'
 
 	when:
-		params.sv
+		params.sv && !params.onco &&  !params.exome
+
 
 	input:
 		set group, id, file(bam), file(bai) from bam_tiddit.mix(bam_tiddit_choice)
@@ -1261,12 +1671,12 @@ process cnvnator {
 	scratch '/local/scratch'
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	time '10h'
+	time '5h'
 	tag "$id"
-	memory '80GB'
+	memory '80 GB'
 
 	when:
-		params.sv
+		params.sv && !params.onco  &&  !params.exome
 
 	input:
 		set group, id, file(bam), file(bai) from bam_nator.mix(bam_nator_choice)
@@ -1292,11 +1702,12 @@ process cnvnator {
 
 
 process merge_cnvnator {
-	cpus 20
+	cpus 5
 	container = '/fs1/resources/containers/wgs_cnvnator_2019-09-06.sif'
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$group"
-	memory '32GB'
+	memory '1 GB'
+	time '10m'
 
 	input:
 		set group, id, file(chr_vcf) from cnvnator_subchr
@@ -1314,6 +1725,8 @@ process merge_cnvnator {
 
 process post_cnvnator {
 	cpus 1
+	time '10m'
+	memory '40 GB'
 	
 	input:
 		set group, id, file(vcf) from merged_cnvnator
@@ -1333,9 +1746,11 @@ process svdb_merge {
 	cache 'deep'
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
+	time '30m'
+	memory '1 GB'
 
 	input:
-		set group, id, file(mantaV), file(mantaI) from called_manta.groupTuple()
+		set group, id, file(mantaV) from called_manta.groupTuple()
 		set group, id, file(tidditV) from called_tiddit.groupTuple()
 		set group, id, file(natorV), file(natorI) from called_cnvnator.groupTuple()
 		
@@ -1388,9 +1803,11 @@ process annotsv {
 	cpus 2
 	tag "$group"
 	publishDir "${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true'
+	time '5h'
+	memory '20 GB'
 
 	input:
-		set group, id, file(sv) from annotsv_vcf
+		set group, id, file(sv) from annotsv_vcf.mix(annotsv_panel)
 		
 	output:
 		set group, file("${group}_annotsv.tsv") into annotsv
@@ -1398,9 +1815,9 @@ process annotsv {
 	"""
 	export ANNOTSV="/AnnotSV"
 	/AnnotSV/bin/AnnotSV -SvinputFile $sv \\
-	-typeOfAnnotation full \\
-	-outputDir $group \\
-	-genomeBuild GRCh38
+		-typeOfAnnotation full \\
+		-outputDir $group \\
+		-genomeBuild GRCh38
 	mv $group/*.annotated.tsv ${group}_annotsv.tsv
 	"""
 }
@@ -1409,9 +1826,11 @@ process vep_sv {
 	cpus 56
 	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
 	tag "$group"
+	memory '150 GB'
+	time '1h'
 	
 	input:
-		set group, id, file(vcf) from vcf_vep
+		set group, id, file(vcf) from vcf_vep.mix(vep_sv_panel)
 
 	output:
 		set group, id, file("${group}.vep.vcf") into vep_vcf
@@ -1459,6 +1878,8 @@ process postprocess_vep {
 process artefact {
 	cpus 1
 	tag "$group"
+	time '40m'
+	memory '10 GB'
 
 	input:
 		set group, file(sv) from artefact_vcf
@@ -1478,6 +1899,8 @@ process artefact {
 process prescore {
 	cpus 1
 	tag "$group"
+	memory '10 GB'
+	time '30m'
 
 	input:
 		set group, file(sv_artefact) from manip_vcf
@@ -1496,16 +1919,16 @@ process prescore {
 process score_sv {
 	cpus 5
 	tag "$group $mode"
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	memory '10 GB'
+	time '2h'
 
 	input:
 		set group, file(vcf) from annotatedSV
-		file(ped) from ped_compound
-		set group, file(snv), file(tbi) from snv_sv_vcf
 
 	output:
-		set group, file("${group}.snv.scored.sorted.vcf.gz"), file("${group}.snv.scored.sorted.vcf.gz.tbi"), \
-		file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into vcf_yaml
+		set group, file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore
+		file("${group}.INFO") into sv_INFO
 		set group, file("${group}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
 				
 	script:
@@ -1513,35 +1936,72 @@ process score_sv {
 		if (mode == "family") {
 			"""
 			genmod score -i $group -c $params.svrank_model -r $vcf -o ${group}.sv.scored_tmp.vcf
-			#genmod sort -p -f $group ${group}.sv.scored_tmp.vcf -o ${group}.sv.scored.sorted_tmp.vcf
-			bcftools sort -O v -o ${group}.sv.scored.sorted_tmp.vcf ${group}.sv.scored_tmp.vcf 
-			compound_finder.pl \\
-				--sv ${group}.sv.scored.sorted_tmp.vcf \\
-				--ped $ped --snv $snv \\
-				--osv ${group}.sv.scored.sorted.vcf \\
-				--osnv ${group}.snv.scored.sorted.vcf 
+			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored_tmp.vcf 
 			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
-			bgzip -@ ${task.cpus} ${group}.snv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
-			tabix ${group}.snv.scored.sorted.vcf.gz -f
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}.INFO
 			"""
 		}
 		else {
 			"""
 			genmod score -i $group -c $params.svrank_model_s -r $vcf -o ${group}.sv.scored.vcf
-			#genmod sort -p -f $group ${group}.sv.scored.vcf -o ${group}.sv.scored.sorted.vcf
 			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
 			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
-			mv $snv ${group}.snv.scored.sorted.vcf.gz
-			mv $tbi ${group}.snv.scored.sorted.vcf.gz.tbi
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}.INFO
 			"""
 		}
 }
 
+process compound_finder {
+	cpus 5
+	tag "$group $mode"
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	memory '10 GB'
+	time '2h'
+
+	when:
+		mode == "family"
+
+	input:
+		set group, file(vcf), file(tbi) from sv_rescore
+		file(ped) from ped_compound
+		set group, file(snv), file(tbi) from snv_sv_vcf
+
+	output:
+		set group, file("${group}.snv.rescored.sorted.vcf.gz"), file("${group}.snv.rescored.sorted.vcf.gz.tbi"), \
+			file("${group}.sv.rescored.sorted.vcf.gz"), file("${group}.sv.rescored.sorted.vcf.gz.tbi") into vcf_yaml
+		file("${group}.INFO") into svcompound_INFO
+				
+	script:
+		"""
+		compound_finder.pl \\
+			--sv $vcf --ped $ped --snv $snv \\
+			--osv ${group}.sv.rescored.sorted.vcf \\
+			--osnv ${group}.snv.rescored.sorted.vcf 
+		bgzip -@ ${task.cpus} ${group}.sv.rescored.sorted.vcf -f
+		bgzip -@ ${task.cpus} ${group}.snv.rescored.sorted.vcf -f
+		tabix ${group}.sv.rescored.sorted.vcf.gz -f
+		tabix ${group}.snv.rescored.sorted.vcf.gz -f
+		echo "SVc	${OUTDIR}/vcf/${group}.sv.rescored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.rescored.sorted.vcf.gz" > ${group}.INFO
+		"""
+
+}
+
+// Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
+// If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
+bam_INFO
+	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO)
+	.collectFile()
+	.set{ yaml_INFO }
 process svvcf_to_bed {
 	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 	tag "group"
+	memory '1 GB'
+	time '10m'
+
+	when:
+		!params.onco && !params.exome
 
 	input:
 		set group, file(vcf) from svvcf_bed
@@ -1560,7 +2020,8 @@ process plot_pod {
 	container = '/fs1/resources/containers/POD_2020-05-19.sif'
 	publishDir "${OUTDIR}/pod", mode: 'copy' , overwrite: 'true'
 	tag "$group"
-	time '1h'
+	time '20m'
+	memory '1 GB'
 
 	input:
 		set group, file(snv) from vcf_pod
@@ -1586,31 +2047,26 @@ process create_yaml {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$group"
+	time '5m'
+	memory '1 GB'
+
 
 	when:
 		!params.noupload
 
 	input:
-		set group, id, file(bam), file(bai) from yaml_bam.mix(yaml_bam_choice).groupTuple()
-		set group, file(vcf), file(tbi), file(sv), file(tbi2) from vcf_yaml
-		set file(peddy_check),file(peddy_ped), file(peddy_sex) from peddy_files
-		file(str) from expansionhunter_scout
+		file(INFO) from yaml_INFO
 		file(ped) from ped_scout
-		file(xml) from madeline_ped.ifEmpty('single')
-		set group, id, sex, mother, father, phenotype, diagnosis, type from yml_diag
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from yml_diag
 
 	output:
 		set group, file("${group}.yaml") into yaml
 
 	script:
-		bams = bam.join(',')
-		madde = xml.name != 'single' ? "$xml" : "single"
 
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		--b $bams --g $group --dir $OUTDIR --d $diagnosis \\
-		--p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml \\
-		--snv $vcf --sv $sv --str $str --ped $ped
+		--g $group,$clarity_sample_id --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
 	"""
 }

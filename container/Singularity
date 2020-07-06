@@ -21,6 +21,7 @@ From:nfcore/base:1.7
 	../bin/ /opt
 	/data/bnf/sw/sentieon/sentieon-genomics-201911 /opt
 	../rank_models/ /
+	/data/bnf/sw/melt/MELTv2.1.5/MELT.jar /opt/
 %post
 	rm -rf /var/lib/apt/lists/*
 	apt -y clean
