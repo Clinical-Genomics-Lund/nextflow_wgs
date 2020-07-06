@@ -61,7 +61,7 @@ close INFO;
 ## Rankmodel version
 my $rankm = "5.0";
 my $svrankm = "5.0";
-if ($assay} eq 'oncov1-0' ) { $rankm = "SNV-RM-v5.0 "; my $svrankm = "SV-Panel-RM-v1.0"; }
+if ($assay eq 'oncov1-0' ) { $rankm = "SNV-RM-v5.0"; $svrankm = "SV-Panel-RM-v1.0"; }
 
 my $kit = "Intersected WGS";
 my $diagnosis = $opt{d};
