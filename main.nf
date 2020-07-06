@@ -863,7 +863,7 @@ process freebayes {
     vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
     grep ^# ${id}.freebayes.multibreak.norm.anno.vcf > ${id}.freebayes.multibreak.norm.anno.path.vcf
     grep -v ^# ${id}.freebayes.multibreak.norm.anno.vcf | grep Pathogenic >> ${id}.freebayes.multibreak.norm.anno.path.vcf
-    filter_freebayes ${id}.freebayes.multibreak.norm.anno.path.vcf > ${id}.pathfreebayes.lines
+    filter_freebayes.pl ${id}.freebayes.multibreak.norm.anno.path.vcf > ${id}.pathfreebayes.lines
     """
 }
 combined_vcf3 = Channel.create()
@@ -916,13 +916,26 @@ process split_normalize {
 
 	output:
 		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
+		
+	script:
 
+	if (params.onco) {
+	"""
+	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
+	bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
+	vcfstreamsort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
+	cp ${group}.norm.uniq.vcf ${group}.norm.uniq.DPAF.vcf
+	"""
+	}
+	else {
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
 	bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
 	vcfstreamsort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
 	wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
 	"""
+	}
+
 
 }
 
