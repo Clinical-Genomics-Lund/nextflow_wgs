@@ -19,7 +19,7 @@ while ( my $a = $vcf->next_var() ) {
             if ($a->{GT}->[0]->{GT} eq '0/0') {
                 next;
             }
-        if ($a->{INFO}->{CLNSIG} eq 'Pathogenic') {
+        if ($a->{INFO}->{CLNSIG} eq 'Pathogenic' || $a->{INFO}->{CLNSIG} eq 'Likely_pathogenic' || $a->{INFO}->{CLNSIG} eq 'Pathogenic/Likely_pathogenic' ) {
             my @str = split/\t/,$a->{vcf_str};
             print join("\t",@str[0..6])."\t";
             print "AC=".$a->{INFO}->{AC};
