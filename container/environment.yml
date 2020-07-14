@@ -18,13 +18,14 @@ dependencies:
     - bioconda::vcftools=0.1.16
     - bioconda::perl-vcftools-vcf=0.1.16
     - bioconda::vt=2015.11.10
-    - bioconda::sentieon=201808.08
     - bioconda::expansionhunter=3.1.2
-    - bioconda::delly=0.8.1
+    - bioconda::delly=0.8.3
     - bioconda::manta=1.6.0
     - bioconda::lumpy-sv=0.3.0
     - bioconda::pybigwig=0.3.17
     - bioconda::perl-app-cpanminus=1.7044
     - bioconda::svtyper=0.7.1
+    - bioconda::perl-test-leaktrace=0.16
     - r-base
     - perl-gd
+    - bioconda::fastp=0.20.0

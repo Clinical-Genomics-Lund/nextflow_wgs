@@ -23,26 +23,31 @@ while ( <VCF>   ) {
 
 }
 close VCF;
+my $db = "loqusdb";
+if ($ARGV[2]) {
+    $db = $db."_"."$ARGV[2]";
+}
 
 # Connect to mongodb
 # Set default path
-my $host = "mongodb://cmdscout2.lund.skane.se/loqusdb";
+my $host = "mongodb://cmdscout2.lund.skane.se/$db";
 
 # If on hopper, reverse tunnel needs to bu used. Ports are gotten from an env var, given by second argument
 # Do not use this feature anywhere else than on Hopper!
 if( $ARGV[1] ) {
     if( $ENV{$ARGV[1]} ) {
-	my $port = $ENV{$ARGV[1]};
-	$host = "mongodb://localhost:$port/loqusdb";
+        my $port = $ENV{$ARGV[1]};
+        $host = "mongodb://localhost:$port/$db";
+        print STDERR $host,"\n";
     }
     else {
-	die "No port envvar set for $ARGV[1]";
+	    die "No port envvar set for $ARGV[1]";
     }
 }
 my $client = MongoDB->connect($host);
 
-my $CASES = $client->ns("loqusdb.case");
-my $VARS = $client->ns("loqusdb.variant");
+my $CASES = $client->ns("$db.case");
+my $VARS = $client->ns("$db.variant");
 
 my $num_cases = $CASES->count;
 print STDERR "$num_cases Cases in loqusdb\n";

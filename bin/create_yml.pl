@@ -2,109 +2,208 @@
 use MongoDB;
 use strict;
 use Data::Dumper;
+use Getopt::Long;
+my %opt = ();
+GetOptions( \%opt, 'g=s', 'd=s', 'p=s', 'out=s', 'genome=s', 'antype=s', 'ped=s', 'assay=s', 'files=s' );
+
+### Analysis type ###
 my $antype = "wgs";
-my $genome = "37";
+if ($opt{antype}) { $antype = $opt{antype}; }
+
+### Genome build ###
+my $genome = "38";
+if ($opt{genome}) { $genome = $opt{genome}; }
+
+### Assay ###
+my $assay = "wgs";
+my $analysis = "";
+if ($opt{assay}) { 
+    my @a_a = split/,/,$opt{assay};
+    $assay = $a_a[0];
+    $analysis = $a_a[1];
+}
+
+### Group ###
+if (!defined $opt{g}) { print STDERR "need group name"; exit;}
+my @g_c = split/,/,$opt{g};
+my $group = $g_c[0];
+my $clarity_id = $g_c[1];
+
+### Open out, default $group.yaml ###
+my $out = "$group.yaml";
+if ($opt{out}) { $out = $opt{out}; }
+open (OUT,'>',$out);
+
+### Read ped, save individuals ####################
+my $files = $opt{files};
+open (INFO, $files) or die "Cannot open $files\n";
+my %INFO;
+my @bams;
+while ( <INFO> ) {
+
+    my @tmp = split/\s+/,$_;
+    print STDERR $_,"\n";
+    if ($tmp[0] eq "BAM") {
+        $INFO{BAM}->{$tmp[1]} = $tmp[2];
+        
+    }
+    elsif ($tmp[0] eq "TISSUE") {
+        $INFO{TISSUE}->{$tmp[1]} = $tmp[2];
+    }
+    else {
+        $INFO{$tmp[0]} = $tmp[1];
+    }
+
+}
+close INFO;
+####################################################
+
+## Rankmodel version
+my $rankm = "5.0";
+my $svrankm = "5.0";
+if ($assay eq 'oncov1-0' ) { $rankm = "SNV-RM-v5.0"; $svrankm = "SV-Panel-RM-v1.0"; }
+
 my $kit = "Intersected WGS";
+my $diagnosis = $opt{d};
 
-my $BAMS = $ARGV[0];
-my @bams = split/,/, $BAMS;
-my $group = $ARGV[1];
-
-my $basedir = $ARGV[2];
-my $diagnosis = $ARGV[3];
-
-my $PED = $group.".ped";
-my $vcf = $group.".scored.vcf.gz";
-my $vcf_str = $group.".expansionhunter.vcf.gz";
-my $xml = $group.".ped.madeline.xml";
-my $peddy_ped = $group.".peddy.ped";
-my $ped_check = $group.".ped_check.csv";
-my $sexcheck = $group.".sex_check.csv";
-
+### Read ped, save individuals ####################
+my $PED = $opt{ped};
 open (PED, $PED) or die "Cannot open $PED\n";
 my @ped;
 while ( <PED> ) {
-
     push @ped, $_;
-
 }
 close PED;
-print "---\n";
-my $institute;
-if ($diagnosis eq "validering") {
-    print "owner: wgsvalidering\n";
-    $institute = "klingen";
+####################################################
+
+### PRINT YAML ####
+print OUT "---\n";
+my $institute = "klingen";
+my $institute_owner = "klingen";
+if ($opt{assay}) { 
+    if ($assay eq 'oncov1-0' && $analysis eq 'screening' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
+    elsif ($assay eq 'oncov1-0' && $analysis eq 'predictive' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
+    elsif ($assay eq 'oncov1-0' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
+    elsif ($assay eq 'wgs_hg38' ) { $institute = "klingen_38"; }
 }
-else {
-    print "owner: klingen\n";
-    $institute = "klingen";
-}
-print "family: '$group'\n";
-print "samples: \n";
-my $count = 0;
+### ASSAY DECIDE OWNER? ####
+print OUT "owner: $institute_owner\n";
+print OUT "family: '$group'\n";
+print OUT "lims_id: '$clarity_id'\n";
+print OUT "samples: \n";
+
+### MATCH ped inidividuals with bams ###
 foreach my $sample (@ped) {
     my @pedline = split/\t/,$sample;
-    print "  - analysis_type: $antype\n";
-    print "    sample_id: '$pedline[1]'\n";
-    print "    sample_name: '$pedline[1]'\n";
-    print "    mother: '$pedline[3]'\n";
-    print "    father: '$pedline[2]'\n";
-    print "    capture_kit: $kit\n";
+    print OUT "  - analysis_type: $antype\n";
+    print OUT "    sample_id: '$pedline[1]'\n";
+    print OUT "    sample_name: '$pedline[1]'\n";
+    print OUT "    mother: '$pedline[3]'\n";
+    print OUT "    father: '$pedline[2]'\n";
+    print OUT "    capture_kit: $kit\n";
+    unless ($INFO{TISSUE}{$pedline[1]} eq 'false') {
+        print OUT "    tissue_type: '$INFO{TISSUE}{$pedline[1]}'\n";
+    }
+
     if ($pedline[5] == 1) {
-        print "    phenotype: unaffected\n";
+        print OUT "    phenotype: unaffected\n";
     }
     elsif ($pedline[5] == 2) {
-        print "    phenotype: affected\n";
+        print OUT "    phenotype: affected\n";
     }
     else { print STDERR "not a valid phenotype!\n" }
     if ($pedline[4] == 1) {
-        print "    sex: male\n";
+        print OUT "    sex: male\n";
     }
     elsif ($pedline[4] == 2) {
-        print "    sex: female\n";
+        print OUT "    sex: female\n";
     }
     else { print STDERR "not a valid sex!\n" }
-    my @match_bam = grep(/^$pedline[1]/, @bams);
-    unless (scalar(@match_bam) == 1) { print STDERR "no matching bam"; exit; }
-    print "    bam_path: $basedir/bam/@match_bam\n";
-    $count++;
+    if ($INFO{BAM}{$pedline[1]}) {
+        print OUT "    bam_path: $INFO{BAM}{$pedline[1]}\n";
+    }
 }
-print "vcf_snv: $basedir/vcf/$vcf\n"; ##obs skapa en version för exome specifikt
-print "vcf_str: $basedir/vcf/$vcf_str\n" if -s "$basedir/vcf/$vcf_str";
+##########################################
 
-if (scalar(@bams) > 1 ) {
-    print "madeline: $basedir/ped/$xml\n";
+### Print optional variables ###
+
+## If trio and both SV and SNV calling has been done, SVc should be in INFO-file
+## This contains both SV and SNV info
+if ($INFO{SVc}) {
+    my @tmp = split/,/,$INFO{SVc};
+    print OUT "vcf_snv: $tmp[1]\n"; 
+    print OUT "vcf_sv: $tmp[0]\n";
 }
-print "peddy_ped: $basedir/ped/$peddy_ped\n";
-print "peddy_check: $basedir/ped/$ped_check\n";
-print "peddy_sex: $basedir/ped/$sexcheck\n";
+## If SNV single, check for SNV, if exist, check for SV
+elsif ($INFO{SNV}) {
+    print OUT "vcf_snv: $INFO{SNV}\n";
+    if ($INFO{SV}) {
+        print OUT "vcf_sv: $INFO{SV}\n";
+    } 
+}
+## If only SV calling
+elsif ($INFO{SV}) {
+    print OUT "vcf_sv: $INFO{SV}\n";
+}
+else {
+    print STDERR "need at least one VCF, SV/SNV"; exit;
+}
+if ($INFO{STR}) {
+    print OUT "vcf_str: $INFO{STR}\n";
+}
+
+
+if ($INFO{MADDE}) {
+    print OUT "madeline: $INFO{MADDE}\n";
+}
+
+if ($INFO{PEDDY}) {
+    my @tmp = split/,/,$INFO{PEDDY};
+    print OUT "peddy_ped: $tmp[1]\n";
+    print OUT "peddy_check: $tmp[0]\n";
+    print OUT "peddy_sex: $tmp[2]\n";
+}
+
+
+
+### Print gene panels ###
 my $gene_panels = get_genelist($institute);
-print "gene_panels: [";
-print join ",", @$gene_panels;
-print "]\n";
+print OUT "gene_panels: [";
+print OUT join ",", @$gene_panels;
+print OUT "]\n";
 if ($diagnosis eq "pediatrics") {
-    print "default_gene_panels: []\n";
+    print OUT "default_gene_panels: []\n";
 }
 else {
     my @panels = split /\+/, $diagnosis;
     my $panels_str = '"'. join('","', @panels). '"';
-    print "default_gene_panels: [$panels_str]\n";
+    print OUT "default_gene_panels: [$panels_str]\n";
 }
-print "rank_model_version: 4.1\n";
-print "rank_score_threshold: 0\n";
-print "human_genome_build: $genome\n";
+print OUT "rank_model_version: $rankm\n";
+print OUT "sv_rank_model_version: $svrankm\n";
+print OUT "rank_score_threshold: -1\n";
+print OUT "human_genome_build: $genome\n";
+
+close OUT;
+
+
+
+
+
+
+
 
 
 sub get_genelist {
     my $institute = shift;
     my $host = 'mongodb://cmdscout2.lund.skane.se/scout';
-    if( $ARGV[4] ) {
-        if( $ENV{$ARGV[4]} ) {
-	        my $port = $ENV{$ARGV[4]};
+    if( $opt{p} ) {
+        if( $ENV{$opt{p}} ) {
+	        my $port = $ENV{$opt{p}};
 	        $host = "mongodb://localhost:$port/loqusdb";
         }
         else {
-	        die "No port envvar set for $ARGV[4]";
+	        die "No port envvar set for $opt{p}";
         }
     }
     my $client = MongoDB->connect($host);

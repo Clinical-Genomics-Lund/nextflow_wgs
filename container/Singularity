@@ -1,5 +1,5 @@
 Bootstrap:docker
-From:nfcore/base
+From:nfcore/base:1.7
 
 %labels
 	MAINTAINER Viktor henmyr <viktor.henmyr@skane.se>
@@ -7,20 +7,21 @@ From:nfcore/base
 	VERSION 0.0.2
 
 %environment
-	PATH=/opt/conda/envs/CMD-WGS/bin:/opt/sentieon-genomics-201808.05/bin/:/opt/bin:/opt/conda/envs/py3-env/bin:/TIDDIT:$PATH
+	PATH=/opt/conda/envs/CMD-WGS/bin:/opt/sentieon-genomics-201911/bin/:/opt/bin:/opt/conda/envs/py3-env/bin:/TIDDIT:$PATH
 	PICARD_HOME=/opt/conda/envs/CMD-WGS/share/picard-2.21.2-0/
 	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/
 	export PERL5LIB=$PERL5LIB:/opt/conda/envs/CMD-WGS/lib/site_perl/5.26.2/x86_64-linux-thread-multi/
 	export PERL5LIB=$PERL5LIB:/opt/bin/
 
 %files
-        genmod.patch /
+    genmod.patch /
 	environment.yml /
 	environment_gatk.yml /
 	environment_py3.yml /
 	../bin/ /opt
-	/data/bnf/sw/sentieon/sentieon-genomics-201711.05 /opt
+	/data/bnf/sw/sentieon/sentieon-genomics-201911 /opt
 	../rank_models/ /
+	/data/bnf/sw/melt/MELTv2.1.5/MELT.jar /opt/
 %post
 	rm -rf /var/lib/apt/lists/*
 	apt -y clean
@@ -35,8 +36,8 @@ From:nfcore/base
 	/opt/conda/envs/CMD-WGS/bin/cpanm Path::Tiny --force
 	/opt/conda/envs/CMD-WGS/bin/cpanm MongoDB::Collection
 	/opt/conda/envs/CMD-WGS/bin/cpanm JSON
-        /opt/conda/envs/CMD-WGS/bin/pip install genmod
-        patch /opt/conda/envs/CMD-WGS/lib/python2.7/site-packages/genmod/score_variants/compound_scorer.py /genmod.patch
+    /opt/conda/envs/CMD-WGS/bin/pip install genmod
+    patch /opt/conda/envs/CMD-WGS/lib/python2.7/site-packages/genmod/score_variants/compound_scorer.py /genmod.patch
 
 	cd / && git clone https://github.com/piratical/Madeline_2.0_PDE.git
 	cd Madeline_2.0_PDE && git checkout 8ab82ad51151e4f49e4124ff04afc15a1579fac6
@@ -55,7 +56,7 @@ From:nfcore/base
 
 	/opt/conda/bin/conda env create -f /environment_py3.yml python=3
 	/opt/conda/bin/conda clean -a
-        . /opt/conda/bin/activate py3-env
+    . /opt/conda/bin/activate py3-env
 
 	cd / && git clone https://github.com/SciLifeLab/TIDDIT.git
 	cd TIDDIT && git checkout TIDDIT-2.8.1
@@ -65,7 +66,7 @@ From:nfcore/base
 	cd upd && git checkout 6f34d2e1a890ef7f030a2bf1458b82453835bf27
 	/opt/conda/envs/py3-env/bin/pip install --editable .
 
-        cd / && git clone https://github.com/moonso/stranger.git
+    cd / && git clone https://github.com/moonso/stranger.git
 	cd stranger && git checkout 9cba994073d0c595becd358c1d6d464ae408ce6a
 	/opt/conda/envs/py3-env/bin/pip install --editable .
 
@@ -73,4 +74,4 @@ From:nfcore/base
 	cd SVDB && git checkout 2.2.0
 	/opt/conda/envs/py3-env/bin/pip install --editable .
 
-
+	/opt/conda/envs/CMD-WGS/bin/cpanm List::MoreUtils --force
