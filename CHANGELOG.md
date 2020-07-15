@@ -1,5 +1,32 @@
 # CHANGELOG
 
+### 2.0
+
+#### Features
+- Optional input files, fastq/bam/vcf
+- hg38 alignment and annotations
+- profiles, wgs/onco/exome
+- several new sv-variant callers, melt, cnvkit, delly
+- POD-tool for duplication events in trios
+- Freebayes calling for difficult homopylomers in onco-samples
+- Yaml-creation for scout import overhauled
+- new container with needed software
+- new rank-models for onco (both snv and sv) and wgs (sv-rank not live yet)
+- Various small improvements of code
+
+#### Fixes
+- Optimization of cpu/memory/time for each process
+- Numerous small improvements of several scripts
+
+
+### 1.5.4
+
+#### Features
+- Last hg19 version
+
+#### Fixes
+- Minor file-paths issues resolved
+
 ### 1.5.3
 
 #### Fixes
