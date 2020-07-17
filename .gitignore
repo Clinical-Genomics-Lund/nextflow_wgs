@@ -5,3 +5,4 @@ nextflow.config
 work/
 *.html
 *#
+git.hash
