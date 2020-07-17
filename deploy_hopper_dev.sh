@@ -12,3 +12,6 @@ scp $DIR/configs/nextflow.hopper.config $DEST_HOST:$PIPELINE_DEST/nextflow.confi
 # Copy other files
 scp $DIR/shards_38.csv $DEST_HOST:$PIPELINE_DEST
 scp -r $DIR/bin $DEST_HOST:$PIPELINE_DEST
+
+git rev-parse HEAD > git.hash
+scp $DIR/git.hash $DEST_HOST:$PIPELINE_DEST
