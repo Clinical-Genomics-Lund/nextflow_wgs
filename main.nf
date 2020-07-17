@@ -21,8 +21,15 @@ csv = file(params.csv)
 mode = csv.countLines() > 2 ? "family" : "single"
 trio = csv.countLines() > 3 ? true : false
 println(csv)
-println(mode)
-println(trio)
+println("mode: "+mode)
+println("trio: "+trio)
+// Print commit-version of active deployment
+file(params.git)
+    .readLines()
+    .each { println "git commit-hash: "+it }
+// Print active container
+container = file(params.container).toRealPath()
+println("container: "+container)
 
 workflow.onComplete {
 
@@ -846,52 +853,42 @@ process freebayes {
     time '2h'
     container '/fs1/resources/containers/twistmyeloid_2020-06-17.sif'
 
-	when:
-		params.onco
-
     input:
         set group, id, file(bam), file(bai) from bam_freebayes
 
     output:
         set id, file("${id}.pathfreebayes.lines") into freebayes_concat
 
+	script:
+		if (params.onco) {
+			"""
+			freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 $bam > ${id}.freebayes.vcf
+			vcfbreakmulti ${id}.freebayes.vcf > ${id}.freebayes.multibreak.vcf
+			bcftools norm -m-both -c w -O v -f $genome_file -o ${id}.freebayes.multibreak.norm.vcf ${id}.freebayes.multibreak.vcf
+			vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
+			grep ^# ${id}.freebayes.multibreak.norm.anno.vcf > ${id}.freebayes.multibreak.norm.anno.path.vcf
+			grep -v ^# ${id}.freebayes.multibreak.norm.anno.vcf | grep -i pathogenic > ${id}.freebayes.multibreak.norm.anno.path.vcf2
+			cat ${id}.freebayes.multibreak.norm.anno.path.vcf ${id}.freebayes.multibreak.norm.anno.path.vcf2 > ${id}.freebayes.multibreak.norm.anno.path.vcf3
+			filter_freebayes.pl ${id}.freebayes.multibreak.norm.anno.path.vcf3 > ${id}.pathfreebayes.lines
+			"""
+		}
+		else {
+			"""
+			touch ${id}.pathfreebayes.lines
+			"""
+		}
 
-    """
-    freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 $bam > ${id}.freebayes.vcf
-    vcfbreakmulti ${id}.freebayes.vcf > ${id}.freebayes.multibreak.vcf
-    bcftools norm -m-both -c w -O v -f $genome_file -o ${id}.freebayes.multibreak.norm.vcf ${id}.freebayes.multibreak.vcf
-    vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
-    grep ^# ${id}.freebayes.multibreak.norm.anno.vcf > ${id}.freebayes.multibreak.norm.anno.path.vcf
-    grep -v ^# ${id}.freebayes.multibreak.norm.anno.vcf | grep Pathogenic >> ${id}.freebayes.multibreak.norm.anno.path.vcf
-    filter_freebayes.pl ${id}.freebayes.multibreak.norm.anno.path.vcf > ${id}.pathfreebayes.lines
-    """
-}
-combined_vcf3 = Channel.create()
-combined_vcf_concat = Channel.create()
-
-if (params.onco) {
-	combined_vcf
-		.set { combined_vcf_concat }
-
-}
-
-else {
-	combined_vcf
-		.set { combined_vcf3 }
 }
 
 process concat_freebayes {
 	cpus 1
 	time '10m'
 
-	when:
-		params.onco
-
 	input:
-		set group, id, file(vcf), file(idx) from combined_vcf_concat
+		set group, id, file(vcf), file(idx) from combined_vcf
 		set id, file(freebayes) from freebayes_concat
 	output:
-		set group, id, file("${id}.concat.freebayes.vcf"), file("${id}.concat.freebayes.vcf.idx") into combined_vcf2
+		set group, id, file("${id}.concat.freebayes.vcf"), file("${id}.concat.freebayes.vcf.idx") into combined_vcf_freebayes
 
 	"""
 	cat $vcf $freebayes > ${id}.concat.freebayes.vcf
@@ -904,7 +901,6 @@ process split_normalize {
 	cpus 1
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 	tag "$group"
-	cache 'deep'
 	memory '1 GB'
 	time '1h'
 
@@ -912,29 +908,19 @@ process split_normalize {
 		params.annotate
 
 	input:
-		set group, id, file(vcf), file(idx) from combined_vcf2.mix(vcf_choice).mix(combined_vcf3)
+		set group, id, file(vcf), file(idx) from combined_vcf_freebayes.mix(vcf_choice)
 
 	output:
 		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
 		
 	script:
 
-	if (params.onco) {
-	"""
-	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
-	bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
-	vcfstreamsort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
-	cp ${group}.norm.uniq.vcf ${group}.norm.uniq.DPAF.vcf
-	"""
-	}
-	else {
 	"""
 	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
 	bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
 	vcfstreamsort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
 	wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
 	"""
-	}
 
 
 }
