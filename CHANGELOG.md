@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### 2.0.1
+
+#### Features
+- added container and git-hash to logging
+
+#### Fixes
+- pathing through freebayes cause nextflow to not recieve completion status, now wgs is run through freebayes with touch-command only
+
 ### 2.0
 
 #### Features
