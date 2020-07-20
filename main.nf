@@ -1630,7 +1630,7 @@ process svdb_merge_panel {
 process tiddit {
 	cpus = 2
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'   
-	time '6h'
+	time '10h'
 	tag "$id"
 	memory '10 GB'
 
