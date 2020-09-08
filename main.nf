@@ -133,6 +133,7 @@ process fastp {
 	container = '/fs1/resources/containers/container_twist-brca.sif'
 	containerOptions = '--bind /fs1/'
 	time '1h'
+	memory '20 GB'
 
 	when:
 		params.umi
@@ -1732,7 +1733,7 @@ process svdb_merge {
 	cache 'deep'
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
-	time '30m'
+	time '2h'
 	memory '1 GB'
 
 	input:
