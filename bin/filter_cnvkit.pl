@@ -17,7 +17,7 @@ while (<TSV>) {
     if ($row[3] eq '-') {next;}
     # ignore normal cn calls
     if ($row[6] == 2) {next;}
-
+    if ($row[2] - $row[1] > 100000) { next; }
     # ignore hetdels with depths below 10% of average
     elsif ($row[6] == 1) {
         if ($row[9]/$cov <= 0.10) {
