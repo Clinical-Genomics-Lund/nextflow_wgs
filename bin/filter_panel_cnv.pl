@@ -86,7 +86,8 @@ while ( my $a = $vcf->next_var() ) {
 
     my @foundin;
     if ($manta) { push @foundin,"manta"; }
-    if ($delly) { push @foundin,"delly"; }
+    if ($delly && $a->{INFO}->{IMPRECISE}) { push @foundin,"delly~imprecise"; }
+    if ($delly && $a->{INFO}->{PRECISE}) { push @foundin,"delly~precise"; }
     if ($cnvkit) { push @foundin,"cnvkit"; }
     #print Dumper($a);
     push @INFO,"SCOUT_CUSTOM=Caller|".join('&',@foundin);

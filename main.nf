@@ -1865,7 +1865,7 @@ process postprocess_vep {
 process artefact {
 	cpus 1
 	tag "$group"
-	time '2h'
+	time '10h'
 	memory '10 GB'
 
 	input:
