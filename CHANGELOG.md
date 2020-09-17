@@ -1,5 +1,14 @@
 # CHANGELOG
 
+### 2.0.2
+
+#### Features
+- added specific delly filtering script
+  - now correctly filters breakpoints outside panel
+- filter_panel_cnv.pl now only annotates for scout
+  - delly precise/imprecise annotation
+- new artifact database for SV-calling for WGS and oncogenetics
+
 ### 2.0.1
 
 #### Features
