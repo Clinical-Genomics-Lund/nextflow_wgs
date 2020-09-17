@@ -1558,13 +1558,14 @@ process delly_panel {
 		set group, id, file(bam), file(bai) from bam_delly_panel
 
 	output:
-		set group, id, file("${id}.vcf.gz") into called_delly_panel
+		set group, id, file("${id}.delly.vcf.gz") into called_delly_panel
 
 
 	"""
 	delly call -g $genome_file -o ${id}.bcf ${bam.toRealPath()}
 	bcftools view ${id}.bcf > ${id}.vcf
-	bgzip -c ${id}.vcf > ${id}.vcf.gz
+	filter_delly.pl --vcf ${id}.vcf --bed $params.intersect_bed > ${id}.delly.vcf
+	bgzip -c ${id}.delly.vcf > ${id}.delly.vcf.gz
 	"""
 }
 
@@ -1621,7 +1622,7 @@ process svdb_merge_panel {
 		"""
 		source activate py3-env
 		svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,delly,cnvkit > ${group}.merged.vcf
-		filter_panel_cnv.pl ${group}.merged.vcf $params.intersect_bed > ${group}.merged.filtered.vcf
+		filter_panel_cnv.pl ${group}.merged.vcf > ${group}.merged.filtered.vcf
 		vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
 		"""
 

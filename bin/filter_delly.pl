@@ -8,10 +8,9 @@ use strict;
 use Data::Dumper;
 
 my %opt = ();
-GetOptions( \%opt, 'vcf=s', 'bed=s', 'tumor-id=s' );
+GetOptions( \%opt, 'vcf=s', 'bed=s', 'tumor-id=s', 'mean-depth=s' );
 
-my $vcf = CMD::vcf2->new('file'=>$opt{vcf} );
-
+my $vcf = vcf2->new('file'=>$opt{vcf} );
 my $bed = $opt{bed};
 open (BED, $bed) or die $!;
 my %bed;
@@ -79,6 +78,11 @@ while ( my $a = $vcf->next_var() ) {
         }
         print "\t".$gtmod2;
     }
+    # foreach my $ind ( @{$a->{GT}} ) { 
+        
+    #    print "\t".$ind->{RC} / ($a->{INFO}->{END} - $a->{POS})."\t";
+    # }
+    # print ($a->{INFO}->{END} - $a->{POS});
     print "\n";
 
 }
@@ -116,6 +120,7 @@ sub delly {
     elsif ($a->{INFO}->{PRECISE} ) {
         my $RVOK = 0;
         my $GENOK = 0;
+        my $readsperbp = 0;
         foreach my $ind ( @{$a->{GT}} ) {
             if ($ind->{RV} >= 5) {
                 $RVOK = 1;
@@ -123,10 +128,13 @@ sub delly {
             if ($ind->{GT} eq '0/1' || $ind->{GT} eq '1/1' ) {
                 $GENOK = 1;
             }
+            if ($ind->{RC} / ($a->{INFO}->{END} - $a->{POS}) > 1) {
+                $readsperbp = 1;
+            }
         }
-        if ($RVOK == 0 || $GENOK == 0) {
+        if ($RVOK == 0 || $GENOK == 0 || $readsperbp == 0) {
             $check = 0;
-        }
+        } 
     }
     ## remove low-quality IMPRECISE variants   
     elsif ($a->{FILTER} ne 'PASS' && $a->{INFO}->{IMPRECISE}) {
@@ -136,6 +144,7 @@ sub delly {
     elsif ($a->{INFO}->{IMPRECISE} ) {
         my $DVOK = 0;
         my $GENOK = 0;
+        my $readsperbp = 0;
         foreach my $ind ( @{$a->{GT}} ) {
             if ($ind->{DV} >= 20) {
                 $DVOK = 1;
@@ -143,14 +152,17 @@ sub delly {
             if ($ind->{GT} eq '0/1' || $ind->{GT} eq '1/1' ) {
                 $GENOK = 1;
             }
+            if ($ind->{RC} / ($a->{INFO}->{END} - $a->{POS}) > 1) {
+                $readsperbp = 1;
+            }
         }
-        if ($DVOK == 0 || $GENOK == 0) {
+        if ($DVOK == 0 || $GENOK == 0 || $readsperbp == 0) {
             $check = 0;
         }
     }
     #print Dumper($a);
     ## Remove variants where no breakpoints of precise variants are within design of panel
-    else {
+    if ($a->{INFO}->{PRECISE} ) {
         my $s_ok = 0;
         my $e_ok = 0;
         foreach my $probe (keys %{ $ref->{ $a->{CHROM} } }) {
@@ -166,6 +178,7 @@ sub delly {
             }    
         }
         if ($s_ok + $e_ok < 1) {
+            #print $s_ok+$e_ok."OKOK\n\n";
             $check = 0;
         }
     }
