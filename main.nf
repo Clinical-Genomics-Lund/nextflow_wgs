@@ -251,7 +251,7 @@ process locus_collector {
 	maxErrors 5
 	tag "$id ($shard_name)"
 	memory '20 GB'
-	time '1h'
+	time '2h'
 
 	input:
 		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
@@ -274,7 +274,7 @@ process dedup {
 	cpus 16
 	cache 'deep'
 	tag "$id ($shard_name)"
-	time '1h'
+	time '2h'
 	memory '20 GB'
 
 	input:
@@ -322,7 +322,7 @@ process bqsr {
 	maxErrors 5
 	tag "$id ($shard_name)"
 	memory '20 GB'
-	time '20m'
+	time '1h'
 
 	input:
 		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from \
@@ -402,6 +402,9 @@ process sentieon_qc {
 	tag "$id"
 	cache 'deep'
 	time '2h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
@@ -662,6 +665,9 @@ process melt {
 process dnascope_bam_choice {
 	cpus 54
 	tag "$id"
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.varcall
@@ -1498,6 +1504,9 @@ process manta {
 	tag "$id"
 	time '10h'
 	memory '150 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.sv && !params.onco && !params.exome
@@ -1525,6 +1534,9 @@ process manta_panel {
 	tag "$id"
 	time '1h'
 	memory '150 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.sv && params.onco
@@ -1550,7 +1562,7 @@ process delly_panel {
 	tag "$id"
 	time '3h'
 	memory '10 GB'
-
+	
 	when:
 		params.sv && params.onco
 
@@ -1576,6 +1588,9 @@ process cnvkit_panel {
 	tag "$id"
 	time '20m'
 	memory '20 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.sv && params.onco
@@ -1604,6 +1619,9 @@ process svdb_merge_panel {
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
 	time '10m'
 	memory '1 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set group, id, file(mantaV) from called_manta_panel.groupTuple()
@@ -1635,6 +1653,9 @@ process tiddit {
 	time '10h'
 	tag "$id"
 	memory '10 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.sv && !params.onco &&  !params.exome
@@ -1736,6 +1757,9 @@ process svdb_merge {
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
 	time '2h'
 	memory '1 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set group, id, file(mantaV) from called_manta.groupTuple()
@@ -1868,6 +1892,9 @@ process artefact {
 	tag "$group"
 	time '10h'
 	memory '10 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set group, file(sv) from artefact_vcf

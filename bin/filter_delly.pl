@@ -10,7 +10,7 @@ use Data::Dumper;
 my %opt = ();
 GetOptions( \%opt, 'vcf=s', 'bed=s', 'tumor-id=s', 'mean-depth=s' );
 
-my $vcf = vcf2->new('file'=>$opt{vcf} );
+my $vcf = CMD::vcf2->new('file'=>$opt{vcf} );
 my $bed = $opt{bed};
 open (BED, $bed) or die $!;
 my %bed;
