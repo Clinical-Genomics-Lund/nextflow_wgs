@@ -697,7 +697,7 @@ process dnascope {
 	cpus 16
 	tag "$id ($shard_name)"
 	memory '10 GB'
-	time '30m'
+	time '1h'
 
 	when:
 		params.varcall
