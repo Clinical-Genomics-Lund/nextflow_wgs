@@ -109,6 +109,8 @@ elsif ($type eq "panel") {
             #print "median_coverage: $a[22]\n";
             $results{'fold_80'} = $a[32];
             #print "fold_80: $a[32]\n";
+            $results{'at_drop'} = $a[48];
+            $results{'gc_drop'} = $a[49];
 	    }
     }
     close HS;
