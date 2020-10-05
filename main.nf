@@ -250,7 +250,7 @@ process locus_collector {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$id ($shard_name)"
-	memory '20 GB'
+	memory '60 GB'
 	time '2h'
 
 	input:
@@ -276,7 +276,7 @@ process dedup {
 	cache 'deep'
 	tag "$id ($shard_name)"
 	time '2h'
-	memory '20 GB'
+	memory '60 GB'
 
 	input:
 		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) \
@@ -323,7 +323,7 @@ process bqsr {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$id ($shard_name)"
-	memory '20 GB'
+	memory '60 GB'
 	time '1h'
 
 	input:
@@ -1034,40 +1034,6 @@ process vcfanno {
 	"""
 }
 
-// Annotating variants with clinvar
-// process annotate_clinvar {
-// 	cpus 1
-// 	memory '32GB'
-// 	tag "$group"
-
-// 	input:
-// 		set group, file(vcf) from vep
-
-// 	output:
-// 		set group, file("${group}.clinvar.vcf") into snpsift
-
-// 	"""
-// 	SnpSift -Xmx60g annotate $params.CLINVAR \\
-// 		-info CLNSIG,CLNACC,CLNREVSTAT $vcf > ${group}.clinvar.vcf
-// 	"""
-
-// }
-
-// Annotating variants with Genmod
-// process annotate_genmod {
-// 	cpus 2
-// 	tag "$group"
-
-// 	input:
-// 		set group, file(vcf) from snpsift
-
-// 	output:
-// 		set group, file("${group}.genmod.vcf") into genmod
-
-// 	"""
-// 	genmod annotate --genome-build 38 --annotate_regions $vcf -o ${group}.genmod.vcf
-// 	"""
-// }
 
 // # Annotating variant inheritance models:
 process inher_models {
@@ -1109,27 +1075,6 @@ process modify_vcf {
 	"""
 } 
 
-
-// Adding loqusdb allele frequency to info-field: 
-// ssh needs to work from anywhere, filesystems mounted on cmdscout
-// process loqdb {
-// 	cpus 1
-// 	queue 'bigmem'
-// 	errorStrategy 'retry'
-// 	maxErrors 5
-// 	tag "$group"
-
-// 	input:
-// 		set group, file(vcf) from mod_vcf
-
-// 	output:
-// 		set group, file("${group}.loqdb.vcf") into loqdb_vcf
-
-// 	"""
-// 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
-// 	/opt/bin/loqus_db_filter.pl $vcf PORT_CMDSCOUT2_MONGODB 38 > ${group}.loqdb.vcf
-// 	"""
-// }
 
 // Marking splice INDELs: 
 process mark_splice {
