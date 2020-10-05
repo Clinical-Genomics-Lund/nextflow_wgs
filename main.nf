@@ -262,6 +262,7 @@ process locus_collector {
 
 	"""
 	sentieon driver \\
+		--temp_dir /local/scratch/ \\
 		-t ${task.cpus} \\
 		-i $bam $shard \\
 		--algo LocusCollector \\
@@ -290,6 +291,7 @@ process dedup {
 
 	"""
 	sentieon driver \\
+		--temp_dir /local/scratch/ \\
 		-t ${task.cpus} \\
 		-i $bam $shard \\
 		--algo Dedup --score_info $scores \\
@@ -340,6 +342,7 @@ process bqsr {
 
 	"""
 	sentieon driver \\
+		--temp_dir /local/scratch/ \\
 		-t ${task.cpus} \\
 		-r $genome_file \\
 		-i $bam_neigh $shard \\
@@ -718,6 +721,7 @@ process dnascope {
 
 	"""
 	sentieon driver \\
+		--temp_dir /local/scratch/ \\
 		-t ${task.cpus} \\
 		-r $genome_file \\
 		-i $bam_neigh $shard \\
