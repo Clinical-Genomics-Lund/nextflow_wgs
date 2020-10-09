@@ -134,6 +134,9 @@ process fastp {
 	containerOptions = '--bind /fs1/'
 	time '1h'
 	memory '20 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.umi
@@ -252,6 +255,9 @@ process locus_collector {
 	tag "$id ($shard_name)"
 	memory '60 GB'
 	time '2h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
@@ -277,6 +283,9 @@ process dedup {
 	tag "$id ($shard_name)"
 	time '2h'
 	memory '60 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) \
@@ -325,6 +334,9 @@ process bqsr {
 	tag "$id ($shard_name)"
 	memory '60 GB'
 	time '1h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from \
@@ -506,6 +518,9 @@ process expansionhunter {
 	cpus 2
 	time '10h'
 	memory '40 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.str
@@ -636,6 +651,9 @@ process melt {
 	tag "$id"
 	memory '40 GB'
 	time '3h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.join(qc_melt_val)
@@ -701,6 +719,9 @@ process dnascope {
 	tag "$id ($shard_name)"
 	memory '10 GB'
 	time '1h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.varcall
@@ -863,6 +884,9 @@ process freebayes {
     cpus 1
     time '2h'
     container '/fs1/resources/containers/twistmyeloid_2020-06-17.sif'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
     input:
         set group, id, file(bam), file(bai) from bam_freebayes
@@ -984,6 +1008,9 @@ process annotate_vep {
 	tag "$group"
 	memory '150 GB'
 	time '5h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set group, file(vcf) from split_vep
@@ -1511,6 +1538,9 @@ process delly_panel {
 	tag "$id"
 	time '3h'
 	memory '10 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 	
 	when:
 		params.sv && params.onco
