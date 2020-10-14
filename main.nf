@@ -413,7 +413,7 @@ process merge_dedup_bam {
 process sentieon_qc {
 	cpus 54
 	memory '64 GB'
-	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
 	tag "$id"
 	cache 'deep'
 	time '2h'
@@ -426,6 +426,7 @@ process sentieon_qc {
 
 	output:
 		set id, file("${id}.QC") into qc_cdm, qc_melt
+		file("*.txt")
 
 	script:
 		target = ""
@@ -717,7 +718,7 @@ process dnascope_bam_choice {
 process dnascope {
 	cpus 16
 	tag "$id ($shard_name)"
-	memory '10 GB'
+	memory '40 GB'
 	time '1h'
 	scratch true
 	stageInMode 'copy'
