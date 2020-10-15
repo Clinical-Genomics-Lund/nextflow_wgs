@@ -515,7 +515,7 @@ process chanjo_sambamba {
 
 // call STRs using ExpansionHunter
 process expansionhunter {
-	tag "$id"
+	tag "$group"
 	cpus 2
 	time '10h'
 	memory '40 GB'
@@ -531,20 +531,20 @@ process expansionhunter {
 			from expansionhunter_bam.mix(expansionhunter_bam_choice).join(meta_exp, by: [0,1]).filter { item -> item[5] == 'proband' }
 
 	output:
-		set group, id, file("${id}.eh.vcf") into expansionhunter_vcf
+		set group, id, file("${group}.eh.vcf") into expansionhunter_vcf
 
 	"""
 	ExpansionHunter \
 		--reads ${bam.toRealPath()} \
 		--reference $genome_file \
 		--variant-catalog $params.expansionhunter_catalog \
-		--output-prefix ${id}.eh
+		--output-prefix ${group}.eh
 	"""
 }
 
 // annotate expansionhunter vcf
 process stranger {
-	tag "$id"
+	tag "$group"
 	memory '1 GB'
 	time '10m'
 
@@ -553,11 +553,11 @@ process stranger {
         
 
 	output:
-		set group, id, file("${id}.eh.stranger.vcf") into expansionhunter_vcf_anno
+		set group, id, file("${group}.eh.stranger.vcf") into expansionhunter_vcf_anno
 
 	"""
 	source activate py3-env
-	stranger ${eh_vcf} > ${id}.eh.stranger.vcf
+	stranger ${eh_vcf} > ${group}.eh.stranger.vcf
 	"""
 
 	
@@ -567,7 +567,7 @@ process stranger {
 // FIXME: Use env variable for picard path...
 process vcfbreakmulti_expansionhunter {
 	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
-	tag "$id"
+	tag "$group"
 	time '10m'
 	memory '40 GB'
 
@@ -576,7 +576,7 @@ process vcfbreakmulti_expansionhunter {
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from meta_str.filter{ item -> item[7] == 'proband' }
 
 	output:
-		file("${id}.expansionhunter.vcf.gz") into expansionhunter_scout
+		file("${group}.expansionhunter.vcf.gz") into expansionhunter_scout
 		file("${group}.INFO") into str_INFO
 
 	script:
@@ -584,21 +584,21 @@ process vcfbreakmulti_expansionhunter {
 		if (mother == "") { mother = "null" }
 		if (mode == "family") {
 			"""
-			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
-			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${id}.expansionhunter.vcf.tmp
-			familyfy_str.pl --vcf ${id}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${id}.expansionhunter.vcf
-			bgzip ${id}.expansionhunter.vcf
-			tabix ${id}.expansionhunter.vcf.gz
-			echo "STR	${OUTDIR}/vcf/${id}.expansionhunter.vcf.gz" > ${group}.INFO
+			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${group}
+			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf.tmp
+			familyfy_str.pl --vcf ${group}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${id}.expansionhunter.vcf
+			bgzip ${group}.expansionhunter.vcf
+			tabix ${group}.expansionhunter.vcf.gz
+			echo "STR	${OUTDIR}/vcf/${group}.expansionhunter.vcf.gz" > ${group}.INFO
 			"""
 		}
 		else {
 			"""
-			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
-			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${id}.expansionhunter.vcf
-			bgzip ${id}.expansionhunter.vcf
-			tabix ${id}.expansionhunter.vcf.gz
-			echo "STR	${OUTDIR}/vcf/${id}.expansionhunter.vcf.gz" > ${group}.INFO
+			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${group}
+			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf
+			bgzip ${group}.expansionhunter.vcf
+			tabix ${group}.expansionhunter.vcf.gz
+			echo "STR	${OUTDIR}/vcf/${group}.expansionhunter.vcf.gz" > ${group}.INFO
 			"""
 		}
 }
