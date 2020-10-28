@@ -130,8 +130,6 @@ genomicshards
 process fastp {
 	cpus 10
 	tag "$id"
-	container = '/fs1/resources/containers/container_twist-brca.sif'
-	containerOptions = '--bind /fs1/'
 	time '1h'
 	memory '20 GB'
 	scratch true
