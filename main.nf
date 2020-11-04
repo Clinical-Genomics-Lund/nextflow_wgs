@@ -684,10 +684,9 @@ process melt {
 // When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
 process dnascope_bam_choice {
 	cpus 54
+	memory '40 GB'
+	time '4h'
 	tag "$id"
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
 
 	when:
 		params.varcall
