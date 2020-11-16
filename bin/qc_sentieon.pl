@@ -44,6 +44,7 @@ my $insert_file = "is_metrics.txt";
 my $dedup_metrics_file = "dedup_metrics.txt";
 my %results;
 my $metrics_file;
+my $gcsummary_file;
 
 if ($type eq "wgs") {
     $metrics_file = "wgs_metrics.txt";
@@ -91,6 +92,19 @@ if ($type eq "wgs") {
     }
     close HS;
     $results{'iqr'} = ( $quartiles{ 'R_75' } - $quartiles{ 'R_25' } );
+
+    $gcsummary_file = "gc_summary.txt";
+    open( GC, $gcsummary_file );
+    while( <GC> ) {
+        if( /^\#SentieonCommandLine/ ) {
+	    <GC>;
+            my $vals = <GC>;
+            my @a = split /\t/, $vals;
+            $results{'at_dropout'} = $a[5];
+            $results{'gc_dropout'} = $a[6];
+        }
+    }
+    close GC;
 
 }
 elsif ($type eq "panel") {
