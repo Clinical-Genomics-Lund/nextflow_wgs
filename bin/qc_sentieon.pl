@@ -100,8 +100,8 @@ if ($type eq "wgs") {
 	    <GC>;
             my $vals = <GC>;
             my @a = split /\t/, $vals;
-            $results{'at_dropout'} = $a[5];
-            $results{'gc_dropout'} = $a[6];
+            $results{'at_drop'} = $a[5];
+            $results{'gc_drop'} = $a[6];
         }
     }
     close GC;
