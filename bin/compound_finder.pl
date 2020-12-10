@@ -36,6 +36,12 @@ if ($pedsize > 2) {
 	$mother = $PED->{$proband}->{MOTHER};
 	$father = $PED->{$proband}->{FATHER};
 }
+else {
+	system( "zcat ".$svfile." >".$outsv);
+	system( "zcat ".$snvfile." >".$outsnv);
+	print STDERR "duo or single will not calculate compounds\n";
+	exit;
+}
 ####################################################
 ##### READ SV VCF ##################################
 my $vcf = CMD::vcf2->new('file'=>$svfile );
