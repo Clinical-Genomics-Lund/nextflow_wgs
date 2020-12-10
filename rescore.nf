@@ -16,7 +16,7 @@ ped = file( ped_file )
 
 Channel
     .fromPath(file(ped))
-    .into{ strip_ped; ped_compound; ped_inher; ped_mad; ped_peddy; ped_scout }
+    .into{ strip_ped; ped_compound; ped_inher; ped_mad; ped_peddy; ped_scout; ped_bam }
 
 OUTDIR = params.outdir+'/'+params.subdir
 CRONDIR = params.crondir
@@ -24,6 +24,36 @@ CRONDIR = params.crondir
 
 mode = ped.countLines() > 1 ? "family" : "single"
 println(mode)
+
+process bam_to_info {
+	cpus 1
+	time '2m'
+	memory '2 MB'
+
+	input:
+		set ped from ped_bam
+
+	output:
+		file("${pground}.INFO") into bam_INFO
+
+	script:
+		id = 'ph'
+		pgroup = 'ph'
+		bamrows = ''
+		ped.readLines().each{
+			if (it =~ /^\S+\t+\S+\t+\S+\t+\S+\t+\S+\t+\S+/) {
+				id = it =~ /^(\S+)\t+(\S+)\t+\S+\t+\S+\t+\S+\t+\S+/
+				pgroup = id[0][1]
+				row = 'BAM	'+id[0][2]+' /access/'+params.subdir+'/bam/'+id[0][2]+'_merged_dedup.bam¤'
+				bamrows = bamrows + row
+			}
+		}
+	"""
+	echo $bamrows | sed "s/¤/\\n/g" > ${pground}.INFO
+	"""
+
+
+}
 
 process strip_score {
     cpus 2
@@ -37,7 +67,6 @@ process strip_score {
     output:
         set group, file("${group}.sv_stripped.vcf") into stripped_vcf
 		set group, file("${group}.snv_stripped.vcf") into stripped_vcf_snv
-
     """
     rescore_vcf.pl --vcf $sv_vcf --ped $ped > ${group}.sv_stripped.vcf &
 	rescore_vcf.pl --vcf $snv_vcf --ped $ped > ${group}.snv_stripped.vcf
@@ -242,8 +271,8 @@ process peddy {
 
 // Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
 // If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
-snv_INFO
-	.mix(sv_INFO,peddy_INFO,madde_INFO,svcompound_INFO)
+bam_INFO
+	.mix(snv_INFO,sv_INFO,peddy_INFO,madde_INFO,svcompound_INFO)
 	.collectFile()
 	.set{ yaml_INFO }
 
