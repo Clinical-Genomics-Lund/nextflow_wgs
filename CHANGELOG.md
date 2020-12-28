@@ -1,5 +1,14 @@
 # CHANGELOG
 
+### 2.1.0
+
+#### Features
+- added rescoring function through rescore.nf
+#### misc
+- fixed naming of expansionhunter vcfs
+- new rankmodels for wgs profile. 5.1 (loqusdb cutoffs and VEP-csq scoring)
+
+
 ### 2.0.2
 
 #### Features
