@@ -59,8 +59,8 @@ close INFO;
 ####################################################
 
 ## Rankmodel version
-my $rankm = "5.0";
-my $svrankm = "5.0";
+my $rankm = "5.1_SNV";
+my $svrankm = "5.1_SV";
 if ($assay eq 'oncov1-0' ) { $rankm = "SNV-RM-v5.0"; $svrankm = "SV-Panel-RM-v1.0"; }
 
 my $kit = "Intersected WGS";
