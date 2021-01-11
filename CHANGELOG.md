@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2.1.1
+
+#### Features
+- Generate a json with data for the Gens overview plot, to allow quicker loading in Gens.
+
+
 ### 2.1.0
 
 #### Features

@@ -1465,7 +1465,7 @@ process generate_gens_data {
 		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.mix(gvcf_gens_choice).join(cov_gens, by:[1])
 
 	output:
-		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz"), file("${id}.cov.bed.gz.tbi"), file("${id}.baf.bed.gz.tbi")
+		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz"), file("${id}.cov.bed.gz.tbi"), file("${id}.baf.bed.gz.tbi"), file("${id}.overview.json.gz")
 
 	"""
 	generate_gens_data.pl $cov_stand $gvcf $id $params.GENS_GNOMAD
