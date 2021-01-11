@@ -18,6 +18,7 @@ my $GNOMAD = $ARGV[3];
 
 my $COV_OUTPUT = $SAMPLE_ID.".cov.bed";
 my $BAF_OUTPUT = $SAMPLE_ID.".baf.bed";
+my $JSON_OUTPUT = $SAMPLE_ID.".overview.json";
 
 print STDERR "Calculating coverage data\n";
 # Calculate coverage data
@@ -47,6 +48,9 @@ system("tabix -f -p bed $BAF_OUTPUT.gz");
 system("bgzip -f -\@10 $COV_OUTPUT");
 system("tabix -f -p bed $COV_OUTPUT.gz");
 unlink("baf.tmp");
+
+create_overview_json("$COV_OUTPUT.gz", "$BAF_OUTPUT.gz", $JSON_OUTPUT);
+
 
 sub generate_baf_bed {
     my( $fn, $skip, $prefix ) = @_;
@@ -118,4 +122,53 @@ sub generate_cov_bed {
     
 sub mean {
     return sum(@_)/@_;
+}
+
+sub create_overview_json {
+    my $BED_COV = shift;
+    my $BED_BAF = shift;
+    my $JSON_FN = shift;
+
+    open(JSON, ">".$JSON_FN);
+
+    my @chr = ("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","X","Y");
+
+    print JSON "{\n";
+
+    for my $chr (@chr) {
+	print JSON "," unless $chr eq "1";
+	print JSON '"'.$chr.'":{'."\n";
+	my @cov = `tabix $BED_COV o_$chr`;
+	print JSON '"cov":['."\n";
+	my $first = 1;
+	foreach(@cov) {
+	    chomp;
+	    my @a = split /\t/;
+	    print JSON "," unless $first;
+	    my $val = sprintf("%.4f", $a[3]);
+	    $val =~ s/0*$//;
+	    $val =~ s/\.$//;
+	    print JSON "[".$a[1].",".$val."]";
+	    $first = 0;
+	}
+	print JSON "\n],\n";
+
+	my @baf = `tabix $BED_BAF o_$chr`;
+	print JSON '"baf":['."\n";
+	$first = 1;
+	foreach(@baf) {
+	    chomp;
+	    my @a = split /\t/;
+	    print JSON "," unless $first;
+	    my $val = sprintf("%.4f", $a[3]);
+	    $val =~ s/0*$//;
+	    $val =~ s/\.$//;
+	    print JSON "[".$a[1].",".$val."]";
+	    $first = 0;
+	}
+	print JSON "\n]\n";
+	print JSON "}\n";
+    }
+    close JSON;
+    system("gzip $JSON_FN");
 }
