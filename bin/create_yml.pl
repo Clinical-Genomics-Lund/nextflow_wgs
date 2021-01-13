@@ -6,6 +6,36 @@ use Getopt::Long;
 my %opt = ();
 GetOptions( \%opt, 'g=s', 'd=s', 'p=s', 'out=s', 'genome=s', 'antype=s', 'ped=s', 'assay=s', 'files=s' );
 
+### Define scout institute per assay and/or analysis. ###
+my %assays = (
+    'oncov1-0' => {
+        'rankm' => 'SNV-RM-v5.0',
+        'svrankm' => 'SV-Panel-RM-v1.0',
+        'screening' => {
+            'institute' => 'oncogen',
+            'institute_owner' => 'onkogenetik',
+        },
+        'predictive' => {
+            'institute' => 'oncogen',
+            'institute_owner' => 'onkogenetik'
+        },
+        'somatic_normals' => {
+            'institute' => 'oncogen',
+            'institute_owner' => 'somatic_normals'
+        }
+    },
+    'wgs-hg38' => {
+        'rankm' => '5.1_SNV',
+        'svrankm' => '5.1_SV',
+        'ph' => {
+            'institute' => 'klingen_38',
+            'institute_owner' => 'klingen_38'
+        }
+    },
+    'exome' => 'dummy'
+);
+
+
 ### Analysis type ###
 my $antype = "wgs";
 if ($opt{antype}) { $antype = $opt{antype}; }
@@ -20,7 +50,11 @@ my $analysis = "";
 if ($opt{assay}) { 
     my @a_a = split/,/,$opt{assay};
     $assay = $a_a[0];
-    $analysis = $a_a[1];
+    if ($a_a[1]) {
+        $analysis = $a_a[1];
+    }
+    else { $analysis = 'ph';}
+    
 }
 
 ### Group ###
@@ -58,12 +92,7 @@ while ( <INFO> ) {
 close INFO;
 ####################################################
 
-## Rankmodel version
-my $rankm = "5.1_SNV";
-my $svrankm = "5.1_SV";
-if ($assay eq 'oncov1-0' ) { $rankm = "SNV-RM-v5.0"; $svrankm = "SV-Panel-RM-v1.0"; }
-
-my $kit = "Intersected WGS";
+my $kit = "Intersected WGS"; ## placeholder, does not change for panels
 my $diagnosis = $opt{d};
 
 ### Read ped, save individuals ####################
@@ -81,10 +110,8 @@ print OUT "---\n";
 my $institute = "klingen";
 my $institute_owner = "klingen";
 if ($opt{assay}) { 
-    if ($assay eq 'oncov1-0' && $analysis eq 'screening' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
-    elsif ($assay eq 'oncov1-0' && $analysis eq 'predictive' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
-    elsif ($assay eq 'oncov1-0' ) { $institute = "oncogen"; $institute_owner = "onkogenetik"; }
-    elsif ($assay eq 'wgs-hg38' ) { $institute = "klingen_38"; $institute_owner = "klingen_38";}
+    $institute = $assays{$assay}{$analysis}{institute};
+    $institute_owner = $assays{$assay}{$analysis}{institute_owner};
 }
 ### ASSAY DECIDE OWNER? ####
 print OUT "owner: $institute_owner\n";
@@ -101,9 +128,9 @@ foreach my $sample (@ped) {
     print OUT "    mother: '$pedline[3]'\n";
     print OUT "    father: '$pedline[2]'\n";
     print OUT "    capture_kit: $kit\n";
-    unless ($INFO{TISSUE}{$pedline[1]} eq 'false') {
-        print OUT "    tissue_type: '$INFO{TISSUE}{$pedline[1]}'\n";
-    }
+    # unless ($INFO{TISSUE}{$pedline[1]} eq 'false') {
+    #     print OUT "    tissue_type: '$INFO{TISSUE}{$pedline[1]}'\n";
+    # }
 
     if ($pedline[5] == 1) {
         print OUT "    phenotype: unaffected\n";
@@ -179,8 +206,8 @@ else {
     my $panels_str = '"'. join('","', @panels). '"';
     print OUT "default_gene_panels: [$panels_str]\n";
 }
-print OUT "rank_model_version: $rankm\n";
-print OUT "sv_rank_model_version: $svrankm\n";
+print OUT "rank_model_version: ".$assays{$assay}{rankm}."\n";
+print OUT "sv_rank_model_version: ".$assays{$assay}{svrankm}."\n";
 print OUT "rank_score_threshold: -1\n";
 print OUT "human_genome_build: $genome\n";
 
