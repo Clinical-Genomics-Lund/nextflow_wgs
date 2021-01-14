@@ -19,9 +19,9 @@ my %assays = (
             'institute' => 'oncogen',
             'institute_owner' => 'onkogenetik'
         },
-        'somatic_normals' => {
+        'PARP_inhib_normals' => {
             'institute' => 'oncogen',
-            'institute_owner' => 'somatic_normals'
+            'institute_owner' => 'PARP_inhib_normals'
         }
     },
     'wgs-hg38' => {
