@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 2.1.2
+
+#### Features
+- create_yml.pl now has a hash with all definable scout import-fields per assay, allowing easier additions and modifications to/of assays.
+
 ### 2.1.1
 
 #### Features
