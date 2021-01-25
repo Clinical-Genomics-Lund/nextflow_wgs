@@ -10,21 +10,14 @@ Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, row.id, file(row.bam)) }
-	.set{ bam_gatk }
+	.set{ input_files }
 
-// params.tar = '/fs1/viktor/wgs_germline_38/test_tar/tmp/tarfiles.gatk'
-// Channel
-// 	.fromPath(params.tar)
-// 	.splitCsv(header:true)
-// 	.map{ row-> tuple(row.group, row.id, row.i, file(row.file)) }
-// 	.set{ postprocessgatk }
+// for testing purposes, tsv as input
+tsv_choice = Channel.create()
+bam_gatk = Channel.create()
+input_files.view().choice(bam_gatk, tsv_choice) { it[2]  =~ /\.tsv/ ? 1 : 0  }
 
-// params.ploidy = '/fs1/viktor/wgs_germline_38/test_tar/ploidy.gatk'
-// Channel
-// 	.fromPath(params.ploidy)
-// 	.splitCsv(header:true)
-// 	.map{ row-> tuple(row.group, row.id, file(row.tar)) }
-// 	.set{ ploidy_to_post }
+tsv_choice.into{ call_ploidy_choice; call_cnv_choice }
 
 process gatk_coverage {
     cpus 10
@@ -63,7 +56,7 @@ process gatk_call_ploidy {
 	stageOutMode 'copy'
 
     input:
-        set group, id, file(tsv) from call_ploidy
+        set group, id, file(tsv) from call_ploidy.mix(call_ploidy_choice)
 
     output:
         set group, id, file("ploidy.tar") into ploidy_to_cnvcall, ploidy_to_post
@@ -91,7 +84,7 @@ process gatk_call_cnv {
 
     input:
         set group, id, file(tsv), file(ploidy), i, refpart \
-            from call_cnv.join(ploidy_to_cnvcall, by: [0,1]).combine(gatk_ref)
+            from call_cnv.mix(call_cnv_choice).join(ploidy_to_cnvcall, by: [0,1]).combine(gatk_ref)
 
     output:
         set group, id, i, file("${group}_${i}.tar") into postprocessgatk
