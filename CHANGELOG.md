@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 2.1.2
+#### Fixes
+- Fix a bug that generated corrupt Gens json files...
+
 ### 2.1.1
 
 #### Features
