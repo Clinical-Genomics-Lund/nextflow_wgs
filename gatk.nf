@@ -27,6 +27,7 @@ process gatk_coverage {
     scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+    tag "$id"   
 
     input:
         set group, id, file(bam) from bam_gatk
@@ -54,6 +55,7 @@ process gatk_call_ploidy {
     scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+    tag "$id"
 
     input:
         set group, id, file(tsv) from call_ploidy.mix(call_ploidy_choice)
@@ -78,9 +80,10 @@ process gatk_call_cnv {
     memory '25GB'
     time '3h'
     container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
-    scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+    // scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
+    tag "$id"
 
     input:
         set group, id, file(tsv), file(ploidy), i, refpart \
@@ -113,6 +116,8 @@ process postprocessgatk {
     scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+    publishDir "/fs1/viktor/gatk_ref/called_vcfs", mode: 'copy', overwrite: 'true'
+    tag "$id"
 
 
     input:
