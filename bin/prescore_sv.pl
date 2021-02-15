@@ -54,6 +54,8 @@ foreach my $line (@header) {
 	if ($c == scalar(@header)-1) {
 		print OSV "##INFO=<ID=INHER,Number=.,Type=Integer,Description=\"Inheritance, de-novo or not\">\n";
 		print OSV "##INFO=<ID=Omim,Number=.,Type=Integer,Description=\"Reported Omim gene\">\n";
+		print OSV "##INFO=<ID=GQC,Number=.,Type=Integer,Description=\"gatk genotype quality score\">\n";
+		print OSV "##INFO=<ID=MANTAPENALTY,Number=.,Type=Integer,Description=\"big manta events nto supported by gatk/cnvnator\">\n";
 		print OSV "##INFO=<ID=GeneticModel,Number=.,Type=String,Description=\"Genetic model for variant\">\n";
 		print OSV "##INFO=<ID=QZERO,Number=.,Type=Float,Description=\"Fraction of reads mapped with MAPQ=0 in variants called only by CNVnator\">\n";
 		print OSV "##INFO=<ID=RD,Number=.,Type=Float,Description=\"Estimated read depth from variants only called by CNVnator\">\n";
@@ -76,6 +78,9 @@ foreach my $chrom (keys %SV) {
 		my $rd = $SV{$chrom}->{$var}->{RD};
 		my $lowp = $SV{$chrom}->{$var}->{LOWP};
 		my $homhem = $SV{$chrom}->{$var}->{HOMHEM};
+		my $GQC = $SV{$chrom}->{$var}->{GQC};
+		my $MANTAPENALTY = $SV{$chrom}->{$var}->{MANTAPENALTY};
+		
 		my @add_info;
 
 		## If proband is female dont print Y-chromosome variants, CNVnator false positives
@@ -83,6 +88,12 @@ foreach my $chrom (keys %SV) {
 			if ($PED->{$proband}->{SEX} == 2) {
 				next;
 			}
+		}
+		if (defined $GQC) {
+			push @add_info, "GQC=".$GQC;
+		}
+		if (defined $MANTAPENALTY) {
+			push @add_info, "MANTAPENALTY=".$MANTAPENALTY;
 		}
 		if (defined $compound) {
 			$inher="AR_comp";
@@ -358,10 +369,22 @@ sub readSV {
 		}
 		## Callers ##
 		my $callers = callers($A->{vcf_str});
+
+		## if only in manta, large (>100,000) mark as susp
+		if ($A->{INFO}->{SVLEN} and $A->{INFO}->{SVTYPE} ne 'INS') { ##could be bnd, need to check svlen defined
+			if (abs($A->{INFO}->{SVLEN}) > 100000) {
+				if ($$callers[3] == 0 && $$callers[1] == 0 && $$callers[2] == 1 && $$callers[3] == 0 ) {
+					$INFO{ MANTAPENALTY } = "1";
+				}
+			}
+		}
+		
+		## if found only in gatk
+		if ($$callers[1] == 0 && $$callers[2] == 0 && $$callers[3] == 1) {
+			$INFO{ GQC } = $A->{GT}->[0]->{QS};
+		}
 		## if only found in cnvnator
-
-
-		if ($$callers[0] == 1 && $$callers[1]== 0 && $$callers[2] == 0) {
+		if ($$callers[0] == 1 && $$callers[1] == 0 && $$callers[2] == 0) {
 			my @QZERO = split/,/,$A->{INFO}->{natorQ0};
 			my @RD = split/,/,$A->{INFO}->{natorRD};
 			## mean of merged CNVnator outputs. See mergeCNVnator.pl ~ author Björnieboy
@@ -417,8 +440,9 @@ sub callers {
 	my $cnvnator =  grep /cnvnator/, @b;
 	my $tiddit =  grep /tiddit/, @b;
 	my $manta =  grep /manta/, @b;
+	my $gatk = grep /gatk/, @b;
 	my @callers;
-	push @callers, $cnvnator, $tiddit, $manta;
+	push @callers, $cnvnator, $tiddit, $manta, $gatk;
 	if ($cnvnator == 1 && $manta == 0 && $tiddit == 0) {
 
 	}
