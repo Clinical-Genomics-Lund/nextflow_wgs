@@ -169,6 +169,7 @@ sub create_overview_json {
 	print JSON "\n]\n";
 	print JSON "}\n";
     }
+    print JSON "}\n";
     close JSON;
     system("gzip $JSON_FN");
 }

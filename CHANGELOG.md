@@ -1,9 +1,14 @@
 # CHANGELOG
 
-### 2.1.2
+### 2.1.3
 
 #### Features
 - create_yml.pl now has a hash with all definable scout import-fields per assay, allowing easier additions and modifications to/of assays.
+
+### 2.1.2
+
+#### Fixes
+- Fix a bug that generated corrupt Gens json files...
 
 ### 2.1.1
 
