@@ -1,7 +1,7 @@
 
 csv = file(params.csv)
 ped = file(params.ped)
-mode = "single"
+mode = "family"
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
@@ -50,7 +50,7 @@ process svdb_merge {
 	input:
 		set group, id, file(mantaV) from called_manta.groupTuple()
 		set group, id, file(tidditV) from called_tiddit.groupTuple()
-		set group, id, file(gatk) from merged_gatk.groupTuple()
+		set group, id, file(gatkV) from merged_gatk.groupTuple()
 		
 	output:
 		set group, id, file("${group}.merged.bndless.vcf") into vcf_vep, annotsv_vcf
@@ -65,7 +65,7 @@ process svdb_merge {
 			for (i = 1; i <= mantaV.size(); i++) {
 				tmp = mantaV[i-1] + ':manta' + "${i}"
 				tmp1 = tidditV[i-1] + ':tiddit' + "${i}"
-				tmp2 = gatk[i-1] + ':gatk' + "${i}"
+				tmp2 = gatkV[i-1] + ':gatk' + "${i}"
 				vcfs = vcfs + tmp + tmp1 + tmp2
 				mt = 'manta' + "${i}"
 				tt = 'tiddit' + "${i}"
