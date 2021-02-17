@@ -32,7 +32,14 @@ my %assays = (
             'institute_owner' => 'klingen_38'
         }
     },
-    'exome' => 'dummy'
+    'clinicalwesv1-0' => {
+        'rankm' => 'SNV-RM-v5.0',
+        'svrankm' => 'SV-Panel-RM-v1.0',
+        'hemato' => {
+            'institute' => 'myeloid',
+            'institute_owner' => 'myeloid',
+        }
+    }
 );
 
 
