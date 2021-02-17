@@ -10,7 +10,14 @@ use Data::Dumper;
 
 
 my $vcf = CMD::vcf2->new('file'=>$ARGV[0] );
-
+my $gatk = 0;
+my @header = split/\n/,$vcf->{header_str};
+foreach my $line (@header) {
+	if ($line=~ /##GATKCommandLine/) {
+		$gatk = 1;
+		last;
+	}
+}
 print $vcf->{header_str};
 while ( my $a = $vcf->next_var() ) {
     my %called = ();
@@ -27,6 +34,9 @@ while ( my $a = $vcf->next_var() ) {
         if ($_ =~ /cnvnator/) {
             $called{cnvnator} = 1;
         }
+		if ($_ =~ /gatk/) {
+			$called{gatk} = 1;
+		}
         if ($_ =~ /Intersection/) {
             $called{Intersection} = 1;
         }
@@ -34,8 +44,11 @@ while ( my $a = $vcf->next_var() ) {
     my @set;
     foreach my $key (keys %called) {
         if (defined $called{$key}) {
-            if ($key eq "Intersection") {
+            if ($key eq "Intersection" && $gatk == 0) {
                 push @set,"manta","tiddit","cnvnator";
+            }
+			elsif ($key eq "Intersection" && $gatk == 1) {
+                push @set,"manta","tiddit","gatk";
             }
             else {
                 push @set,$key;
