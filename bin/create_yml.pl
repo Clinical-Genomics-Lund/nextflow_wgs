@@ -30,6 +30,10 @@ my %assays = (
         'ph' => {
             'institute' => 'klingen_38',
             'institute_owner' => 'klingen_38'
+        },
+        'ahus' => {
+            'institute' => 'ahus',
+            'institute_owner' => 'ahus'
         }
     },
     'clinicalwesv1-0' => {
@@ -59,6 +63,9 @@ if ($opt{assay}) {
     $assay = $a_a[0];
     if ($a_a[1]) {
         $analysis = $a_a[1];
+    }
+    elsif ($opt{d} eq 'ahus') { ## beginning of stinking mess, deadline for fix 2021-03-01
+        $analysis = 'ahus';
     }
     else { $analysis = 'ph';}
     
