@@ -234,7 +234,7 @@ process score_sv {
 				
 	script:
 	"""
-	genmod score -i $group -c $params.svrank_model_s -r $vcf -o ${group}.sv.scored.vcf
+	genmod score -i $group -c $params.svrank_model -r $vcf -o ${group}.sv.scored.vcf
 	bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
 	bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
 	tabix ${group}.sv.scored.sorted.vcf.gz -f
