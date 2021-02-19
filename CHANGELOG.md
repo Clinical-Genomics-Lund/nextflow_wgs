@@ -1,5 +1,23 @@
 # CHANGELOG
 
+### 2.1.5
+
+- create_yml.pl added ahus analysis for wgs_hg38 assay. Stinking mess initiated, please correct
+
+### 2.1.4
+
+- create_yml.pl added hemato analysis for clinicalwesv1-0 assay. Correct institute for myeloid normals
+
+### 2.1.3
+
+#### Features
+- create_yml.pl now has a hash with all definable scout import-fields per assay, allowing easier additions and modifications to/of assays.
+
+### 2.1.2
+
+#### Fixes
+- Fix a bug that generated corrupt Gens json files...
+
 ### 2.1.1
 
 #### Features

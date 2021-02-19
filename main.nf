@@ -934,7 +934,7 @@ process split_normalize {
 	cpus 1
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 	tag "$group"
-	memory '1 GB'
+	memory '10 GB'
 	time '1h'
 
 	when:
