@@ -380,8 +380,16 @@ sub readSV {
 		}
 		
 		## if found only in gatk
+		
 		if ($$callers[1] == 0 && $$callers[2] == 0 && $$callers[3] == 1) {
-			$INFO{ GQC } = $A->{GT}->[0]->{QS};
+			my $gatkqc = 0; my $gatk_count = 0;
+			foreach my $gcsc (@{ $A->{GT} }) {
+				next if ($gcsc->{QS} eq ".");
+				$gatkqc = $gatkqc + $gcsc->{QS};
+				$gatk_count++;
+			}
+			$gatkqc = ($gatkqc/$gatk_count);
+			$INFO{ GQC } = $gatkqc;
 		}
 		## if only found in cnvnator
 		if ($$callers[0] == 1 && $$callers[1] == 0 && $$callers[2] == 0) {
