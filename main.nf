@@ -79,7 +79,7 @@ fastq_umi = Channel.create()
 input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice, fastq_umi) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : (params.umi ? 5 : 0))))  }
 
 bam_choice
-	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice; yaml_bam_choice; cov_bam_choice; bam_manta_choice; bam_nator_choice; bam_tiddit_choice, bam_gatk_choice }
+	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice; yaml_bam_choice; cov_bam_choice; bam_manta_choice; bam_nator_choice; bam_tiddit_choice; bam_gatk_choice }
 
 // Input channels for various meta information //
 Channel
@@ -100,6 +100,13 @@ Channel
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, row.id, row.sex, row.type) }
 	.into { meta_gatkcov; meta_exp; meta_svbed; meta_pod}
+
+
+Channel
+	.fromPath(params.gatkreffolders)
+	.splitCsv(header:true)
+	.map{ row-> tuple(row.i, row.refpart) }
+	.into{ gatk_ref; gatk_postprocess }
 
 
 // Check whether genome assembly is indexed //
@@ -1650,83 +1657,6 @@ process tiddit {
 	"""
 }
 
-
-process cnvnator {
-	cpus = 24
-	container = '/fs1/resources/containers/wgs_cnvnator_2019-09-06.sif'
-	scratch '/local/scratch'
-	stageInMode 'copy'
-	stageOutMode 'copy'
-	time '5h'
-	tag "$id"
-	memory '80 GB'
-
-	when:
-		params.sv && !params.onco  &&  !params.exome
-
-	input:
-		set group, id, file(bam), file(bai) from bam_nator.mix(bam_nator_choice)
-
-	output:
-		set group, id, file("${id}.cnvnator_calls*") into cnvnator_subchr
-
-	script:
-		bam = bam.toRealPath()
-
-	shell:
-	'''
-	for chr in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 'X' 'Y'; do
-	  cnvnator -root !{id}.root.$chr -chrom $chr -tree !{bam} &&
-	  cnvnator -root !{id}.root.$chr -chrom $chr -his 100 &&
-	  cnvnator -root !{id}.root.$chr -chrom $chr -stat 100 &&
-	  cnvnator -root !{id}.root.$chr -chrom $chr -partition 100 &&
-	  cnvnator -root !{id}.root.$chr -chrom $chr -call 100  > !{id}.cnvnator_calls_$chr &
-	done
-	wait
-	'''
-}
-
-
-process merge_cnvnator {
-	cpus 5
-	container = '/fs1/resources/containers/wgs_cnvnator_2019-09-06.sif'
-	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
-	tag "$group"
-	memory '1 GB'
-	time '10m'
-
-	input:
-		set group, id, file(chr_vcf) from cnvnator_subchr
-	output:
-		set group, id, file("${id}.cnvnator.merged.vcf") into merged_cnvnator
-
-	script:
-	parts = chr_vcf.join(' ')
-	"""
-	cat $parts >> ${id}.cnvnator.calls
-	cnvnator2VCF.pl -prefix ID -reference GRCh38 ${id}.cnvnator.calls $params.split_ref > ${id}.cnvnator.vcf
-	mergeCNVnator.pl ${id}.cnvnator.vcf > ${id}.cnvnator.merged.vcf
-	"""
-}
-
-process post_cnvnator {
-	cpus 1
-	time '10m'
-	memory '40 GB'
-	
-	input:
-		set group, id, file(vcf) from merged_cnvnator
-
-	output:
-		set group, id, file("${id}.cnvnator.merged.renamed.vcf.gz"), file("${id}.cnvnator.merged.renamed.vcf.gz.tbi") into called_cnvnator
-	"""
-	java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar \\
-	RenameSampleInVcf INPUT=$vcf OUTPUT=${id}.cnvnator.merged.renamed.vcf NEW_SAMPLE_NAME=$id
-	bgzip ${id}.cnvnator.merged.renamed.vcf
-	tabix ${id}.cnvnator.merged.renamed.vcf.gz
-	"""
-}
-
 process gatk_coverage {
     cpus 10
     memory '20GB'
@@ -1736,6 +1666,9 @@ process gatk_coverage {
 	stageInMode 'copy'
 	stageOutMode 'copy'
     tag "$id"   
+
+	when:
+		params.sv && !params.onco  &&  !params.exome
 
     input:
         set group, id, file(bam), file(bai) from bam_gatk.mix(bam_gatk_choice)
@@ -1829,8 +1762,8 @@ process postprocessgatk {
 
 
     input:
-        set group, id, i, file(tar), file(ploidy) from postprocessgatk.groupTuple(by: [0,1]).join(ploidy_to_post, by: [0,1])
-        set shard_no, shard from gatk_postprocess.groupTuple(by: [3])
+        set group, id, i, file(tar), file(ploidy), shard_no, shard from postprocessgatk.groupTuple(by: [0,1]).join(ploidy_to_post, by: [0,1]).combine(gatk_postprocess.groupTuple(by: [3])
+
 
     output:
         set group, id, \
@@ -1878,10 +1811,11 @@ process filter_merge_gatk {
 		set group, id, file(inter), file(gatk), file(denoised) from called_gatk
 
 	output:
-		set group, id, file("${id}.gatk.merged.vcf") into merged_gatk
+		set group, id, file("${id}.gatk.filtred.merged.vcf") into merged_gatk
 
 	"""
-	mergeGATK.pl $gatk > ${id}.gatk.merged.vcf
+	filter_gatk.pl $gatk > ${id}.gatk.filtered.vcf
+	mergeGATK.pl ${id}.gatk.filtered.vcf > ${id}.gatk.filtred.merged.vcf
 	"""
 }
 
