@@ -34,6 +34,10 @@ my %assays = (
         'ahus' => {
             'institute' => 'ahus',
             'institute_owner' => 'ahus'
+        },
+        'wgsvalid' => {
+            'institute' => 'klingen_38',
+            'institute_owner' => 'klingen-genlista'
         }
     },
     'clinicalwesv1-0' => {
