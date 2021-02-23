@@ -61,7 +61,7 @@ my $analysis = "";
 if ($opt{assay}) { 
     my @a_a = split/,/,$opt{assay};
     $assay = $a_a[0];
-    if ($a_a[1]) {
+    if ($a_a[1] ne 'false' && $a_a[1]) {
         $analysis = $a_a[1];
     }
     elsif ($opt{d} eq 'ahus') { ## beginning of stinking mess, deadline for fix 2021-03-01
