@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 2.1.7
+- clincalwes now has correct loqusdb not piggybacking of onco
+
 ### 2.1.6
 - timelimit increases, scratch and stage in/out for processes
 
