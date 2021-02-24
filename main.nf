@@ -317,9 +317,12 @@ process dedup {
 
 process dedup_metrics_merge {
 	tag "$id"
-	time '5m'
-	memory '1 GB'
+	time '10m'
+	memory '5 GB'
 	cpus 1
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set id, file(dedup) from dedup_metrics.groupTuple()
@@ -373,6 +376,9 @@ process merge_bqsr {
 	tag "$id"
 	memory '10 GB'
 	time '10m'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set id, file(tables) from bqsr_table.groupTuple()
@@ -395,6 +401,9 @@ process merge_dedup_bam {
 	tag "$id"
 	memory '40 GB'
 	time '3h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
@@ -496,6 +505,9 @@ process chanjo_sambamba {
 	memory '64 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
 	tag "$id"
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.varcall
@@ -552,6 +564,9 @@ process stranger {
 	tag "$group"
 	memory '1 GB'
 	time '10m'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
@@ -575,6 +590,9 @@ process vcfbreakmulti_expansionhunter {
 	tag "$group"
 	time '10m'
 	memory '40 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
@@ -943,6 +961,9 @@ process split_normalize {
 	tag "$group"
 	memory '10 GB'
 	time '1h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	when:
 		params.annotate
@@ -1054,6 +1075,9 @@ process vcfanno {
 	cpus params.cpu_some
 	memory '32GB'
 	time '20m'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set group, file(vcf) from vep
@@ -1073,6 +1097,9 @@ process inher_models {
 	memory '64 GB'
 	tag "$group"
 	time '10m'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set group, file(vcf) from vcfanno_vcf
@@ -1762,7 +1789,8 @@ process postprocessgatk {
 
 
     input:
-        set group, id, i, file(tar), file(ploidy), shard_no, shard from postprocessgatk.groupTuple(by: [0,1]).join(ploidy_to_post, by: [0,1]).combine(gatk_postprocess.groupTuple(by: [3])
+        set group, id, i, file(tar), file(ploidy), shard_no, shard \
+			from postprocessgatk.groupTuple(by: [0,1]).join(ploidy_to_post, by: [0,1]).combine(gatk_postprocess.groupTuple(by: [3]))
 
 
     output:
