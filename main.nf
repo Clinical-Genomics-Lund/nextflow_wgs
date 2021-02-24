@@ -310,9 +310,12 @@ process dedup {
 
 process dedup_metrics_merge {
 	tag "$id"
-	time '5m'
-	memory '1 GB'
+	time '20m'
+	memory '5 GB'
 	cpus 1
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
 
 	input:
 		set id, file(dedup) from dedup_metrics.groupTuple()
@@ -716,7 +719,7 @@ process dnascope {
 	cpus 16
 	tag "$id ($shard_name)"
 	memory '40 GB'
-	time '1h'
+	time '2h'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
@@ -1106,7 +1109,7 @@ process mark_splice {
 	cpus 1
 	tag "$group"
 	memory '1 GB'
-	time '5m'
+	time '20m'
 
 	input:
 		set group, file(vcf) from mod_vcf
