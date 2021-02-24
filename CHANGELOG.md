@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 2.1.6
+- timelimit increases, scratch and stage in/out for processes
+
 ### 2.1.5
 
 - create_yml.pl added ahus analysis for wgs_hg38 assay. Stinking mess initiated, please correct
