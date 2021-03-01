@@ -1,10 +1,13 @@
 #! /usr/bin/perl -w
-use MongoDB;
+#use MongoDB;
 use strict;
 use Data::Dumper;
 use Getopt::Long;
+use JSON;
+use List::MoreUtils qw(uniq);
+
 my %opt = ();
-GetOptions( \%opt, 'g=s', 'd=s', 'p=s', 'out=s', 'genome=s', 'antype=s', 'ped=s', 'assay=s', 'files=s' );
+GetOptions( \%opt, 'g=s', 'd=s', 'p=s', 'out=s', 'genome=s', 'antype=s', 'ped=s', 'assay=s', 'files=s', 'panelsdef=s' );
 
 ### Define scout institute per assay and/or analysis. ###
 my %assays = (
@@ -237,34 +240,27 @@ close OUT;
 
 sub get_genelist {
     my $institute = shift;
-    my $host = 'mongodb://cmdscout2.lund.skane.se/scout';
-    if( $opt{p} ) {
-        if( $ENV{$opt{p}} ) {
-	        my $port = $ENV{$opt{p}};
-	        $host = "mongodb://localhost:$port/loqusdb";
+    
+    my $file = $opt{panelsdef};
+    my $data;
+    my @ok_panels;
+    open (JSON, $file);
+    while (<JSON>) {
+        $data = decode_json($_);
+    }
+   # print Dumper($data);
+    foreach my $key (@{$data}) {
+        if (ref $key->{institute} eq 'ARRAY') {
+            foreach my $inst (@{ $key->{institute} }) {
+                next if $key->{'display_name'} =~ /ERSATT|TEST|test|Test/;
+                push @ok_panels,$key->{panel_name} if $inst eq $institute;
+            }
         }
-        else {
-	        die "No port envvar set for $opt{p}";
+        elsif ($key->{institute} eq $institute) {
+            next if $key->{'display_name'} =~ /ERSATT|TEST|test|Test/;
+            push @ok_panels,$key->{panel_name};
         }
     }
-    my $client = MongoDB->connect($host);
-    my $PANELS = $client->ns("scout.gene_panel");
-    my $panels = $PANELS->find( {'institute'=>$institute} );
-
-    my %ok_panels;
-    my $counter = 0;
-    while( my $panel = $panels->next ) {
-        unless ( $panel->{'display_name'} =~ /ERSATT|TEST|test|Test/ ){
-            my $tmp = $panel->{'panel_name'};
-            $tmp = '"'.$tmp.'"';
-	    $ok_panels{$tmp} = 1;
-            $counter++;
-        }
-        #print $panel->{'display_name'},"\n";
-    }
-
-
-    #print $counter,"\n";
-    my @ok_panels = sort {lc $a cmp lc $b } keys %ok_panels;
+    @ok_panels = uniq(@ok_panels);
     return \@ok_panels;
 }
