@@ -33,7 +33,9 @@ process run_mutserve {
 
 // split and left-align variants
 process run_bcftools {
-
+    cpus 1
+    memory '1GB'
+    time '5m'
 
     input:
         set group, id, file(ms_vcf) from ms_vcfs_1
@@ -41,20 +43,13 @@ process run_bcftools {
     output:
         set group, id, file("${ms_vcf.baseName}.adjusted.vcf") into adj_vcfs
 
-    shell:
-    '''
-    sed 's/^chrM/M/' !{ms_vcf} | bgzip > !{ms_vcf}.tmp
-    tabix -p vcf !{ms_vcf}.tmp
-    bcftools norm -m-both -o !{ms_vcf}.split !{ms_vcf}.tmp
-    perl -na -e 'chomp; @c=split(/\t/); if($c[4] eq "*"){ print "$c[0]\t".($c[1]-2)."\t".($c[1]-1)."\t$c[1]:$c[3]:$c[4]\n"; }' !{ms_vcf}.split > !{ms_vcf}.bed
-    bedtools getfasta -fi /fs1/resources/ref/hg38/fasta/GCA_000001405.15_GRCh38_no_alt_analysis_set_nochr.fna -name -bed !{ms_vcf}.bed -tab > !{ms_vcf}.prebase_del
-    perl -na -e '$i++; @col=split(/\t/); if( $i == 1 ){ @del = `cat !{ms_vcf}.prebase_del`; \
-    for $row(@del){ chomp($row); ($id,$base)=split/\t/,$row; $del{$id}=$base; } } \
-    $id="$col[1]:$col[3]:$col[4]"; if($del{$id}){ $col[1]--; $col[3]=$del{$id}.$col[3]; $col[4]=$del{$id}; \
-    print"$col[0]"; for $i(1..$#col){ print"\t$col[$i]"; } }else{ print; } ' !{ms_vcf}.split | bcftools sort | bgzip > !{ms_vcf}.split.prebase
-    tabix -p vcf !{ms_vcf}.split.prebase
-    bcftools norm -f /fs1/resources/ref/hg38/fasta/GCA_000001405.15_GRCh38_no_alt_analysis_set_nochr.fna -o !{ms_vcf.baseName}.adjusted.vcf !{ms_vcf}.split.prebase    
-    '''
+
+    """
+    vcfbreakmulti $ms_vcf > ${ms_vcf}.breakmulti
+    fix_mito_vcf.pl ${ms_vcf}.breakmulti $params.rCRS_fasta | bcftools sort | bgzip > ${ms_vcf}.breakmulti.fix
+    tabix -p vcf ${ms_vcf}.breakmulti.fix
+    bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix    
+    """
 
 }
 
