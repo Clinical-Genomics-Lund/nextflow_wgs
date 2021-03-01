@@ -2062,6 +2062,6 @@ process create_yaml {
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		--g $group,$clarity_sample_id --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
+		--g $group,$clarity_sample_id --d $diagnosis --panelsdef $param.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
 	"""
 }
