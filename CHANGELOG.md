@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 2.1.9
+#### bugfix
+- rescore.nf had wrongly named variable in output for bamfiles 
+
 ### 2.1.8
 - create_yml.pl now recieved gene_panel content from hopper-json. no longer require scout-vm connectivity
 
