@@ -25,8 +25,7 @@ foreach my $line (@header) {
     }
 
 }
-
-
+my @variants;
 while ( my $a = $vcf->next_var() ) {
     my $REF = $a->{REF};
     my $ALT = $a->{ALT};
@@ -44,14 +43,55 @@ while ( my $a = $vcf->next_var() ) {
         $a->{REF} = $prebase.$a->{REF}; ## concat ref with prebase, ref is deleted
         $a->{ALT} = $prebase; ## alt now becomes prebase only, as ref is deleted
         my $print = vcfstr($a,[]);  ## print changed vcf
-        print $print;
+        push @variants,$print;     
     }
     else {
         $a->{CHROM} = "M";      ## instead of chrM, consistent with fasta
         my $print = vcfstr($a,[]); 
-        print $print;
+        push @variants,$print;
     }
 
+}
+#print join("\n",@variants);
+print_and_mergedel(@variants);
+
+sub print_and_mergedel {
+    my @variants = @_;
+    my $lastpos;
+    my $withindel = 1;
+    my $stretch = 0;
+    my $newref = ""; my $newalt = "";
+    for (my $i = 0; $i <= scalar(@variants)-1; $i++) {
+        my $variant = $variants[$i];
+        for (my $j = 1; $j <= scalar(@variants)-1; $j++) {
+            my @var = split("\t",$variants[$i]); my @var2 = split("\t",$variants[$j]);
+            my $pos = $var[1]; my $pos2 = $var2[1];
+            my $ref = $var[3]; my $alt = $var[4]; my $ref2 = $var2[3]; my $alt2 = $var2[4];
+            ## if next position is diff == 1, next time 2 and so on
+            if ( abs($pos - $pos2) == $withindel) {
+                ## if it is a deletion
+                if  (length($ref) - length($alt) == 1 and length($ref2) - length($alt2) == 1) {
+                    $withindel++; #print "$withindel \t $i \t $j $ref $alt $ref2 $alt2\n"; 
+                    $newref = $newref.substr($ref2,1,1  ); $newalt = $alt;
+                    
+                    $variant = "M\t".$pos."\t".".\t".$ref.$newref."\t".$newalt."\t".join("\t",@var[5..$#var]);
+                    next;
+                }
+                ## if no deletion end aggregation and jump forward $i to the variant after stetch of del
+                else {
+                    $i = $i + $withindel -1;
+                    $withindel = 1; 
+                }
+            }
+            ## if no deletion end aggregation and jump forward $i to the variant after stetch of del
+            else {
+                $i = $i + $withindel -1;
+                $newref = ""; $newalt = "";
+                $withindel = 1; 
+            }
+        }
+        print $variant;
+    }
 }
 
 
