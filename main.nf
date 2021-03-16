@@ -396,7 +396,7 @@ process merge_dedup_bam {
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
 
 	output:
-		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes
+		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito
 		set id, group, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam, bam_melt
 		file("${group}.INFO") into bam_INFO
 
@@ -535,6 +535,7 @@ process expansionhunter {
 		set group, id, file("${group}.eh.vcf") into expansionhunter_vcf
 
 	"""
+	source activate htslib10
 	ExpansionHunter \
 		--reads ${bam.toRealPath()} \
 		--reference $genome_file \
@@ -649,7 +650,7 @@ process melt_qc_val {
 process melt {
 	cpus 3
 	errorStrategy 'retry'
-	container = '/fs1/resources/containers/container_twist-brca.sif'
+	//container = '/fs1/resources/containers/container_twist-brca.sif'
 	tag "$id"
 	memory '40 GB'
 	time '3h'
@@ -667,6 +668,7 @@ process melt {
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
 
 	"""
+	source activate java8-env
 	java -jar  /opt/MELT.jar Single \\
 		-bamfile $bam \\
 		-r 150 \\
@@ -981,6 +983,163 @@ process intersect {
 
 }
 
+/////////////// MITOCHONDRIA SNV CALLING ///////////////
+///////////////                          ///////////////
+
+// create an MT BAM file
+process fetch_MTseqs {
+	cpus 2
+	memory '30GB'
+	time '10m'
+	tag "$id"
+
+    input:
+        set group, id, file(bam), file(bai) from bam_mito
+
+    output:
+        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam
+
+    """
+    sambamba view -f bam $bam M > ${id}_mito.bam
+    samtools index -b ${id}_mito.bam
+    """
+
+}
+
+// gatk FilterMutectCalls in future if FPs overwhelms tord/sofie/carro
+process run_mutect2 {
+    cpus 4
+    memory '16 GB'
+    time '15m'
+	tag "$group"
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+    
+    input:
+        set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
+
+    output:
+        set group, id, file("${group}.mutect2.vcf") into ms_vcfs_1, ms_vcfs_2
+
+    script:
+        bams = bam.join(' -I ')
+    
+    """
+    source activate gatk4-env
+    gatk Mutect2 \
+    --mitochondria-mode \
+    -R $params.genome_file \
+    -L M \
+    -I $bams \
+    -O ${group}.mutect2.vcf
+    """
+
+}
+
+// split and left-align variants
+process split_normalize_mito {
+    cpus 1
+    memory '1GB'
+    time '5m'
+
+    input:
+        set group, id, file(ms_vcf) from ms_vcfs_1
+
+    output:
+        set group, file("${ms_vcf.baseName}.adjusted.vcf") into adj_vcfs
+
+
+    """
+    vcfbreakmulti $ms_vcf > ${ms_vcf}.breakmulti
+    bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
+    tabix -p vcf ${ms_vcf}.breakmulti.fix
+    bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix    
+    """
+
+}
+
+// use python tool HmtNote for annotating vcf
+// future merging with diploid genome does not approve spaces in info-string
+process run_hmtnote {
+    cpus 1
+    memory '5GB'
+    time '15m'
+
+
+    input:
+        set group, id, file(adj_vcf) from adj_vcfs
+        set group, file(vcf) from split_vep
+
+    output:
+        set group, file("${group}.concatmito.vcf") into mito_diplod_vep
+
+    """
+    source activate tools
+    hmtnote annotate ${adj_vcf} ${group}.hmtnote --offline
+    grep ^# ${group}.hmtnote > ${group}.fixinfo.vcf
+    grep -v ^# ${group}.hmtnote | sed 's/ /_/g' >> ${group}.fixinfo.vcf
+    java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs \
+        I=$vcf I=${group}.fixinfo.vcf O=${group}.concatmito.vcf
+    """
+    
+}
+
+// run haplogrep 2 on resulting vcf
+process run_haplogrep {
+    time '10m'
+    memory '16 GB'
+    cpus '2'
+	publishDir "${OUTDIR}/plots", mode: 'copy', overwrite: 'true'
+
+    input:
+        set group, id, file(ms_vcf) from ms_vcfs_2
+
+    output:
+       file("${group}.haplogrep.png")
+
+    shell:
+
+    '''
+    for sample in `bcftools query -l !{ms_vcf}`; do 
+        bcftools view -c1 -Oz -s $sample -o $sample.vcf.gz !{ms_vcf}
+        java  -Xmx16G -Xms16G -jar /opt/bin/haplogrep.jar classify \
+        --in $sample.vcf.gz\
+        --out $sample.hg2.vcf \
+        --format vcf \
+        --lineage 1
+        dot $sample.hg2.vcf.dot -Tps2 > $sample.hg2.vcf.ps
+        gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -dGraphicsAlphaBits=4 -r1200 -dDownScaleFactor=3 -sOutputFile=${sample}.hg2.vcf.png ${sample}.hg2.vcf.ps
+    done
+    montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
+    '''
+
+}
+
+// use eKLIPse for detecting mitochondrial deletions
+process run_eklipse {
+    cpus 2
+    memory '10GB'
+    time '20m'
+	publishDir "${OUTDIR}/plots/eklipse", mode: 'copy', overwrite: 'true'
+
+    input:
+        set group, id, file(bam), file(bai) from eklipse_bam
+
+	output:
+		set file("*.png"), file("*.txt")
+    """
+    source activate htslib10
+    echo "${bam}\tsample" > infile.txt
+    python /eKLIPse/eKLIPse.py \
+    -in infile.txt \
+    -ref /eKLIPse/data/NC_012920.1.gb
+    mv eKLIPse_*/eKLIPse_deletions.csv ./${id}_deletions.csv
+    mv eKLIPse_*/eKLIPse_genes.csv ./${id}_genes.csv
+    mv eKLIPse_*/eKLIPse_sample.png ./${id}_plot.png
+    hetplasmid_frequency_eKLIPse.pl --bam ${bam} --in ${id}_deletions.csv
+    """
+
+}
+
 process add_to_loqusdb {
 	cpus 1
 	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
@@ -1014,7 +1173,7 @@ process annotate_vep {
 	stageOutMode 'copy'
 
 	input:
-		set group, file(vcf) from split_vep
+		set group, file(vcf) from mito_diplod_vep
 
 	output:
 		set group, file("${group}.vep.vcf") into vep
@@ -1274,7 +1433,7 @@ process vcf_completion {
 // Running PEDDY: 
 process peddy {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
-	container = '/fs1/resources/containers/wgs_20200115.sif'
+	//container = '/fs1/resources/containers/wgs_20200115.sif'
 	cpus 6
 	tag "$group"
 
