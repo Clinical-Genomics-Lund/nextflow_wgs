@@ -555,11 +555,13 @@ process stranger {
         
 
 	output:
-		set group, id, file("${group}.eh.stranger.vcf") into expansionhunter_vcf_anno
+		set group, id, file("${group}.fixinfo.eh.stranger.vcf") into expansionhunter_vcf_anno
 
 	"""
 	source activate py3-env
 	stranger ${eh_vcf} > ${group}.eh.stranger.vcf
+	grep ^# ${group}.eh.stranger.vcf > ${group}.fixinfo.eh.stranger.vcf
+    grep -v ^# ${group}.eh.stranger.vcf | sed 's/ /_/g' >> ${group}.fixinfo.eh.stranger.vcf
 	"""
 
 	
@@ -1066,7 +1068,7 @@ process run_hmtnote {
 
 
     input:
-        set group, id, file(adj_vcf) from adj_vcfs
+        set group, file(adj_vcf) from adj_vcfs
         set group, file(vcf) from split_vep
 
     output:
@@ -1088,7 +1090,7 @@ process run_haplogrep {
     time '10m'
     memory '16 GB'
     cpus '2'
-	publishDir "${OUTDIR}/plots", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true'
 
     input:
         set group, id, file(ms_vcf) from ms_vcfs_2
@@ -1119,13 +1121,13 @@ process run_eklipse {
     cpus 2
     memory '10GB'
     time '20m'
-	publishDir "${OUTDIR}/plots/eklipse", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true'
 
     input:
         set group, id, file(bam), file(bai) from eklipse_bam
 
 	output:
-		set file("*.png"), file("*.txt")
+		set file("*.png"), file("${id}.hetplasmid_frequency.txt")
     """
     source activate htslib10
     echo "${bam}\tsample" > infile.txt
@@ -1134,8 +1136,9 @@ process run_eklipse {
     -ref /eKLIPse/data/NC_012920.1.gb
     mv eKLIPse_*/eKLIPse_deletions.csv ./${id}_deletions.csv
     mv eKLIPse_*/eKLIPse_genes.csv ./${id}_genes.csv
-    mv eKLIPse_*/eKLIPse_sample.png ./${id}_plot.png
+    mv eKLIPse_*/eKLIPse_sample.png ./${id}_eklipse.png
     hetplasmid_frequency_eKLIPse.pl --bam ${bam} --in ${id}_deletions.csv
+	mv hetplasmid_frequency.txt ${id}.hetplasmid_frequency.txt
     """
 
 }
