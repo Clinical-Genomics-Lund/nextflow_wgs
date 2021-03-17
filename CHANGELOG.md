@@ -1,4 +1,8 @@
 # CHANGELOG
+### 2.1.10
+#### scout presentation
+- rankmodels now separate VEP-consequence from AnnotSVrank and dbvar in Consequence and Clinical_significance respectively
+
 
 ### 2.1.9
 #### bugfix
