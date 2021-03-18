@@ -79,7 +79,7 @@ fastq_umi = Channel.create()
 input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice, fastq_umi) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : (params.umi ? 5 : 0))))  }
 
 bam_choice
-	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice; yaml_bam_choice; cov_bam_choice; bam_manta_choice; bam_nator_choice; bam_tiddit_choice }
+	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice; yaml_bam_choice; cov_bam_choice; bam_manta_choice; bam_nator_choice; bam_tiddit_choice; bam_mito_choice; bam_SMN_choice }
 
 // Input channels for various meta information //
 Channel
@@ -515,7 +515,7 @@ process SMNCopyNumberCaller {
 	tag "$id"
 
 	input:
-        set group, id, file(bam), file(bai) from smncnc_bam
+        set group, id, file(bam), file(bai) from smncnc_bam.mix(bam_SMN_choice)
 
 	output:
 		file("*.tsv") into smn_tsv
@@ -1041,7 +1041,7 @@ process fetch_MTseqs {
 	tag "$id"
 
     input:
-        set group, id, file(bam), file(bai) from bam_mito
+        set group, id, file(bam), file(bai) from bam_mito.mix(bam_mito_choice)
 
     output:
         set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam
@@ -1248,6 +1248,7 @@ process annotate_vep {
 		-cache \\
 		-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
 		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
+		-custom $params.GNOMAD_MT,gnomADmt,vcf,exact,0,AF_hom,AF_het \\
 		-custom $params.PHYLOP \\
 		-custom $params.PHASTCONS
 	"""
@@ -1370,6 +1371,7 @@ process indel_vep {
 		--merged \\
 		--vcf \\
 		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
+		-custom $params.GNOMAD_MT,gnomADmt,vcf,exact,0,AF_hom,AF_het \\
 		--dir_cache $params.VEP_CACHE \\
 		--force_overwrite \\
 		--no_stats \\
