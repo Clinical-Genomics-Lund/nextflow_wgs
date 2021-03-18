@@ -7,6 +7,8 @@ new functions
   - hmtnote
   - haplogrep
   - eklipse
+- added SMNCopyNumberCalling
+- New VEP container and version (103)
 ## container ##
 - new container specifically for madeline2
 - main container now includes all software except madeline2 and VEP
