@@ -511,14 +511,16 @@ process SMNCopyNumberCaller {
 	cpus 10
 	memory '30GB'
 	time '1h'
-	publishDir "${OUTDIR}/plots/SMNcnc", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
 	tag "$id"
 
 	input:
         set group, id, file(bam), file(bai) from smncnc_bam
 
 	output:
-		set file("*.tsv"), file("*.pdf"), file("*.json")
+		file("*.tsv") into smn_tsv
+		set file("*.pdf"), file("*.json")
+		file("${group}.INFO") into smn_INFO
 
 	"""
 	samtools view -H $bam | \\
@@ -542,9 +544,14 @@ process SMNCopyNumberCaller {
 	rm ${id}.reheaded_smn.bam
 	source activate py3-env
 	python /SMNCopyNumberCaller/smn_charts.py -s ${id}.json -o .
+	mv ${id}.tsv ${group}.tsv
+	echo "SMN ${OUTDIR}/smn/${group}.tsv" > ${group}.INFO
 	"""
 	
 }
+// collects each individual's SMNCNC-tsv and creates one tsv-file
+smn_tsv
+	.collectFile(keepHeader: true, storeDir: "${OUTDIR}/smn/")
 
 
 
@@ -1119,6 +1126,7 @@ process run_hmtnote {
     grep -v ^# ${group}.hmtnote | sed 's/ /_/g' >> ${group}.fixinfo.vcf
     java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs \
         I=$vcf I=${group}.fixinfo.vcf O=${group}.concatmito.vcf
+	sed -i 's/^M/MT/' ${group}.concatmito.vcf
     """
     
 }
@@ -1204,7 +1212,7 @@ process add_to_loqusdb {
 }
 
 process annotate_vep {
-	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
+	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	cpus 54
 	tag "$group"
 	memory '150 GB'
@@ -1343,7 +1351,7 @@ process extract_indels_for_cadd {
 // Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
 process indel_vep {
 	cpus 5
-	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
+	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	tag "$group"
 	memory '10 GB'
 	time '3h'
@@ -2016,7 +2024,7 @@ process annotsv {
 
 process vep_sv {
 	cpus 56
-	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
+	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	tag "$group"
 	memory '150 GB'
 	time '1h'
@@ -2186,7 +2194,7 @@ process compound_finder {
 // Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
 // If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
 bam_INFO
-	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO)
+	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO,smn_INFO)
 	.collectFile()
 	.set{ yaml_INFO }
 process svvcf_to_bed {
