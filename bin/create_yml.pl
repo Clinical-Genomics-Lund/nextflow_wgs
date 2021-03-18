@@ -195,7 +195,9 @@ else {
 if ($INFO{STR}) {
     print OUT "vcf_str: $INFO{STR}\n";
 }
-
+if ($INFO{SMN}) {
+    print OUT "smn_tsv: $INFO{SMN}\n";
+}
 
 if ($INFO{MADDE}) {
     print OUT "madeline: $INFO{MADDE}\n";
