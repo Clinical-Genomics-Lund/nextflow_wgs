@@ -34,7 +34,7 @@ process bam_to_info {
 		set ped from ped_bam
 
 	output:
-		file("${pground}.INFO") into bam_INFO
+		file("${pgroup}.INFO") into bam_INFO
 
 	script:
 		id = 'ph'
@@ -49,7 +49,7 @@ process bam_to_info {
 			}
 		}
 	"""
-	echo $bamrows | sed "s/¤/\\n/g" > ${pground}.INFO
+	echo $bamrows | sed "s/¤/\\n/g" > ${pgroup}.INFO
 	"""
 
 
