@@ -9,6 +9,8 @@ new functions
   - eklipse
 - added SMNCopyNumberCalling
 - New VEP container and version (103)
+- gatk cnv calling
+  - adjustments to all affected scripts
 ## container ##
 - new container specifically for madeline2
 - main container now includes all software except madeline2 and VEP
