@@ -303,7 +303,7 @@ process create_yaml {
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		--g $group --d other --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay wgs-hg38 --antype $params.antype
+		--g $group --d other --panelsdef $params.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay wgs-hg38 --antype $params.antype
 	"""
 }
 
