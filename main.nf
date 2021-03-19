@@ -543,6 +543,9 @@ process SMNCopyNumberCaller {
 	publishDir "${OUTDIR}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
 	tag "$id"
 
+	when:
+		params.antype == "wgs"
+
 	input:
         set group, id, file(bam), file(bai) from smncnc_bam.mix(bam_SMN_choice)
 
@@ -566,11 +569,11 @@ process SMNCopyNumberCaller {
 		sed -e 's/SN:21/SN:chr21/' | sed -e 's/SN:22/SN:chr22/' |  \\
 		sed -e 's/SN:X/SN:chrX/' | sed -e 's/SN:Y/SN:chrY/' |   \\
 		sed -e 's/SN:MT/SN:chrM/' | \\
-		samtools reheader - ${bam.toRealPath()} > ${id}.reheaded_smn.bam
-	samtools index -b ${id}.reheaded_smn.bam -@ ${task.cpus}
-	echo ${id}.reheaded_smn.bam > manifest.txt
+		samtools reheader - ${bam.toRealPath()} > ${id}.bam
+	samtools index -b ${id}.bam -@ ${task.cpus}
+	echo ${id}.bam > manifest.txt
 	smn_caller.py --manifest manifest.txt --genome 38 --prefix ${id} --outDir . --threads ${task.cpus}
-	rm ${id}.reheaded_smn.bam
+	rm ${id}.bam
 	source activate py3-env
 	python /SMNCopyNumberCaller/smn_charts.py -s ${id}.json -o .
 	mv ${id}.tsv ${group}_SMN.tsv
@@ -971,6 +974,9 @@ process freebayes {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 
+	when: 
+		params.onco
+
     input:
         set group, id, file(bam), file(bai) from bam_freebayes.mix(bam_freebayes_choice)
 
@@ -998,70 +1004,21 @@ process freebayes {
 
 }
 
-process concat_freebayes {
-	cpus 1
-	time '10m'
+// process concat_freebayes {
+// 	cpus 1
+// 	time '10m'
 
-	input:
-		set group, id, file(vcf), file(idx) from combined_vcf
-		set id, file(freebayes) from freebayes_concat
-	output:
-		set group, id, file("${id}.concat.freebayes.vcf"), file("${id}.concat.freebayes.vcf.idx") into combined_vcf_freebayes
+// 	input:
+// 		set group, id, file(vcf), file(idx) from combined_vcf
+// 		set id, file(freebayes) from freebayes_concat
+// 	output:
+// 		set group, id, file("${id}.concat.freebayes.vcf"), file("${id}.concat.freebayes.vcf.idx") into combined_vcf_freebayes
 
-	"""
-	cat $vcf $freebayes > ${id}.concat.freebayes.vcf
-	touch ${id}.concat.freebayes.vcf.idx
-	"""
-}
-
-// Splitting & normalizing variants:
-process split_normalize {
-	cpus 1
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
-	tag "$group"
-	memory '10 GB'
-	time '1h'
-
-	when:
-		params.annotate
-
-	input:
-		set group, id, file(vcf), file(idx) from combined_vcf_freebayes.mix(vcf_choice)
-
-	output:
-		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
-		
-	script:
-
-	"""
-	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
-	bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
-	bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
-	wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
-	"""
-
-
-}
-
-// Intersect VCF, exome/clinvar introns
-process intersect {
-	tag "$group"
-	memory '1 GB'
-	time '15m'
-
-	input:
-		set group, file(vcf) from split_norm
-
-	output:
-		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
-
-	script:
-
-		"""
-		bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
-		"""
-
-}
+// 	"""
+// 	cat $vcf $freebayes > ${id}.concat.freebayes.vcf
+// 	touch ${id}.concat.freebayes.vcf.idx
+// 	"""
+// }
 
 /////////////// MITOCHONDRIA SNV CALLING ///////////////
 ///////////////                          ///////////////
@@ -1072,6 +1029,9 @@ process fetch_MTseqs {
 	memory '30GB'
 	time '10m'
 	tag "$id"
+
+	when:
+		params.antype == "wgs"
 
     input:
         set group, id, file(bam), file(bai) from bam_mito.mix(bam_mito_choice)
@@ -1147,19 +1107,15 @@ process run_hmtnote {
 
     input:
         set group, file(adj_vcf) from adj_vcfs
-        set group, file(vcf) from split_vep
 
     output:
-        set group, file("${group}.concatmito.vcf") into mito_diplod_vep
+        set group, file("${group}.fixinfo.vcf") into mito_diplod_vep
 
     """
     source activate tools
     hmtnote annotate ${adj_vcf} ${group}.hmtnote --offline
     grep ^# ${group}.hmtnote > ${group}.fixinfo.vcf
     grep -v ^# ${group}.hmtnote | sed 's/ /_/g' >> ${group}.fixinfo.vcf
-    java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs \
-        I=$vcf I=${group}.fixinfo.vcf O=${group}.concatmito.vcf
-	sed -i 's/^M/MT/' ${group}.concatmito.vcf
     """
     
 }
@@ -1222,6 +1178,84 @@ process run_eklipse {
 
 }
 
+
+
+// Splitting & normalizing variants:
+process split_normalize {
+	cpus 1
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	tag "$group"
+	memory '10 GB'
+	time '1h'
+
+	when:
+		params.annotate
+
+	input:
+		set group, id, file(vcf), file(idx) from combined_vcf
+		set id, file(vcfconcat) from mito_diplod_vep.mix(freebayes_concat)
+
+	output:
+		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
+		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
+		
+	script:
+
+	if(params.onco) {
+		"""
+		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
+		vcfbreakmulti ${id}.concat.freebayes.vcf > ${group}.multibreak.vcf
+		bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
+		bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
+		wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
+		bedtools intersect \
+			-a ${group}.norm.uniq.DPAF.vcf \\
+			-b $params.intersect_bed \\
+			-u -header > ${group}.intersected.vcf
+		"""
+	}
+
+	else {
+		"""
+		vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
+		bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
+		bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
+		wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
+		bedtools intersect \\
+			-a ${group}.norm.uniq.DPAF.vcf \\
+			-b $params.intersect_bed \\
+			-u -header > ${group}.intersected_diploid.vcf
+		java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs \
+        I=${group}.intersected_diploid.vcf I=$vcfconcat O=${group}.merged_mito.vcf
+		sed 's/^M/MT/' ${group}.merged_mito.vcf > ${group}.intersected.vcf
+		"""
+
+	}
+
+
+
+}
+
+// // Intersect VCF, exome/clinvar introns
+// process intersect {
+// 	tag "$group"
+// 	memory '1 GB'
+// 	time '15m'
+
+// 	input:
+// 		set group, file(vcf) from split_norm
+
+// 	output:
+// 		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
+
+// 	script:
+
+// 	"""
+// 	bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
+// 	"""
+
+// }
+
 process add_to_loqusdb {
 	cpus 1
 	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
@@ -1255,7 +1289,7 @@ process annotate_vep {
 	stageOutMode 'copy'
 
 	input:
-		set group, file(vcf) from mito_diplod_vep
+		set group, file(vcf) from split_vep
 
 	output:
 		set group, file("${group}.vep.vcf") into vep
