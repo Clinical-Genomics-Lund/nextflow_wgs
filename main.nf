@@ -78,9 +78,39 @@ fastq_umi = Channel.create()
 // If .bam -> value 1, else if .vcf -> value 2 else if .gvcf -> value 4 else if none(.fq.gz) if params.shardbwa true -> value 3 otherwise 0
 input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice, fastq_umi) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : (params.umi ? 5 : 0))))  }
 
-bam_choice
-	.into{ expansionhunter_bam_choice; dnascope_bam_choice; chanjo_bam_choice; yaml_bam_choice; cov_bam_choice; bam_manta_choice; bam_nator_choice; bam_tiddit_choice; bam_gatk_choice }
+bam_choice.into{ 
+	expansionhunter_bam_choice; 
+	dnascope_bam_choice;
+	chanjo_bam_choice; 
+	yaml_bam_choice; 
+	cov_bam_choice; 
+	bam_manta_choice; 
+	bam_nator_choice; 
+	bam_tiddit_choice; 
+	bam_mito_choice; 
+	bam_SMN_choice; 
+	bam_freebayes_choice;
+	bam_mantapanel_choice;
+	bam_cnvkitpanel_choice;
+	bam_dellypanel_choice;
+	bam_melt_choice;
+	bam_qc_choice;
+	dedup_dummy_choice;
+	bam_gatk_choice }
 
+// For melt to work if started from bam-file.
+process dedupdummy {
+	when:
+		params.onco
+
+	input:
+		set id, group, file(bam), file(bai) from dedup_dummy_choice
+	output:
+		set id, file("dummy") into dedup_dummy
+	"""
+	echo test > dummy
+	"""
+}
 // Input channels for various meta information //
 Channel
 	.fromPath(params.csv)
@@ -317,7 +347,7 @@ process dedup {
 
 process dedup_metrics_merge {
 	tag "$id"
-	time '10m'
+	time '20m'
 	memory '5 GB'
 	cpus 1
 	scratch true
@@ -409,7 +439,7 @@ process merge_dedup_bam {
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
 
 	output:
-		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_gatk
+		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk
 		set id, group, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam, bam_melt
 		file("${group}.INFO") into bam_INFO
 
@@ -436,7 +466,7 @@ process sentieon_qc {
 	stageOutMode 'copy'
 
 	input:
-		set id, group, file(bam), file(bai), file(dedup) from qc_bam.join(merged_dedup_metrics)
+		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(merged_dedup_metrics.mix(dedup_dummy))
 
 	output:
 		set id, file("${id}.QC") into qc_cdm, qc_melt
@@ -449,7 +479,7 @@ process sentieon_qc {
 		assay = "wgs"
 		if( params.onco || params.exome) {
 			target = "--interval $params.intervals"
-			panel = params.panelhs + "${bam}" + params.panelhs2 
+			panel = params.panelhs + "${bam.toRealPath()}" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
 			assay = "panel"
 		}
@@ -458,7 +488,7 @@ process sentieon_qc {
 	sentieon driver \\
 		-r $genome_file $target \\
 		-t ${task.cpus} \\
-		-i ${bam} \\
+		-i ${bam.toRealPath()} \\
 		--algo MeanQualityByCycle mq_metrics.txt \\
 		--algo QualDistribution qd_metrics.txt \\
 		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
@@ -523,6 +553,54 @@ process chanjo_sambamba {
 	"""
 }
 
+process SMNCopyNumberCaller {
+	cpus 10
+	memory '30GB'
+	time '1h'
+	publishDir "${OUTDIR}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
+	tag "$id"
+
+	when:
+		params.antype == "wgs"
+
+	input:
+        set group, id, file(bam), file(bai) from smncnc_bam.mix(bam_SMN_choice)
+
+	output:
+		file("*.tsv") into smn_tsv
+		set file("*.pdf"), file("*.json")
+		file("${group}.INFO") into smn_INFO
+
+	"""
+	samtools view -H ${bam.toRealPath()} | \\
+		sed -e 's/SN:1/SN:chr1/' | sed -e 's/SN:2/SN:chr2/' |  \\
+		sed -e 's/SN:3/SN:chr3/' | sed -e 's/SN:4/SN:chr4/' |  \\
+		sed -e 's/SN:5/SN:chr5/' | sed -e 's/SN:6/SN:chr6/' |  \\
+		sed -e 's/SN:7/SN:chr7/' | sed -e 's/SN:8/SN:chr8/' |  \\
+		sed -e 's/SN:9/SN:chr9/' | sed -e 's/SN:10/SN:chr10/' | \\
+		sed -e 's/SN:11/SN:chr11/' | sed -e 's/SN:12/SN:chr12/' |  \\
+		sed -e 's/SN:13/SN:chr13/' | sed -e 's/SN:14/SN:chr14/' |  \\
+		sed -e 's/SN:15/SN:chr15/' | sed -e 's/SN:16/SN:chr16/' |  \\
+		sed -e 's/SN:17/SN:chr17/' | sed -e 's/SN:18/SN:chr18/' |  \\
+		sed -e 's/SN:19/SN:chr19/' | sed -e 's/SN:20/SN:chr20/' |  \\
+		sed -e 's/SN:21/SN:chr21/' | sed -e 's/SN:22/SN:chr22/' |  \\
+		sed -e 's/SN:X/SN:chrX/' | sed -e 's/SN:Y/SN:chrY/' |   \\
+		sed -e 's/SN:MT/SN:chrM/' | \\
+		samtools reheader - ${bam.toRealPath()} > ${id}.bam
+	samtools index -b ${id}.bam -@ ${task.cpus}
+	echo ${id}.bam > manifest.txt
+	smn_caller.py --manifest manifest.txt --genome 38 --prefix ${id} --outDir . --threads ${task.cpus}
+	rm ${id}.bam
+	source activate py3-env
+	python /SMNCopyNumberCaller/smn_charts.py -s ${id}.json -o .
+	mv ${id}.tsv ${group}_SMN.tsv
+	echo "SMN ${OUTDIR}/smn/${group}_SMN.tsv" > ${group}.INFO
+	"""
+	
+}
+// collects each individual's SMNCNC-tsv and creates one tsv-file
+smn_tsv
+	.collectFile(keepHeader: true, storeDir: "${OUTDIR}/smn/")
 
 
 
@@ -530,7 +608,7 @@ process chanjo_sambamba {
 ////////////////////////// EXPANSION HUNTER ////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
-// call STRs using ExpansionHunter
+// call STRs using ExpansionHunter, and plot alignments with GraphAlignmentViewer
 process expansionhunter {
 	tag "$group"
 	cpus 2
@@ -539,6 +617,7 @@ process expansionhunter {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "${OUTDIR}/plots/GAV/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.png'
 
 	when:
 		params.str
@@ -549,13 +628,17 @@ process expansionhunter {
 
 	output:
 		set group, id, file("${group}.eh.vcf") into expansionhunter_vcf
+		file("*.png")
 
 	"""
+	source activate htslib10
 	ExpansionHunter \
 		--reads ${bam.toRealPath()} \
 		--reference $genome_file \
 		--variant-catalog $params.expansionhunter_catalog \
 		--output-prefix ${group}.eh
+	source activate py3-env
+    python /GraphAlignmentViewer/GraphAlignmentViewer.py --variant_catalog $params.expansionhunter_catalog --read_align ${group}.eh_realigned.bam
 	"""
 }
 
@@ -573,11 +656,13 @@ process stranger {
         
 
 	output:
-		set group, id, file("${group}.eh.stranger.vcf") into expansionhunter_vcf_anno
+		set group, id, file("${group}.fixinfo.eh.stranger.vcf") into expansionhunter_vcf_anno
 
 	"""
 	source activate py3-env
 	stranger ${eh_vcf} > ${group}.eh.stranger.vcf
+	grep ^# ${group}.eh.stranger.vcf > ${group}.fixinfo.eh.stranger.vcf
+    grep -v ^# ${group}.eh.stranger.vcf | sed 's/ /_/g' >> ${group}.fixinfo.eh.stranger.vcf
 	"""
 
 	
@@ -671,7 +756,7 @@ process melt_qc_val {
 process melt {
 	cpus 3
 	errorStrategy 'retry'
-	container = '/fs1/resources/containers/container_twist-brca.sif'
+	//container = '/fs1/resources/containers/container_twist-brca.sif'
 	tag "$id"
 	memory '40 GB'
 	time '3h'
@@ -680,7 +765,7 @@ process melt {
 	stageOutMode 'copy'
 
 	input:
-		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.join(qc_melt_val)
+		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
 
 	when:
 		params.onco
@@ -689,8 +774,9 @@ process melt {
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
 
 	"""
+	source activate java8-env
 	java -jar  /opt/MELT.jar Single \\
-		-bamfile $bam \\
+		-bamfile ${bam.toRealPath()} \\
 		-r 150 \\
 		-h $genome_file \\
 		-n $params.bed_melt \\
@@ -741,7 +827,7 @@ process dnascope {
 	cpus 16
 	tag "$id ($shard_name)"
 	memory '40 GB'
-	time '1h'
+	time '2h'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
@@ -911,8 +997,11 @@ process freebayes {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 
+	when: 
+		params.onco
+
     input:
-        set group, id, file(bam), file(bai) from bam_freebayes
+        set group, id, file(bam), file(bai) from bam_freebayes.mix(bam_freebayes_choice)
 
     output:
         set id, file("${id}.pathfreebayes.lines") into freebayes_concat
@@ -920,7 +1009,7 @@ process freebayes {
 	script:
 		if (params.onco) {
 			"""
-			freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 $bam > ${id}.freebayes.vcf
+			freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 ${bam.toRealPath()} > ${id}.freebayes.vcf
 			vcfbreakmulti ${id}.freebayes.vcf > ${id}.freebayes.multibreak.vcf
 			bcftools norm -m-both -c w -O v -f $genome_file -o ${id}.freebayes.multibreak.norm.vcf ${id}.freebayes.multibreak.vcf
 			vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
@@ -938,21 +1027,181 @@ process freebayes {
 
 }
 
-process concat_freebayes {
-	cpus 1
+// process concat_freebayes {
+// 	cpus 1
+// 	time '10m'
+
+// 	input:
+// 		set group, id, file(vcf), file(idx) from combined_vcf
+// 		set id, file(freebayes) from freebayes_concat
+// 	output:
+// 		set group, id, file("${id}.concat.freebayes.vcf"), file("${id}.concat.freebayes.vcf.idx") into combined_vcf_freebayes
+
+// 	"""
+// 	cat $vcf $freebayes > ${id}.concat.freebayes.vcf
+// 	touch ${id}.concat.freebayes.vcf.idx
+// 	"""
+// }
+
+/////////////// MITOCHONDRIA SNV CALLING ///////////////
+///////////////                          ///////////////
+
+// create an MT BAM file
+process fetch_MTseqs {
+	cpus 2
+	memory '30GB'
 	time '10m'
+	tag "$id"
 
-	input:
-		set group, id, file(vcf), file(idx) from combined_vcf
-		set id, file(freebayes) from freebayes_concat
-	output:
-		set group, id, file("${id}.concat.freebayes.vcf"), file("${id}.concat.freebayes.vcf.idx") into combined_vcf_freebayes
+	when:
+		params.antype == "wgs"
 
-	"""
-	cat $vcf $freebayes > ${id}.concat.freebayes.vcf
-	touch ${id}.concat.freebayes.vcf.idx
-	"""
+    input:
+        set group, id, file(bam), file(bai) from bam_mito.mix(bam_mito_choice)
+
+    output:
+        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam
+
+    """
+    sambamba view -f bam ${bam.toRealPath()} M > ${id}_mito.bam
+    samtools index -b ${id}_mito.bam
+    """
+
 }
+
+// gatk FilterMutectCalls in future if FPs overwhelms tord/sofie/carro
+process run_mutect2 {
+    cpus 4
+    memory '16 GB'
+    time '15m'
+	tag "$group"
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+    
+    input:
+        set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
+
+    output:
+        set group, id, file("${group}.mutect2.vcf") into ms_vcfs_1, ms_vcfs_2
+
+    script:
+        bams = bam.join(' -I ')
+    
+    """
+    source activate gatk4-env
+    gatk Mutect2 \
+    --mitochondria-mode \
+    -R $params.genome_file \
+    -L M \
+    -I $bams \
+    -O ${group}.mutect2.vcf
+    """
+
+}
+
+// split and left-align variants
+process split_normalize_mito {
+    cpus 1
+    memory '1GB'
+    time '5m'
+
+    input:
+        set group, id, file(ms_vcf) from ms_vcfs_1
+
+    output:
+        set group, file("${ms_vcf.baseName}.adjusted.vcf") into adj_vcfs
+
+
+    """
+    vcfbreakmulti $ms_vcf > ${ms_vcf}.breakmulti
+    bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
+    tabix -p vcf ${ms_vcf}.breakmulti.fix
+    bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix    
+    """
+
+}
+
+// use python tool HmtNote for annotating vcf
+// future merging with diploid genome does not approve spaces in info-string
+process run_hmtnote {
+    cpus 1
+    memory '5GB'
+    time '15m'
+
+
+    input:
+        set group, file(adj_vcf) from adj_vcfs
+
+    output:
+        set group, file("${group}.fixinfo.vcf") into mito_diplod_vep
+
+    """
+    source activate tools
+    hmtnote annotate ${adj_vcf} ${group}.hmtnote --offline
+    grep ^# ${group}.hmtnote > ${group}.fixinfo.vcf
+    grep -v ^# ${group}.hmtnote | sed 's/ /_/g' >> ${group}.fixinfo.vcf
+    """
+    
+}
+
+// run haplogrep 2 on resulting vcf
+process run_haplogrep {
+    time '10m'
+    memory '16 GB'
+    cpus '2'
+	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true'
+
+    input:
+        set group, id, file(ms_vcf) from ms_vcfs_2
+
+    output:
+       file("${group}.haplogrep.png")
+
+    shell:
+
+    '''
+    for sample in `bcftools query -l !{ms_vcf}`; do 
+        bcftools view -c1 -Oz -s $sample -o $sample.vcf.gz !{ms_vcf}
+        java  -Xmx16G -Xms16G -jar /opt/bin/haplogrep.jar classify \
+        --in $sample.vcf.gz\
+        --out $sample.hg2.vcf \
+        --format vcf \
+        --lineage 1
+        dot $sample.hg2.vcf.dot -Tps2 > $sample.hg2.vcf.ps
+        gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -dGraphicsAlphaBits=4 -r1200 -dDownScaleFactor=3 -sOutputFile=${sample}.hg2.vcf.png ${sample}.hg2.vcf.ps
+    done
+    montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
+    '''
+
+}
+
+// use eKLIPse for detecting mitochondrial deletions
+process run_eklipse {
+    cpus 2
+    memory '10GB'
+    time '20m'
+	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true'
+
+    input:
+        set group, id, file(bam), file(bai) from eklipse_bam
+
+	output:
+		set file("*.png"), file("${id}.hetplasmid_frequency.txt")
+    """
+    source activate htslib10
+    echo "${bam}\tsample" > infile.txt
+    python /eKLIPse/eKLIPse.py \
+    -in infile.txt \
+    -ref /eKLIPse/data/NC_012920.1.gb
+    mv eKLIPse_*/eKLIPse_deletions.csv ./${id}_deletions.csv
+    mv eKLIPse_*/eKLIPse_genes.csv ./${id}_genes.csv
+    mv eKLIPse_*/eKLIPse_sample.png ./${id}_eklipse.png
+    hetplasmid_frequency_eKLIPse.pl --bam ${bam} --in ${id}_deletions.csv
+	mv hetplasmid_frequency.txt ${id}.hetplasmid_frequency.txt
+    """
+
+}
+
+
 
 // Splitting & normalizing variants:
 process split_normalize {
@@ -969,42 +1218,69 @@ process split_normalize {
 		params.annotate
 
 	input:
-		set group, id, file(vcf), file(idx) from combined_vcf_freebayes.mix(vcf_choice)
+		set group, id, file(vcf), file(idx) from combined_vcf
+		set id, file(vcfconcat) from mito_diplod_vep.mix(freebayes_concat)
 
 	output:
 		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
+		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
 		
 	script:
 
-	"""
-	vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
-	bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
-	bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
-	wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
-	"""
+	if(params.onco) {
+		"""
+		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
+		vcfbreakmulti ${id}.concat.freebayes.vcf > ${group}.multibreak.vcf
+		bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
+		bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
+		wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
+		bedtools intersect \
+			-a ${group}.norm.uniq.DPAF.vcf \\
+			-b $params.intersect_bed \\
+			-u -header > ${group}.intersected.vcf
+		"""
+	}
+
+	else {
+		"""
+		vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
+		bcftools norm -m-both -c w -O v -f $genome_file -o ${group}.norm.vcf ${group}.multibreak.vcf
+		bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
+		wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
+		bedtools intersect \\
+			-a ${group}.norm.uniq.DPAF.vcf \\
+			-b $params.intersect_bed \\
+			-u -header > ${group}.intersected_diploid.vcf
+		java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs \
+        I=${group}.intersected_diploid.vcf I=$vcfconcat O=${group}.merged_mito.vcf
+		sed 's/^M/MT/' ${group}.merged_mito.vcf > ${group}.intersected.vcf
+		"""
+
+	}
+
 
 
 }
 
-// Intersect VCF, exome/clinvar introns
-process intersect {
-	tag "$group"
-	memory '1 GB'
-	time '15m'
+// // Intersect VCF, exome/clinvar introns
+// process intersect {
+// 	tag "$group"
+// 	memory '1 GB'
+// 	time '15m'
 
-	input:
-		set group, file(vcf) from split_norm
+// 	input:
+// 		set group, file(vcf) from split_norm
 
-	output:
-		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
+// 	output:
+// 		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
 
-	script:
+// 	script:
 
-		"""
-		bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
-		"""
+// 	"""
+// 	bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
+// 	"""
 
-}
+// }
 
 process add_to_loqusdb {
 	cpus 1
@@ -1029,7 +1305,7 @@ process add_to_loqusdb {
 }
 
 process annotate_vep {
-	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
+	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	cpus 54
 	tag "$group"
 	memory '150 GB'
@@ -1065,6 +1341,7 @@ process annotate_vep {
 		-cache \\
 		-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
 		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
+		-custom $params.GNOMAD_MT,gnomADmt,vcf,exact,0,AF_hom,AF_het \\
 		-custom $params.PHYLOP \\
 		-custom $params.PHASTCONS
 	"""
@@ -1140,7 +1417,7 @@ process mark_splice {
 	cpus 1
 	tag "$group"
 	memory '1 GB'
-	time '5m'
+	time '20m'
 
 	input:
 		set group, file(vcf) from mod_vcf
@@ -1174,7 +1451,7 @@ process extract_indels_for_cadd {
 // Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
 process indel_vep {
 	cpus 5
-	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
+	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	tag "$group"
 	memory '10 GB'
 	time '3h'
@@ -1192,7 +1469,9 @@ process indel_vep {
 		--cache \\
 		--merged \\
 		--vcf \\
+		--fasta $params.VEP_FASTA \\
 		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
+		-custom $params.GNOMAD_MT,gnomADmt,vcf,exact,0,AF_hom,AF_het \\
 		--dir_cache $params.VEP_CACHE \\
 		--force_overwrite \\
 		--no_stats \\
@@ -1305,7 +1584,7 @@ process vcf_completion {
 // Running PEDDY: 
 process peddy {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
-	container = '/fs1/resources/containers/wgs_20200115.sif'
+	//container = '/fs1/resources/containers/wgs_20200115.sif'
 	cpus 6
 	tag "$group"
 
@@ -1550,7 +1829,7 @@ process manta_panel {
 		params.sv && params.onco
 
 	input:
-		set group, id, file(bam), file(bai) from bam_manta_panel
+		set group, id, file(bam), file(bai) from bam_manta_panel.mix(bam_mantapanel_choice)
 
 	output:
 		set group, id, file("${id}.manta.vcf.gz") into called_manta_panel
@@ -1578,7 +1857,7 @@ process delly_panel {
 		params.sv && params.onco
 
 	input:
-		set group, id, file(bam), file(bai) from bam_delly_panel
+		set group, id, file(bam), file(bai) from bam_delly_panel.mix(bam_dellypanel_choice)
 
 	output:
 		set group, id, file("${id}.delly.vcf.gz") into called_delly_panel
@@ -1607,7 +1886,7 @@ process cnvkit_panel {
 		params.sv && params.onco
 
 	input:
-		set group, id, file(bam), file(bai) from bam_cnvkit_panel
+		set group, id, file(bam), file(bai) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice)
 		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from qc_cnvkit_val
 		set group, file(vcf) from vcf_cnvkit
 	
@@ -1618,7 +1897,7 @@ process cnvkit_panel {
 	cnvkit.py batch ${bam.toRealPath()} -r $params.cnvkit_reference -p 5 -d results/
 	cnvkit.py call results/*.cns -v $vcf -o ${id}.call.cns
 	filter_cnvkit.pl ${id}.call.cns $MEAN_DEPTH > ${id}.filtered
-	cnvkit.py export vcf ${id}.filtered > ${id}.cnvkit_filtered.vcf
+	cnvkit.py export vcf ${id}.filtered -i "$id" > ${id}.cnvkit_filtered.vcf
 	"""
 
 }
@@ -1934,7 +2213,7 @@ process annotsv {
 
 process vep_sv {
 	cpus 56
-	container = '/fs1/resources/containers/ensembl-vep_latest.sif'
+	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	tag "$group"
 	memory '150 GB'
 	time '1h'
@@ -2104,7 +2383,7 @@ process compound_finder {
 // Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
 // If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
 bam_INFO
-	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO)
+	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO,smn_INFO)
 	.collectFile()
 	.set{ yaml_INFO }
 process svvcf_to_bed {
@@ -2180,6 +2459,6 @@ process create_yaml {
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		--g $group,$clarity_sample_id --d $diagnosis --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
+		--g $group,$clarity_sample_id --d $diagnosis --panelsdef $params.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
 	"""
 }

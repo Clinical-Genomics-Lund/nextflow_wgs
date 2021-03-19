@@ -1,0 +1,12 @@
+name: htslib10
+channels:
+    - bioconda
+    - conda-forge
+    - defaults
+
+dependencies:
+    - bioconda::blast=2.10.1
+    - bioconda::biopython=1.70
+    - bioconda::circos=0.69.8
+    - conda-forge::tqdm=4.50.0
+    - bioconda::expansionhunter=4.0.2

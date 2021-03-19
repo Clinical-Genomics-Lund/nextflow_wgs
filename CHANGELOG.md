@@ -1,4 +1,21 @@
 # CHANGELOG
+### 2.1.10
+#### scout presentation
+- rankmodels now separate VEP-consequence from AnnotSVrank and dbvar in Consequence and Clinical_significance respectively
+
+
+### 2.1.9
+#### bugfix
+- rescore.nf had wrongly named variable in output for bamfiles 
+
+### 2.1.8
+- create_yml.pl now recieved gene_panel content from hopper-json. no longer require scout-vm connectivity
+
+### 2.1.7
+- clincalwes now has correct loqusdb not piggybacking of onco
+
+### 2.1.6
+- timelimit increases, scratch and stage in/out for processes
 
 ### 2.1.5
 
