@@ -2175,7 +2175,7 @@ process svdb_merge {
 		}
 
 		else {
-			tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + gatk.collect {it + ':gatk ' }
+			tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + gatkV.collect {it + ':gatk ' }
 			vcfs = tmp.join(' ')
 			"""
 			source activate py3-env
