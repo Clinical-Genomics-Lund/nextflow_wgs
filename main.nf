@@ -692,7 +692,7 @@ process vcfbreakmulti_expansionhunter {
 		if (mother == "") { mother = "null" }
 		if (mode == "family") {
 			"""
-			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${group}
+			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
 			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf.tmp
 			familyfy_str.pl --vcf ${group}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${group}.expansionhunter.vcf
 			bgzip ${group}.expansionhunter.vcf
@@ -1027,22 +1027,6 @@ process freebayes {
 
 }
 
-// process concat_freebayes {
-// 	cpus 1
-// 	time '10m'
-
-// 	input:
-// 		set group, id, file(vcf), file(idx) from combined_vcf
-// 		set id, file(freebayes) from freebayes_concat
-// 	output:
-// 		set group, id, file("${id}.concat.freebayes.vcf"), file("${id}.concat.freebayes.vcf.idx") into combined_vcf_freebayes
-
-// 	"""
-// 	cat $vcf $freebayes > ${id}.concat.freebayes.vcf
-// 	touch ${id}.concat.freebayes.vcf.idx
-// 	"""
-// }
-
 /////////////// MITOCHONDRIA SNV CALLING ///////////////
 ///////////////                          ///////////////
 
@@ -1203,7 +1187,7 @@ process run_eklipse {
 
 
 
-// Splitting & normalizing variants:
+// Splitting & normalizing variants, merging with Freebayes/Mutect2, intersecting against exome/clinvar introns
 process split_normalize {
 	cpus 1
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
@@ -1261,26 +1245,6 @@ process split_normalize {
 
 
 }
-
-// // Intersect VCF, exome/clinvar introns
-// process intersect {
-// 	tag "$group"
-// 	memory '1 GB'
-// 	time '15m'
-
-// 	input:
-// 		set group, file(vcf) from split_norm
-
-// 	output:
-// 		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
-
-// 	script:
-
-// 	"""
-// 	bedtools intersect -a $vcf -b $params.intersect_bed -u -header > ${group}.intersected.vcf
-// 	"""
-
-// }
 
 process add_to_loqusdb {
 	cpus 1
