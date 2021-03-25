@@ -702,7 +702,7 @@ process vcfbreakmulti_expansionhunter {
 		}
 		else {
 			"""
-			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${group}
+			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
 			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf
 			bgzip ${group}.expansionhunter.vcf
 			tabix ${group}.expansionhunter.vcf.gz
@@ -1305,7 +1305,7 @@ process annotate_vep {
 		-cache \\
 		-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
 		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
-		-custom $params.GNOMAD_MT,gnomADmt,vcf,exact,0,AF_hom,AF_het \\
+		-custom $params.GNOMAD_MT,gnomADmt,vcf,exact,0,gnomAD_mt_AF_hom,gnomAD_mt_AF_het \\
 		-custom $params.PHYLOP \\
 		-custom $params.PHASTCONS
 	"""
@@ -2223,6 +2223,7 @@ process postprocess_vep {
 	svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
 	sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.vcf
     sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
+	sed 's/^M/MT/' -i ${group}.vep.clean.merge.vcf
 	add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
 	"""
 }
