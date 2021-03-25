@@ -1305,7 +1305,7 @@ process annotate_vep {
 		-cache \\
 		-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
 		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
-		-custom $params.GNOMAD_MT,gnomADmt,vcf,exact,0,gnomAD_mt_AF_hom,gnomAD_mt_AF_het \\
+		-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
 		-custom $params.PHYLOP \\
 		-custom $params.PHASTCONS
 	"""
