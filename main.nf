@@ -453,7 +453,7 @@ process merge_dedup_bam {
 	"""
 }
 
-//Collect various QC data: TODO MOVE qc_sentieon to container!
+//Collect various QC data: 
 process sentieon_qc {
 	cpus 54
 	memory '64 GB'
@@ -808,6 +808,7 @@ process dnascope_bam_choice {
 	output:
 		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
 		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens_choice
+		file("${group}.INFO") into bamchoice_INFO
 
 	script:
 	vgroup = "vcfs"
@@ -819,6 +820,7 @@ process dnascope_bam_choice {
 		-i ${bam.toRealPath()} \\
 		-q $bqsr \\
 		--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf.gz
+	echo "BAM	$id	/access/${params.subdir}/bam/$bam" > ${group}.INFO
 	"""
 }
 
@@ -963,7 +965,7 @@ process madeline {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
 	memory '1 GB'
 	time '30m'
-
+	container '/fs1/resources/containers/madeline.sif'
 
 	input:
 		file(ped) from ped_mad
@@ -977,6 +979,7 @@ process madeline {
 		mode == "family"
 
 	"""
+	source activate tools
 	ped_parser \\
 		-t ped $ped \\
 		--to_madeline \\
@@ -1045,10 +1048,12 @@ process fetch_MTseqs {
 
     output:
         set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam
+		file("${group}.INFO") into mtBAM_INFO
 
     """
     sambamba view -f bam ${bam.toRealPath()} M > ${id}_mito.bam
     samtools index -b ${id}_mito.bam
+	echo "mtBAM	$id	/access/${params.subdir}/bam/${id}_mito.bam" > ${group}.INFO
     """
 
 }
@@ -1065,7 +1070,7 @@ process run_mutect2 {
         set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
 
     output:
-        set group, id, file("${group}.mutect2.vcf") into ms_vcfs_1, ms_vcfs_2
+        set group, id, file("${group}.mutect2.filtered5p.0genotyped.vcf") into ms_vcfs_1, ms_vcfs_2
 
     script:
         bams = bam.join(' -I ')
@@ -1078,6 +1083,8 @@ process run_mutect2 {
     -L M \
     -I $bams \
     -O ${group}.mutect2.vcf
+	bcftools view -i 'FMT/AF[*]>0.05' ${group}.mutect2.vcf -o ${group}.mutect2.filtered5p.vcf
+	bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.filtered5p.vcf -o ${group}.mutect2.filtered5p.0genotyped.vcf
     """
 
 }
@@ -1435,7 +1442,7 @@ process indel_vep {
 		--vcf \\
 		--fasta $params.VEP_FASTA \\
 		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
-		-custom $params.GNOMAD_MT,gnomADmt,vcf,exact,0,AF_hom,AF_het \\
+		-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
 		--dir_cache $params.VEP_CACHE \\
 		--force_overwrite \\
 		--no_stats \\
@@ -1466,6 +1473,7 @@ process calculate_indel_cadd {
 	"""
 		export TMPDIR='/home/cadd_worker/'
 		source activate cadd-env-v1.5
+		sed 's/^MT/M/' -i $vcf
 		/opt/cadd/CADD.sh -g GRCh38 -o ${group}.indel_cadd.gz $vcf
 	"""
 }
@@ -2004,6 +2012,9 @@ process gatk_call_cnv {
         set group, id, i, file("${group}_${i}.tar") into postprocessgatk
 
     """
+	export HOME=/local/scratch
+	echo "[global]" > ~/.theanorc
+	echo config.compile.timeout = 1000 >> ~/.theanorc
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
     tar -xvf ploidy.tar
@@ -2224,6 +2235,7 @@ process postprocess_vep {
 	sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.vcf
     sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
 	sed 's/^M/MT/' -i ${group}.vep.clean.merge.vcf
+	sed 's/ID=M/ID=MT/' -i ${group}.vep.clean.merge.vcf
 	add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
 	"""
 }
@@ -2348,7 +2360,7 @@ process compound_finder {
 // Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
 // If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
 bam_INFO
-	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO,smn_INFO)
+	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO)
 	.collectFile()
 	.set{ yaml_INFO }
 process svvcf_to_bed {

@@ -105,6 +105,9 @@ while ( <INFO> ) {
     elsif ($tmp[0] eq "TISSUE") {
         $INFO{TISSUE}->{$tmp[1]} = $tmp[2];
     }
+    elsif  ($tmp[0] eq "mtBAM") {
+        $INFO{mtBAM}->{$tmp[1]} = $tmp[2];
+    }
     else {
         $INFO{$tmp[0]} = $tmp[1];
     }
@@ -169,6 +172,9 @@ foreach my $sample (@ped) {
     else { print STDERR "not a valid sex!\n" }
     if ($INFO{BAM}{$pedline[1]}) {
         print OUT "    bam_path: $INFO{BAM}{$pedline[1]}\n";
+    }
+    if ($INFO{mtBAM}{$pedline[1]}) {
+        print OUT "    mt_bam: $INFO{mtBAM}{$pedline[1]}\n";
     }
 }
 ##########################################
