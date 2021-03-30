@@ -15,7 +15,7 @@ print $vcf->{header_str};
 while ( my $a = $vcf->next_var() ) {
 
     
-    my $AF = ( $a->{INFO}->{CSQ}->[0]->{'gnomADg_AF"'} or 0 );
+    my $AF = ( $a->{INFO}->{CSQ}->[0]->{'gnomADg_AF'} or 0 );
     my @AF = split '&',$AF;
     if ( scalar(@AF) >= 2 ) {
         $AF = findmax(@AF);
