@@ -7,6 +7,8 @@ new functions
   - hmtnote
   - haplogrep
   - eklipse
+  - modifications to filter_indels (new VEP fields)
+  - modifications to modify_vcf_scout.pl, ignore maxentscan for M
 - added SMNCopyNumberCalling
 - New VEP container and version (103)
 - gatk cnv calling
