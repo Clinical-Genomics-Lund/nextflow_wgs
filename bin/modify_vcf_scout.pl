@@ -9,7 +9,12 @@ my @head;
 open(VEP, $ARGV[0]);
 
 
-
+my %maxentscan = (
+    "MES-NCSS_downstream_acceptor" => 1,"MES-NCSS_downstream_donor"=> 1,"MES-NCSS_upstream_acceptor"=> 1,
+    "MES-NCSS_upstream_donor"=> 1,"MES-SWA_acceptor_alt"=> 1,"MES-SWA_acceptor_diff"=> 1,"MES-SWA_acceptor_ref"=> 1,
+    "MES-SWA_acceptor_ref_comp"=> 1,"MES-SWA_donor_alt"=> 1,"MES-SWA_donor_diff"=> 1,"MES-SWA_donor_ref"=> 1,
+    "MES-SWA_donor_ref_comp"=> 1,"MaxEntScan_alt"=> 1,"MaxEntScan_diff"=> 1,"MaxEntScan_ref"=> 1
+);
 
 my %clinmod = (
     "Pathogenic" => "_5_",
@@ -62,7 +67,7 @@ my %rank = (
     'intergenic_variant' => 37
     );
 
-
+my $vep_csq;
 
 while( <VEP>) {
     ## Print and store Meta-info
@@ -70,6 +75,7 @@ while( <VEP>) {
         print;
         my( $type, $meta ) = parse_metainfo( $_ );
 	    $vcf_meta{$type}->{$meta->{ID}} = $meta if defined $type;
+        if ( /^##INFO=<ID=CSQ,Number=/) {$vep_csq = $_;}
     }
     # Print and store header
     elsif( /^#/ ) {
@@ -94,9 +100,54 @@ while( <VEP>) {
         my @add_info_field;
         #print Dumper($doobi);
         my @VARIANTS = split /\t/;
-        print join "\t", @VARIANTS[0..6];
-
         my @info_field = split/;/,$VARIANTS[7];
+
+        if ($doobi->{CHROM} =~ /^M/) {
+            $vep_csq =~ /Consequence annotations from Ensembl VEP\. Format: (.*?)$/;
+            my @field_names = split(/\|/, $1);
+            my $info_field_mt = "";
+            #print join("|",@field_names)."\n";
+            my $trans_c = 0;
+            #print Dumper($doobi->{INFO}->{CSQ}->[0]);
+            foreach my $trans ( @{ $doobi->{INFO}->{CSQ} }) {
+                my @csq_mt;
+                foreach my $key ( @field_names) {
+                   # print $key."  =>  ".$doobi->{INFO}->{CSQ}->[$trans_c]->{$key}."\n";
+                    if ($maxentscan{$key}) {
+                        push @csq_mt,"";
+                    }
+                    elsif ($key eq 'Consequence') {
+                        push @csq_mt, join('&', @{$doobi->{INFO}->{CSQ}->[$trans_c]->{$key}});
+                    }
+                    else {
+                        push @csq_mt,$doobi->{INFO}->{CSQ}->[$trans_c]->{$key};
+                    }
+                }
+                my $csq_trans =  join("|",@csq_mt);
+                $csq_trans =~ s/^\|//;
+                #print $csq_trans."\n";
+                if ($trans_c == 0) {
+                    $info_field_mt = $info_field_mt.$csq_trans;
+                }
+                else {
+                    $info_field_mt = $info_field_mt.",".$csq_trans;
+                }
+                $trans_c++; ##next transcript
+            }
+            my @tmpinfo;
+            foreach my $info (@info_field) {
+                if ($info =~ /CSQ/) {
+                    push @tmpinfo, "CSQ=".$info_field_mt;
+                }
+                else {
+                    push @tmpinfo,$info;
+                }
+            }
+            @info_field = @tmpinfo;
+        }
+        
+        print join "\t", @VARIANTS[0..6];
+        
         print "\t";
         ## GNOMAD 
         ### OVERALL
