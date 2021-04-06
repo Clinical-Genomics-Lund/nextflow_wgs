@@ -1070,7 +1070,7 @@ process run_mutect2 {
         set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
 
     output:
-        set group, id, file("${group}.mutect2.filtered5p.0genotyped.vcf") into ms_vcfs_1, ms_vcfs_2
+        set group, id, file("${group}.mutect2.vcf") into ms_vcfs_1, ms_vcfs_2
 
     script:
         bams = bam.join(' -I ')
@@ -1083,8 +1083,6 @@ process run_mutect2 {
     -L M \
     -I $bams \
     -O ${group}.mutect2.vcf
-	bcftools view -i 'FMT/AF[*]>0.05' ${group}.mutect2.vcf -o ${group}.mutect2.filtered5p.vcf
-	bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.filtered5p.vcf -o ${group}.mutect2.filtered5p.0genotyped.vcf
     """
 
 }
@@ -1099,14 +1097,16 @@ process split_normalize_mito {
         set group, id, file(ms_vcf) from ms_vcfs_1
 
     output:
-        set group, file("${ms_vcf.baseName}.adjusted.vcf") into adj_vcfs
+        set group, file("${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf") into adj_vcfs
 
 
     """
     vcfbreakmulti $ms_vcf > ${ms_vcf}.breakmulti
     bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
     tabix -p vcf ${ms_vcf}.breakmulti.fix
-    bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix    
+    bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix
+	bcftools view -i 'FMT/AF[*]>0.05' ${ms_vcf.baseName}.adjusted.vcf -o ${group}.mutect2.breakmulti.filtered5p.vcf
+	bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf    
     """
 
 }
@@ -1243,8 +1243,7 @@ process split_normalize {
 			-b $params.intersect_bed \\
 			-u -header > ${group}.intersected_diploid.vcf
 		java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs \
-        I=${group}.intersected_diploid.vcf I=$vcfconcat O=${group}.merged_mito.vcf
-		sed 's/^M/MT/' ${group}.merged_mito.vcf > ${group}.intersected.vcf
+        I=${group}.intersected_diploid.vcf I=$vcfconcat O=${group}.intersected.vcf
 		"""
 
 	}
@@ -1300,6 +1299,7 @@ process annotate_vep {
 		--merged \\
 		--vcf \\
 		--no_stats \\
+		--synonyms $params.SYNONYMS \\
 		--fork ${task.cpus} \\
 		--force_overwrite \\
 		--plugin CADD,$params.CADD \\
@@ -1440,6 +1440,7 @@ process indel_vep {
 		--cache \\
 		--merged \\
 		--vcf \\
+		--synonyms $params.SYNONYMS \\
 		--fasta $params.VEP_FASTA \\
 		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
 		-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
@@ -1453,13 +1454,11 @@ process indel_vep {
 
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
-	cpus 5
-	container = '/home/cadd_worker/container_cadd_v1.5_hg38_20200117.sif'
-	containerOptions '--bind /local/ --bind /home/cadd_worker/'
-	scratch '/home/cadd_worker/'
+	cpus 2
+	container = '/fs1/resources/containers/cadd_v1.6.sif'
+	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	queue 'bigmem'
 	tag "$group"
 	memory '15 GB'
 	time '3h'
@@ -1471,10 +1470,7 @@ process calculate_indel_cadd {
 		set group, file("${group}.indel_cadd.gz") into indel_cadd
 
 	"""
-		export TMPDIR='/home/cadd_worker/'
-		source activate cadd-env-v1.5
-		sed 's/^MT/M/' -i $vcf
-		/opt/cadd/CADD.sh -g GRCh38 -o ${group}.indel_cadd.gz $vcf
+	/CADD-scripts/CADD.sh -c ${task.cpus} -g GRCh38 -o ${group}.indel_cadd.gz $vcf
 	"""
 }
 
@@ -1546,6 +1542,8 @@ process vcf_completion {
 		file("${group}.INFO") into snv_INFO
 
 	"""
+	sed 's/^M/MT/' -i $vcf
+	sed 's/ID=M/ID=MT/' -i $vcf
 	bgzip -@ ${task.cpus} $vcf -f
 	tabix ${vcf}.gz -f
 	echo "SNV	${OUTDIR}/vcf/${group}.scored.vcf.gz" > ${group}.INFO
