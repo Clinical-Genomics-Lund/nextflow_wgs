@@ -24,18 +24,20 @@ The current pipeline can be run with three different panels. These are chosen by
 * oncogenetics -profile onco
 * exome -profile exome
 
-#NextflowWgs
+# NextflowWgs
 
-###OS-requirements
+### OS-requirements
 
 This is a pipeline written in Nextflow. Versions prior to 3.0 (not released) only works with Nextflow v19.04 or earlier. This is due to some deprecated nomenclature. Besides Nextflow, it requires Java (to run nextflow) and singularity to execute all software. 
 
-###Installing the pipeline
+### Installing the pipeline
 
 Clone the repo. 
 
-###Containers
-####Main
+### Containers
+
+#### Main
+
 In the container directory install the main container, containing most software. 
 
 `sudo -E singularity build name_of_your_container.sif Singularity`
@@ -44,13 +46,13 @@ Used when starting nextflow.
 
 `nextflow run main.nf -profile wgs -with-singularity name_of_your_container.sif`
 
-####Madeline2
+#### Madeline2
 
 Due to dependency issues madeline2 is installed separately:
 
 `sudo -E singularity build madeline2.sif Singularity_madeline2`
 
-####VEP
+#### VEP
 
 VEP-container is built by 
 
@@ -68,7 +70,7 @@ This container also needs VEP-references.
 
 Required by 3 VEP annotation steps, edit main.nf. use ctrl + f “ensembl-vep_release_103.sif” and replace with your container
 
-####CADD
+#### CADD
 
 `git clone https://github.com/Clinical-Genomics-Lund/CADD-container/tree/v1.6` 
 
@@ -86,7 +88,7 @@ following lines in the file “Singularity” to match where you saved the annot
 
 Required by CADD indels, edit main.nf. use ctrl + f “cadd_v1.6.sif” and replace with your container 
 
-####GATK 4.19 
+#### GATK 4.19 
 
 `singularity pull docker://broadinstitute/gatk`
 
