@@ -1106,7 +1106,7 @@ process split_normalize_mito {
     tabix -p vcf ${ms_vcf}.breakmulti.fix
     bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix
 	bcftools view -i 'FMT/AF[*]>0.05' ${ms_vcf.baseName}.adjusted.vcf -o ${group}.mutect2.breakmulti.filtered5p.vcf
-	bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf    
+	bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf
     """
 
 }
@@ -1244,6 +1244,8 @@ process split_normalize {
 			-u -header > ${group}.intersected_diploid.vcf
 		java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs \
         I=${group}.intersected_diploid.vcf I=$vcfconcat O=${group}.intersected.vcf
+		sed 's/^M/MT/' -i ${group}.intersected.vcf
+		sed 's/ID=M,length/ID=MT,length/' -i ${group}.intersected.vcf
 		"""
 
 	}
@@ -1542,8 +1544,6 @@ process vcf_completion {
 		file("${group}.INFO") into snv_INFO
 
 	"""
-	sed 's/^M/MT/' -i $vcf
-	sed 's/ID=M/ID=MT/' -i $vcf
 	bgzip -@ ${task.cpus} $vcf -f
 	tabix ${vcf}.gz -f
 	echo "SNV	${OUTDIR}/vcf/${group}.scored.vcf.gz" > ${group}.INFO
