@@ -43,6 +43,22 @@ my %assays = (
             'institute_owner' => 'klingen-genlista'
         }
     },
+    'wgs_dev' => {
+        'rankm' => '5.2_SNV',
+        'svrankm' => '5.1_SV',
+        'ph' => {
+            'institute' => 'klingen_38',
+            'institute_owner' => 'klingen_38'
+        },
+        'ahus' => {
+            'institute' => 'ahus',
+            'institute_owner' => 'ahus'
+        },
+        'wgsvalid' => {
+            'institute' => 'klingen_38',
+            'institute_owner' => 'klingen-genlista'
+        }
+    },
     'clinicalwesv1-0' => {
         'rankm' => 'SNV-RM-v5.0',
         'svrankm' => 'SV-Panel-RM-v1.0',
