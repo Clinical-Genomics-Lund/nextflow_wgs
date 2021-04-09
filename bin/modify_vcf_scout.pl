@@ -144,6 +144,7 @@ while( <VEP>) {
                 }
             }
             @info_field = @tmpinfo;
+            push @info_field,"GeneticModels=mt";
         }
         
         print join "\t", @VARIANTS[0..6];
