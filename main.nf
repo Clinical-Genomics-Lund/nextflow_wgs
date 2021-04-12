@@ -129,7 +129,7 @@ Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, row.id, row.sex, row.type) }
-	.into { meta_gatkcov; meta_exp; meta_svbed; meta_pod}
+	.into { meta_gatkcov; meta_exp; meta_svbed; meta_pod; meta_mutect2}
 
 
 Channel
@@ -1039,6 +1039,7 @@ process fetch_MTseqs {
 	memory '30GB'
 	time '10m'
 	tag "$id"
+	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
 
 	when:
 		params.antype == "wgs"
@@ -1095,10 +1096,13 @@ process split_normalize_mito {
 
     input:
         set group, id, file(ms_vcf) from ms_vcfs_1
+		set g2, id2, sex, type from meta_mutect2.groupTuple()
 
     output:
-        set group, file("${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf") into adj_vcfs
+        set group, file("${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf") into adj_vcfs
 
+	script:
+		proband_idx = type.findIndexOf{ it == "proband" }
 
     """
     vcfbreakmulti $ms_vcf > ${ms_vcf}.breakmulti
@@ -1107,6 +1111,7 @@ process split_normalize_mito {
     bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix
 	bcftools view -i 'FMT/AF[*]>0.05' ${ms_vcf.baseName}.adjusted.vcf -o ${group}.mutect2.breakmulti.filtered5p.vcf
 	bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf
+	filter_mutect2_mito.pl ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf ${id2[proband_idx]} > ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
     """
 
 }
@@ -2204,6 +2209,7 @@ process vep_sv {
 		--offline \\
 		--merged \\
 		--everything \\
+		--synonyms $params.SYNONYMS \\
 		--vcf \\
 		--no_stats \\
 		--fork ${task.cpus} \\
