@@ -172,6 +172,20 @@ while( <DEDUP> ) {
 }
 close DEDUP;
 
+## ALIGMENTMETRICS ##
+
+open( ALIGN, $align_metrics_file );
+while( <ALIGN> ) {
+    if( /^\#SentieonCommandLine/ ) {
+	    <ALIGN>;
+	    my $vals = <ALIGN>;
+	    my @a = split /\t/, $vals;
+	    $results{'pf_missmatch_rate'} = $a[12];
+	    $results{'pf_error_rate'} = $a[13];
+	}
+}
+close ALIGN;
+
 sub coverage_calc {
 
     my $coverage_file_summary = "cov_metrics.txt.sample_summary";
