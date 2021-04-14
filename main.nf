@@ -2342,21 +2342,24 @@ process compound_finder {
 		set group, file(snv), file(tbi) from snv_sv_vcf
 
 	output:
-		set group, file("${group}.snv.rescored.sorted.vcf.gz"), file("${group}.snv.rescored.sorted.vcf.gz.tbi"), \
-			file("${group}.sv.rescored.sorted.vcf.gz"), file("${group}.sv.rescored.sorted.vcf.gz.tbi") into vcf_yaml
+		set group, file("${group}.snv.rescored.sorted.vcf.gz"), file("${group}.snv.rescored.sorted.vcf.gz.tbi") into vcf_yaml
+			//file("${group}.sv.rescored.sorted.vcf.gz"), file("${group}.sv.rescored.sorted.vcf.gz.tbi") 
 		file("${group}.INFO") into svcompound_INFO
 				
+	// OBS, if flag --skipsv is chosen modify what sv.vcf is presented to scout in yaml (last line)
+	// and change output file.
 	script:
 		"""
 		compound_finder.pl \\
 			--sv $vcf --ped $ped --snv $snv \\
 			--osv ${group}.sv.rescored.sorted.vcf \\
-			--osnv ${group}.snv.rescored.sorted.vcf 
+			--osnv ${group}.snv.rescored.sorted.vcf \\
+			--skipsv
 		bgzip -@ ${task.cpus} ${group}.sv.rescored.sorted.vcf -f
 		bgzip -@ ${task.cpus} ${group}.snv.rescored.sorted.vcf -f
 		tabix ${group}.sv.rescored.sorted.vcf.gz -f
 		tabix ${group}.snv.rescored.sorted.vcf.gz -f
-		echo "SVc	${OUTDIR}/vcf/${group}.sv.rescored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.rescored.sorted.vcf.gz" > ${group}.INFO
+		echo "SVc	${OUTDIR}/vcf/${group}.sv.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.rescored.sorted.vcf.gz" > ${group}.INFO
 		"""
 
 }
