@@ -10,7 +10,7 @@ use vcf2 qw( parse_vcf );
 use ggModel qw(gm);
 
 my %opt = ();
-GetOptions( \%opt, 'sv=s', 'snv=s', 'ped=s', 'annotsv=s', 'osnv=s', 'osv=s' );
+GetOptions( \%opt, 'sv=s', 'snv=s', 'ped=s', 'skipsv', 'osnv=s', 'osv=s' );
 my @files = checkoptions(\%opt);
 my $svfile = $opt{sv};
 my $snvfile = $opt{snv};
@@ -26,7 +26,6 @@ if (!defined $outsv ) {
 	$outsv = "outsv.vcf";
 }
 open (OSNV, '>', $outsnv) or die $!;
-open (OSV, '>', $outsv) or die $!;
 ##### READ PED #####################################
 my $pedfile = $opt{ped};
 my ($PED, $proband, $pedsize) = read_ped($pedfile);
@@ -39,7 +38,7 @@ if ($pedsize > 2) {
 else {
 	system( "zcat ".$svfile." >".$outsv);
 	system( "zcat ".$snvfile." >".$outsnv);
-	print STDERR "duo or single will not calculate compounds\n";
+	print LOG "duo or single will not calculate compounds\n";
 	exit;
 }
 ####################################################
@@ -49,6 +48,7 @@ my $ref = readSV($vcf);
 my %SV = %$ref;
 ####################################################
 
+open (LOG, '>', "compund.log") or die $!;
 
 
 #####
@@ -60,8 +60,8 @@ my $vcf2 = CMD::vcf2->new('file'=>$snvfile );
 print OSNV $vcf2->{header_str};
 my $rankresult_meta = $vcf2->{meta}->{INFO}->{RankResult}->{Description};
 $rankresult_meta =~ s/\|/:/g;
+print LOG "SNV recalc initiated\n";
 while ( my $b = $vcf2->next_var() ) {
-	
 	my $ref = $b->{REF};
 	my $alt = $b->{ALT};
 	my $pos = $b->{POS};
@@ -98,13 +98,14 @@ while ( my $b = $vcf2->next_var() ) {
 				my @SNVgene = split/,/,$gene;
 				foreach my $n (@SNVgene) {
 					if (grep /^$n$/, @SVgene) {
+						print LOG "Gene match found SNV:$chrom:$pos SV:$chrom:$SVvar\n";
 						my $check = compoundsolver($SV_GT, $snvGT);
 						## compatible as compounds SV + SNV
 						if ($check == 1 ) {
 							## Check whether SNV needs to be rescored due to lowscoring/lack of SNV compound. Return new values
 							my ($sub,$total) = snv_score_analyzer($rankscore,$rankresult,$rankresult_meta,$rank_sv);
 							my $new_rankresult = join'|',@$sub;
-							#print STDERR "$new_rankresult\t$total\n";
+							#print LOG "$new_rankresult\t$total\n";
 							$b->{INFO}->{RankResult} = $new_rankresult;
 							$b->{INFO}->{RankScore} = "$rs[0]:".$total;
 							#$b->{INFO}->{Compounds} = $b->{INFO}->{Compounds}."$chrom:$svPOS\_SV";
@@ -113,18 +114,22 @@ while ( my $b = $vcf2->next_var() ) {
 								$svref->{$chrom}->{$SVvar}->{COMPOUND} = $check;
 							}
 						}
+						else {
+							print LOG "no compound eligable SNV-SV partner\n";
+						}
 						last;
 					}
 				}
 			}
 			## Else if no gene match, match overlaps
 			elsif ($pos >= $svPOS && $pos <= $svEND) {
+				print LOG "Overlap match found SNV:$chrom:$pos SV:$chrom:$SVvar\n";
 				my $check = compoundsolver($SV_GT, $snvGT);
 				if ($check == 1 ) {
 					## Check whether SNV needs to be rescored due to lowscoring/lack of SNV compound. Return new values
 					my ($sub,$total) = snv_score_analyzer($rankscore,$rankresult,$rankresult_meta,$rank_sv);
 					my $new_rankresult = join'|',@$sub;
-					#print STDERR "$new_rankresult\t$total\n";
+					#print LOG "$new_rankresult\t$total\n";
 					$b->{INFO}->{RankResult} = $new_rankresult;
 					$b->{INFO}->{RankScore} = "$rs[0]:".$total;
 					if ($rankscore >= 12 ) {
@@ -135,6 +140,7 @@ while ( my $b = $vcf2->next_var() ) {
 		}
 		## Else single sample
 		else {
+			print LOG "Overlap match found SNV:$chrom:$pos SV:$chrom:$SVvar\n";
 			## Only compounds if overlapping SV
 			if ($pos >= $svPOS && $pos <= $svEND) {
 				if ($rankscore >= 12 ) {
@@ -146,44 +152,54 @@ while ( my $b = $vcf2->next_var() ) {
 	my $tot_str = vcfstr($b, []);
 	print OSNV $tot_str;
 }
+print LOG "SNV recalc done\n\n\n\n";
+if ($opt{skipsv}) {
+	print LOG "skipping SV recalc\n";
+}
+else {
+	open (OSV, '>', $outsv) or die $!;
+	## Print SV Header to OSV
+	print OSV $vcf->{header_str};
+	## Rescore SV based on SNV compounds ##
+	#######################################
+	my $sv_vcf = CMD::vcf2->new('file'=>$svfile );
+	## Get meta-info RankResults to be able to modify inheritance models
+	my $rankresult_meta_sv = $sv_vcf->{meta}->{INFO}->{RankResult}->{Description};
+	$rankresult_meta_sv =~ s/\|/:/g;
+	print LOG "SV recalc initiated\n";
+	while ( my $c = $sv_vcf->next_var() ) {
+			#print Dumper($c);
+			my $ref = $c->{REF};
+			my $alt = $c->{ALT};
+			my $pos = $c->{POS};
+			my $chrom = $c->{CHROM};
+			my @meta = split':',$rankresult_meta_sv;
+			my $index = first_index { $_ eq "inheritance_models" } @meta;
+			my $sub = $c->{INFO}->{RankResult};
+			my @rs = split/:/,$c->{INFO}->{RankScore};
+			my $rankscore = $rs[1];
+			$sub =~ s/\|/:/g;
+			my @sub = split':',$sub;
+			## If SV has a high scoring SNV-compound
+			if ($SV{$chrom}{"$pos\_$ref\_$alt"}->{COMPOUND}) {
+				$c->{INFO}->{GeneticModel} = "AR_comp";
+				print LOG "SNV compound was found for SV $chrom:$pos\_$ref\_$alt, increase score by 12 for SV\n";
+				## recalc Inheritance_Models add 12 again
+				my $inher_score = $sub[$index] + 12;
+				splice @sub, $index, 1, $inher_score;
+				$rankscore = $rankscore+13;
+				$c->{INFO}->{RankScore} = "$rs[0]:".$rankscore;
+				$c->{INFO}->{RankResult} = join'|',@sub;
+			}
 
-## Print SV Header to OSV
-print OSV $vcf->{header_str};
-## Rescore SV based on SNV compounds ##
-#######################################
-my $sv_vcf = CMD::vcf2->new('file'=>$svfile );
-## Get meta-info RankResults to be able to modify inheritance models
-my $rankresult_meta_sv = $sv_vcf->{meta}->{INFO}->{RankResult}->{Description};
-$rankresult_meta_sv =~ s/\|/:/g;
-while ( my $c = $sv_vcf->next_var() ) {
-		#print Dumper($c);
-		my $ref = $c->{REF};
-		my $alt = $c->{ALT};
-		my $pos = $c->{POS};
-		my $chrom = $c->{CHROM};
-		my @meta = split':',$rankresult_meta_sv;
-		my $index = first_index { $_ eq "inheritance_models" } @meta;
-		my $sub = $c->{INFO}->{RankResult};
-		my @rs = split/:/,$c->{INFO}->{RankScore};
-		my $rankscore = $rs[1];
-		$sub =~ s/\|/:/g;
-		my @sub = split':',$sub;
-		## If SV has a high scoring SNV-compound
-		if ($SV{$chrom}{"$pos\_$ref\_$alt"}->{COMPOUND}) {
-			$c->{INFO}->{GeneticModel} = "AR_comp";
-			## recalc Inheritance_Models add 12 again
-			my $inher_score = $sub[$index] + 12;
-			splice @sub, $index, 1, $inher_score;
-			$rankscore = $rankscore+13;
-			$c->{INFO}->{RankScore} = "$rs[0]:".$rankscore;
-			$c->{INFO}->{RankResult} = join'|',@sub;
-		}
+			my $tot_str = vcfstr($c, []);
+			print OSV $tot_str;
 
-		my $tot_str = vcfstr($c, []);
-		print OSV $tot_str;
-
+	}
+	print LOG "SV recalc done\n";
 }
 
+close LOG;
 sub compoundsolver {
 	my ($SV, $SNV) = @_;
 	my @snv_GT = @$SNV;
@@ -312,7 +328,11 @@ sub readSV {
 		## END ##
 		$INFO{ END } = $A->{INFO}->{END};
 		## GENE ##
-		$INFO{ GENE } = $A->{INFO}->{CSQ}->[0]->{SYMBOL};
+		my @gene;
+		foreach my $transcript ( @{ $A->{INFO}->{CSQ} } ) {
+			push @gene,$transcript->{SYMBOL};
+		}
+		$INFO{ GENE } = join(',',@gene);
 		## TYPE ##
 		$INFO{ TYPE } = $A->{INFO}->{SVTYPE};
 		## GeneticModel ##
@@ -355,23 +375,30 @@ sub snv_score_analyzer {
 		## If SNV had no compounds and Inheritance model was penalized
 		if ($sub[$index] == -12) {
 			$check = 1;
+			print LOG "SNV has no SNV partner and inheritance was penalized \n";
 		}
 	}
 	## else, SNV got penalized for having no high scoring SNV buddy
 	else {
 		$check = 2;
+		print LOG "SNV has no high scoring partner\n";
+		
 	}
-	#print STDERR "$total\t$sum\t$sub[$index]\t$check\n";
+	#print LOG "$total\t$sum\t$sub[$index]\t$check\n";
 
 	## If diff_res == 2 SNV variant has no highscoring SNV-compound, if svrank is above 12 increase SNV by 8 again
 	if ($check == 2 && $rank_sv >=12 ) {
 		$total = $total+8;
+		print LOG "SNV had no high-scoring compound & SV was high scoring, increasing SNV score by 8 \n";
 	}
 	## If diff_res == 1 SNV variant has no SNV-compound at all, if svrank is above 12 increase SNV by 13 (-12 vs 1)
 	elsif ($check == 1 && $rank_sv >=12 ) {
 		splice @sub, $index, 1, "1";
-		
+		print LOG "SNV had no compound & SV was high scoring, increasing SNV score by 13 \n";
 		$total = $total+13;
+	}
+	else {
+		print LOG "SNV had no high scoring compound, SV score was below 12 = no score change for SNV\n";
 	}
 
 	return \@sub, $total;
