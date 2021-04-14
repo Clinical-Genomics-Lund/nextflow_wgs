@@ -181,7 +181,7 @@ while( <ALIGN> ) {
 	    <ALIGN>;
 	    my $vals = <ALIGN>;
 	    my @a = split /\t/, $vals;
-	    $results{'pf_missmatch_rate'} = $a[12];
+	    $results{'pf_mismatch_rate'} = $a[12];
 	    $results{'pf_error_rate'} = $a[13];
 	}
 }
