@@ -1,4 +1,8 @@
 # CHANGELOG
+### 2.1.12
+#### params.panelsdef
+- added path to symlinked latest weekly definition.
+
 ### 2.1.11
 #### qc-values added
 - added pf missmatch and error rates to qc-json
