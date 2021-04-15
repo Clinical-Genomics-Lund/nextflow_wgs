@@ -48,7 +48,7 @@ my $ref = readSV($vcf);
 my %SV = %$ref;
 ####################################################
 
-open (LOG, '>', "compund.log") or die $!;
+open (LOG, '>', "compound.log") or die $!;
 
 
 #####
@@ -114,9 +114,9 @@ while ( my $b = $vcf2->next_var() ) {
 								$svref->{$chrom}->{$SVvar}->{COMPOUND} = $check;
 							}
 						}
-						else {
-							print LOG "no compound eligable SNV-SV partner\n";
-						}
+						# else {
+						# 	print LOG "no compound eligable SNV-SV partner\n";
+						# }
 						last;
 					}
 				}
@@ -138,7 +138,7 @@ while ( my $b = $vcf2->next_var() ) {
 				}
 			}
 		}
-		## Else single sample
+		## Else single sample, never used
 		else {
 			print LOG "Overlap match found SNV:$chrom:$pos SV:$chrom:$SVvar\n";
 			## Only compounds if overlapping SV
@@ -328,11 +328,12 @@ sub readSV {
 		## END ##
 		$INFO{ END } = $A->{INFO}->{END};
 		## GENE ##
-		my @gene;
-		foreach my $transcript ( @{ $A->{INFO}->{CSQ} } ) {
-			push @gene,$transcript->{SYMBOL};
-		}
-		$INFO{ GENE } = join(',',@gene);
+		# my @gene;
+		# foreach my $transcript ( @{ $A->{INFO}->{CSQ} } ) {
+		# 	push @gene,$transcript->{SYMBOL};
+		# }
+		# $INFO{ GENE } = join(',',@gene);
+		$INFO{ GENE } = $A->{INFO}->{CSQ}->[0]->{SYMBOL};
 		## TYPE ##
 		$INFO{ TYPE } = $A->{INFO}->{SVTYPE};
 		## GeneticModel ##
