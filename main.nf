@@ -2355,9 +2355,7 @@ process compound_finder {
 			--osv ${group}.sv.rescored.sorted.vcf \\
 			--osnv ${group}.snv.rescored.sorted.vcf \\
 			--skipsv
-		bgzip -@ ${task.cpus} ${group}.sv.rescored.sorted.vcf -f
 		bgzip -@ ${task.cpus} ${group}.snv.rescored.sorted.vcf -f
-		tabix ${group}.sv.rescored.sorted.vcf.gz -f
 		tabix ${group}.snv.rescored.sorted.vcf.gz -f
 		echo "SVc	${OUTDIR}/vcf/${group}.sv.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.rescored.sorted.vcf.gz" > ${group}.INFO
 		"""
