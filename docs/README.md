@@ -9,8 +9,8 @@ Contents
   * Input-csv and meta-information
   * Pipeline content
     * Alignment
-     * Sharded
-     * Normal
+      * Sharded
+      * Normal
     * Distributed dedup bqsr and SNV variant calling
    * Annotation
    * SNP-analyses
