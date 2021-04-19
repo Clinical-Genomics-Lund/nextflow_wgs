@@ -64,10 +64,10 @@ Required by CNV-calling, edit main.nf. use ctrl + f “gatk_4.1.9.0.sif” and r
 
 #### AnnotSV
 
-`git clone https://github.com/Clinical-Genomics-Lund/annotsv_container.git
+`git clone https://github.com/Clinical-Genomics-Lund/annotsv_container.git`
 
-cd annotsv_container
+`cd annotsv_container`
 
-sudo singularity build annotsv.v2.3.sif Singularity`
+`sudo singularity build annotsv.v2.3.sif Singularity`
 
 
