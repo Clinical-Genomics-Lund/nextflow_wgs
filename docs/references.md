@@ -1,11 +1,11 @@
 ## This is the reference docs
 
 * Reference genome, hg38
-wget ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz
+`wget ftp://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/seqs_for_alignment_pipelines.ucsc_ids/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz
 sed 's/^>chr/>/' GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.gz > GCA_000001405.15_GRCh38_no_alt_analysis_set_nochr.fna.gz
 sentieon bwa index GCA_000001405.15_GRCh38_no_alt_analysis_set_nochr.fna.gz
 java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar CreateSequenceDictionary REFERENCE=GCA_000001405.15_GRCh38_no_alt_analysis_set_nochr.fna OUTPUT=GCA_000001405.15_GRCh38_no_alt_analysis_set_nochr.dict
-samtools faidx GCA_000001405.15_GRCh38_no_alt_analysis_set_nochr.fna.gz
+samtools faidx GCA_000001405.15_GRCh38_no_alt_analysis_set_nochr.fna.gz`
 * genome shards (in the repo)
 * SNV-CADD (https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/whole_genome_SNVs.tsv.gz)
 * VEP-cache
