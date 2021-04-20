@@ -2,7 +2,7 @@
 
 The nextflow.config file defines most of the things needed to run the pipeline. This includes paths to [references](references.md), singularity configuation, environmental configs, output-folders, profiles and executor (slurm) configurations.
 
-Example [config](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/blob/master/configs/nextflow.hopper.config). Do note that this file is setup for a very specific cluster in Lund. You will need to configure it for your specific enironment.
+Example [config](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/blob/master/configs/nextflow.hopper.config). Do note that this file is setup for a very specific cluster in Lund. You will need to configure it for your specific enironment. The file should be name nextflow.config and be located in the same folder as main.nf
 
 ### Config headers
 
