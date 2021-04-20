@@ -5,6 +5,7 @@ This is a pipeline written in Nextflow. Versions prior to 3.0 (not released) onl
 
 ### Contents
   * [Installing](installing.md)
+  * [nextflow.config](config.md)
   * [References](references.md)
   * [Input-csv and meta-information](input_meta_csv.md)
   * Pipeline content
