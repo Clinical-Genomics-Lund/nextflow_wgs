@@ -98,6 +98,10 @@ bam_choice.into{
 	dedup_dummy_choice;
 	bam_gatk_choice }
 
+vcf_choice.into{
+	split_cadd_choice;
+	split_vep_choice;
+}
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
@@ -1219,7 +1223,7 @@ process split_normalize {
 
 	output:
 		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
-		set group, file("${group}.intersected.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
+		set group, id, file("${group}.intersected.vcf"), file("${group}.multibreak.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
 		
 	script:
 
@@ -1292,7 +1296,7 @@ process annotate_vep {
 	stageOutMode 'copy'
 
 	input:
-		set group, file(vcf) from split_vep
+		set group, id, file(vcf), idx from split_vep.mix(split_vep_choice)
 
 	output:
 		set group, file("${group}.vep.vcf") into vep
@@ -1416,7 +1420,7 @@ process extract_indels_for_cadd {
 	time '5m'
 
 	input:
-		set group, file(vcf) from split_cadd
+		set group, id, file(vcf), idx from split_cadd.mix(split_cadd_choice)
 	
 	output:
 		set group, file("${group}.only_indels.vcf") into indel_cadd_vep
