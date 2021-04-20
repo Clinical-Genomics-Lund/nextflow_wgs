@@ -20,6 +20,8 @@
 * assay (what analysis, automated choice through start_nextflow_analysis.pl -profile wgs, and choses right institute in scout for sample)
 * analysis (subanalysis, ie wgsdev would put samples in validation institute instead of clinical)
 
+"*" read1 and read2 can be supplemented bam and bqsr for the samples to bypass alignment. Also somewhat works for vcfs (vcf + idx) for SNV annotation
+
 ### Other useful fields
 
 * priority (changes the priority of sample in slurm, default is defined in nextflow.config)
