@@ -642,7 +642,7 @@ process expansionhunter {
 		--variant-catalog $params.expansionhunter_catalog \
 		--output-prefix ${group}.eh
 	source activate py3-env
-    python /GraphAlignmentViewer/GraphAlignmentViewer.py --variant_catalog $params.expansionhunter_catalog --read_align ${group}.eh_realigned.bam
+    python /GraphAlignmentViewer/GraphAlignmentViewer.py --variant_catalog $params.expansionhunter_catalog_gav --read_align ${group}.eh_realigned.bam
 	"""
 }
 
