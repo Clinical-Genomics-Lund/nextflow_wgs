@@ -1070,6 +1070,9 @@ process run_mutect2 {
     time '15m'
 	tag "$group"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+
+	when:
+		!params.onco
     
     input:
         set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
@@ -1226,7 +1229,7 @@ process split_normalize {
 		set group, id, file("${group}.intersected.vcf"), file("${group}.multibreak.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
 		
 	script:
-
+	// rename M to MT because genmod does not recognize M
 	if(params.onco) {
 		"""
 		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
@@ -1553,6 +1556,8 @@ process vcf_completion {
 		file("${group}.INFO") into snv_INFO
 
 	"""
+	sed 's/^MT/M/' -i $vcf
+	sed 's/ID=MT,length/ID=M,length/' -i $vcf
 	bgzip -@ ${task.cpus} $vcf -f
 	tabix ${vcf}.gz -f
 	echo "SNV	${OUTDIR}/vcf/${group}.scored.vcf.gz" > ${group}.INFO

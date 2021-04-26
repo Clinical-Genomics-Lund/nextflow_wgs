@@ -26,8 +26,12 @@ while ( my $a = $vcf->next_var() ) {
         }
     }
 
+    ## variant exist in proband
     if ($a->{GT}->[$index]->{GT} =~ /1/) {
-        print $a->{vcf_str}."\n";
+        ## variant has at least 50 depth    
+        if ($a->{GT}->[$index]->{DP} > 50) {
+            print $a->{vcf_str}."\n";
+        }
     }
     $line++;
 }
