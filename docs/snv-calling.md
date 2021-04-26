@@ -1,6 +1,6 @@
 ## Distributed Locus Collector, Deduplication, Base Recalibration Scoring and Variant calling with dnascope
 
-To speed up bam post alignment quality processing we use Sentieon distributed mode. This again splits the genome into smaller parts. We split the genome into 5 equally sized chunks. The chunks are defined in nextflow.config under params as two parameters; genomic_shards_file = "$baseDir/shards_5_38.csv" and genomic_shards_num = 5. The first is a file located in the main repository, and has to be in the same folder as main.nf. The basic process consists of 4 steps:
+To speed up bam post alignment quality processing we use Sentieon distributed mode. This again splits the genome into smaller parts. We split the genome into 5 equally sized shards. The shards are defined in nextflow.config under params as two parameters; genomic_shards_file = "$baseDir/shards_5_38.csv" and genomic_shards_num = 5. The first is a file located in the main repository, and has to be in the same folder as main.nf. The basic process consists of 4 steps (see image below):
 
 
 ### LocusCollector
@@ -41,5 +41,15 @@ Single nucleotide variant and small insertions and deletions caller. Uses machin
 
 `sentieon driver --temp_dir /local/scratch/ -t ${task.cpus} -r $genome_file -i $bam_neigh $shard -q $bqsr  --algo DNAscope --emit_mode GVCF ${shard_name}_${id}.gvcf.gz`
 
+The GVCF shards are merged per sample, and then merged per family into a multisample vcf ready for normalization annotation steps.
+
+### Mutect2, mitochondria calling
+
+Due to limitations in heteroplasmid calls in dnascope we use an additional caller only for mitochondrial calling. GATK mutect2.
+* input - mitochondria intersected deduped bam
+* references - genome fasta for mitochondria (subset of full used for alignment)
+* output - multisample/single sample vcf
+
+This is merged, using picard, with the dnascope vcf after some specific mitochondrial [annotations](annotation.md)
 
 ![sentieonhomepage](https://support.sentieon.com/appnotes/_images/distributed_mode-fig3-2.png)
