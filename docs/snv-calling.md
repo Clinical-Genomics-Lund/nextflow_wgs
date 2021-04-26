@@ -10,15 +10,16 @@ An algorithm that collects read information used later by the deduplication algo
 * output - duplication likelihoods
 
 `sentieon driver
-		--temp_dir /local/scratch/ \
 
-		-t ${task.cpus} \
+--temp_dir /local/scratch/ \
 
-		-i $bam $shard \
+-t ${task.cpus} \
 
-		--algo LocusCollector \
+-i $bam $shard \
 
-		--fun score_info ${shard_name}_${id}.score`
+--algo LocusCollector \
+
+--fun score_info ${shard_name}_${id}.score`
 
 
 ![sentieonhomepage](https://support.sentieon.com/appnotes/_images/distributed_mode-fig3-2.png)
