@@ -1,0 +1,1 @@
+![sentieonhomepage](https://support.sentieon.com/appnotes/_images/distributed_mode-fig3-2.png)

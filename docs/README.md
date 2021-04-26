@@ -9,10 +9,10 @@ This is a pipeline written in Nextflow. Versions prior to 3.0 (not released) onl
   * [References](references.md)
   * [Input-csv and meta-information](input_meta_csv.md)
   * Pipeline content
-    * Alignment
+    * [Alignment](alignment.md)
       * Sharded
       * Normal
-    * Distributed dedup bqsr and SNV variant calling
+    * [Distributed dedup bqsr and SNV variant calling](snv-calling.md)
     * Annotation
     * SNP-analyses
       * UDP
