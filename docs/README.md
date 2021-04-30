@@ -12,13 +12,13 @@ This is a pipeline written in Nextflow. Versions prior to 3.0 (not released) onl
     * [Alignment](alignment.md)
       * Sharded
       * Normal
+    * [Post alignment Quality Control](quality.md)
     * [Distributed dedup bqsr and SNV variant calling](snv-calling.md)
-    * Annotation
+    * [Annotation](annotation.md)
     * SNP-analyses
       * UDP
       * Peddy
       * Madeline2
-    * Mitochondria calling
     * Short tandem repeats calling
     * Structural variation calling
     * Scout-yaml creation
