@@ -28,8 +28,8 @@ my %assays = (
         }
     },
     'wgs-hg38' => {
-        'rankm' => '5.1_SNV',
-        'svrankm' => '5.1_SV',
+        'rankm' => '5.2.1_SNV',
+        'svrankm' => '5.2_SV',
         'ph' => {
             'institute' => 'klingen_38',
             'institute_owner' => 'klingen_38'
@@ -44,8 +44,8 @@ my %assays = (
         }
     },
     'wgs_dev' => {
-        'rankm' => '5.2_SNV',
-        'svrankm' => '5.1_SV',
+        'rankm' => '5.2.1_SNV',
+        'svrankm' => '5.2_SV',
         'ph' => {
             'institute' => 'klingen_38',
             'institute_owner' => 'klingen_38'
