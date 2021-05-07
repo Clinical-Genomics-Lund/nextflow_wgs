@@ -760,7 +760,7 @@ process melt_qc_val {
 process melt {
 	cpus 3
 	errorStrategy 'retry'
-	//container = '/fs1/resources/containers/container_twist-brca.sif'
+	container = '/fs1/resources/containers/container_twist-brca.sif'
 	tag "$id"
 	memory '40 GB'
 	time '3h'
@@ -778,7 +778,6 @@ process melt {
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
 
 	"""
-	source activate java8-env
 	java -jar  /opt/MELT.jar Single \\
 		-bamfile ${bam.toRealPath()} \\
 		-r 150 \\
@@ -1872,7 +1871,7 @@ process cnvkit_panel {
 	input:
 		set group, id, file(bam), file(bai) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice)
 		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from qc_cnvkit_val
-		set group, file(vcf) from vcf_cnvkit
+		set group, id, file(vcf) from vcf_cnvkit
 	
 	output:
 		set group, id, file("${id}.cnvkit_filtered.vcf") into called_cnvkit_panel
@@ -2050,7 +2049,7 @@ process postprocessgatk {
     scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-    publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+    //publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
     tag "$id"
 
 
@@ -2100,6 +2099,7 @@ process filter_merge_gatk {
 	tag "$group"
 	time '2h'
 	memory '1 GB'
+	publishDir "${OUTDIR}/sv_vcf", mode: 'copy', overwrite: 'true'
 
 	input:
 		set group, id, file(inter), file(gatk), file(denoised) from called_gatk
