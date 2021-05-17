@@ -348,6 +348,8 @@ sub readSV {
 			foreach (@sum_GT) { $sum = $_ + $sum;  }
 			$INFO{ $A->{GT}->[$ind]->{_sample_id} } = $sum;
 		}
+		## ignore proband 0 variants
+		if ($INFO{$proband} == 0 ) {next;}
 		## GENETIC MODEL ##
 		if ($pedsize > 2) {
 			my $gm = model(\%INFO, $chrom);
