@@ -1743,7 +1743,7 @@ process overview_plot {
 		 --roh $roh \\
 		 --sex ${sex[proband_idx]} \\
 		 --cov ${cov_denoised[proband_idx]} \\
-		 --out ${id[proband_idx]}.genomic_overview.png
+		 --out ${group}.genomic_overview.png
 	"""
 }
 
@@ -2049,7 +2049,7 @@ process postprocessgatk {
     scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-    //publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+    publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
     tag "$id"
 
 
@@ -2248,7 +2248,7 @@ process postprocess_vep {
 	sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.vcf
     sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
 	sed 's/^M/MT/' -i ${group}.vep.clean.merge.vcf
-	sed 's/ID=M/ID=MT/' -i ${group}.vep.clean.merge.vcf
+	sed 's/ID=MT,length/ID=M,length/' -i ${group}.vep.clean.merge.vcf
 	add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
 	"""
 }
