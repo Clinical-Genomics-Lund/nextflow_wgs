@@ -2166,7 +2166,8 @@ process svdb_merge {
 			vcfs = tmp.join(' ')
 			"""
 			source activate py3-env
-			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,gatk > ${group}.merged.vcf
+			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,gatk > ${group}.merged_tmp.vcf
+			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 			"""
 		}
