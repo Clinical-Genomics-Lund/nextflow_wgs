@@ -2244,7 +2244,7 @@ process postprocess_vep {
 		set group, file("${group}.vep.clean.merge.omim.vcf") into artefact_vcf
 	
 	"""
-	python /fs1/viktor/nextflow_svwgs/bin/cleanVCF.py --vcf $vcf > ${group}.vep.clean.vcf
+	cleanVCF.py --vcf $vcf > ${group}.vep.clean.vcf
 	svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
 	sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.vcf
     sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
