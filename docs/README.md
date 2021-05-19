@@ -15,12 +15,15 @@ This is a pipeline written in Nextflow. Versions prior to 3.0 (not released) onl
     * [Post alignment Quality Control](quality.md)
     * [Distributed dedup bqsr and SNV variant calling](snv-calling.md)
       * [Annotation](annotation.md)
-    * SNP-analyses
-      * UDP
+    * [SNP-analyses](snpanalyses.md)
+      * UDP, ROH and overview plot
       * Peddy
+      * generate gens-data
+      * POD
+    * [Misc. software](misc.md)
       * Madeline2
-    * [Short tandem repeats calling](str-calling.md)
+    * [Short tandem repeats calling and annotation](str-calling.md)
     * [Structural variation calling](sv-calling.md)
       * [Annotation](svannotation.md)
-    * Scout-yaml creation
+    * [Scout-yaml creation](yaml.md)
 

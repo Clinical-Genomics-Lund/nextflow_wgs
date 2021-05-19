@@ -34,4 +34,27 @@ Several annotation steps are done after variant calling. Here all annotations of
     * 90% overlap to catch within sample overlaps (no --no_intra flag)
     * --notag (tags solved in first svdb merge)
   * add INFO header for VARID
-  * rename M -> MT for scout
+  * add_omim.pl, adds OMIM disease annotation
+
+  ### artefact
+  * input - postprocessed VEP SV VCF, svdb database
+      * add counts and frequency observations per variant
+
+
+### prescore
+* input - artefact SV VCF + annotsv tsv + pedigree file
+  * prescore_sv.pl
+    * adds annotsv annotations
+    * adds genetic models (not used for scoring as of 3.0)
+    * presents data for rankmodel
+
+### score_sv
+* input - prescored SV VCF +  rankmodel (single/family)
+  * genmod score, single or trio
+  * bcftools sort
+
+### compound finder
+* input - scored SV VCF and scored SNV VCF
+  * finds SVs that are compounds to SNVs, adjusts scores of SNVs
+  * only for trios
+  * outputs adjusted SNV vcf
