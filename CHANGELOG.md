@@ -1,4 +1,12 @@
 # CHANGELOG
+### 2.1.12
+#### params.panelsdef
+- added path to symlinked latest weekly definition.
+
+### 2.1.11
+#### qc-values added
+- added pf missmatch and error rates to qc-json
+
 ### 2.1.10
 #### scout presentation
 - rankmodels now separate VEP-consequence from AnnotSVrank and dbvar in Consequence and Clinical_significance respectively

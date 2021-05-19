@@ -12,7 +12,11 @@ name = csv.getSimpleName()
 ped_file = base/name+'.ped'
 ped = file( ped_file )
 
-
+Channel
+	.fromPath(params.csv)
+	.splitCsv(header:true)
+	.map{ row-> tuple(row.group, file(row.str_vcf) ) }
+	.set{ str_input }
 
 Channel
     .fromPath(file(ped))
@@ -53,6 +57,22 @@ process bam_to_info {
 	"""
 
 
+}
+
+process str_to_info {
+    cpus 1
+    time '5m'
+    memory '100 MB'
+
+    input:
+    	set group, file(str_vcf) from str_input
+    
+    output:
+    	file("${group}.INFO") into str_INFO
+
+    """
+	echo "STR	${OUTDIR}/vcf/${str_vcf}" > ${group}.INFO
+    """
 }
 
 process strip_score {
@@ -272,7 +292,7 @@ process peddy {
 // Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
 // If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
 bam_INFO
-	.mix(snv_INFO,sv_INFO,peddy_INFO,madde_INFO,svcompound_INFO)
+	.mix(snv_INFO,sv_INFO,peddy_INFO,madde_INFO,svcompound_INFO,str_INFO)
 	.collectFile()
 	.set{ yaml_INFO }
 
@@ -303,7 +323,7 @@ process create_yaml {
 	"""
 	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
-		--g $group --d other --p PORT_CMDSCOUT2_MONGODB --out ${group}.yaml --ped $ped --files $INFO --assay wgs-hg38 --antype $params.antype
+		--g $group --d other --panelsdef $params.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay wgs-hg38 --antype $params.antype
 	"""
 }
 

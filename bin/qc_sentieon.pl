@@ -1,4 +1,5 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
+use warnings;
 use strict;
 use Data::Dumper;
 use JSON;# qw( encode_json );
@@ -171,6 +172,20 @@ while( <DEDUP> ) {
 	}
 }
 close DEDUP;
+
+## ALIGMENTMETRICS ##
+
+open( ALIGN, $align_metrics_file );
+while( <ALIGN> ) {
+    if( /^\#SentieonCommandLine/ ) {
+	    <ALIGN>;
+	    my $vals = <ALIGN>;
+	    my @a = split /\t/, $vals;
+	    $results{'pf_mismatch_rate'} = $a[12];
+	    $results{'pf_error_rate'} = $a[13];
+	}
+}
+close ALIGN;
 
 sub coverage_calc {
 
