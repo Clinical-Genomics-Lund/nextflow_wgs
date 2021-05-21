@@ -1,4 +1,36 @@
 # CHANGELOG
+
+### 3.0.0
+#### Summary of changes
+new functions
+### main.nf
+- added mito-calling
+  - mutect2
+  - hmtnote
+  - haplogrep
+  - eklipse
+  - modifications to filter_indels (new VEP fields)
+  - modifications to modify_vcf_scout.pl, ignore maxentscan for M
+- added SMNCopyNumberCalling
+- New VEP container and version (103)
+- gatk cnv calling
+  - adjustments to all affected scripts
+### container
+- new container specifically for madeline2
+- main container now includes all software except madeline2 and VEP
+  - new conda environments
+  - updates to Expansionhunter
+  - updates to Stranger
+  - updated GATK version
+  - updated Sentieon
+  - added: haplogrep, hmtnote, eklipse, melt, graphalignmentviewer, SMNcopynumbercaller, CNVkit and imagemagick
+
+### minor improvements
+- group and sample IDs of outputs re-thought
+- contig synonyms for VEP
+- BAM start working better
+
+
 ### 2.1.12
 #### params.panelsdef
 - added path to symlinked latest weekly definition.
