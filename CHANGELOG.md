@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### incomming
+- params.panel true/false to direct wgs samples to mutect and panels to freebayes
+
 ### 3.0.0
 #### Summary of changes
 new functions

@@ -1004,7 +1004,7 @@ process freebayes {
 	stageOutMode 'copy'
 
 	when: 
-		params.onco
+		params.panel
 
     input:
         set group, id, file(bam), file(bai) from bam_freebayes.mix(bam_freebayes_choice)
@@ -1071,7 +1071,7 @@ process run_mutect2 {
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
 	when:
-		!params.onco
+		!params.panel
     
     input:
         set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
