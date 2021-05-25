@@ -560,7 +560,7 @@ process chanjo_sambamba {
 process SMNCopyNumberCaller {
 	cpus 10
 	memory '30GB'
-	time '1h'
+	time '2h'
 	publishDir "${OUTDIR}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
 	tag "$id"
 
@@ -1180,7 +1180,7 @@ process run_haplogrep {
 process run_eklipse {
     cpus 2
     memory '10GB'
-    time '20m'
+    time '60m'
 	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true'
 
     input:
@@ -1968,6 +1968,7 @@ process gatk_coverage {
     """
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
+	source activate gatk
     gatk --java-options "-Xmx20g" CollectReadCounts \\
         -L $params.gatk_intervals \\
         -R $params.genome_file \\
@@ -1996,6 +1997,7 @@ process gatk_call_ploidy {
     """
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
+	source activate gatk
     gatk --java-options "-Xmx20g" DetermineGermlineContigPloidy \\
         --model $params.ploidymodel \\
         -I $tsv \\
@@ -2023,6 +2025,7 @@ process gatk_call_cnv {
         set group, id, i, file("${group}_${i}.tar") into postprocessgatk
 
     """
+	source activate gatk
 	export HOME=/local/scratch
 	echo "[global]" > ~/.theanorc
 	echo config.compile.timeout = 1000 >> ~/.theanorc
@@ -2074,6 +2077,7 @@ process postprocessgatk {
         caseshards = caseshards.join( ' --calls-shard-path ')
  	shell:
 	'''
+	source activate gatk
     export MKL_NUM_THREADS=!{task.cpus}
     export OMP_NUM_THREADS=!{task.cpus}
 	for model in !{tar}; do
