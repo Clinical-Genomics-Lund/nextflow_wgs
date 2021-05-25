@@ -1968,6 +1968,7 @@ process gatk_coverage {
     """
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
+	set +eu
 	source activate gatk
     gatk --java-options "-Xmx20g" CollectReadCounts \\
         -L $params.gatk_intervals \\
@@ -1997,6 +1998,7 @@ process gatk_call_ploidy {
     """
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
+	set +eu
 	source activate gatk
     gatk --java-options "-Xmx20g" DetermineGermlineContigPloidy \\
         --model $params.ploidymodel \\
@@ -2025,6 +2027,7 @@ process gatk_call_cnv {
         set group, id, i, file("${group}_${i}.tar") into postprocessgatk
 
     """
+	set +eu
 	source activate gatk
 	export HOME=/local/scratch
 	echo "[global]" > ~/.theanorc
@@ -2077,6 +2080,7 @@ process postprocessgatk {
         caseshards = caseshards.join( ' --calls-shard-path ')
  	shell:
 	'''
+	set +eu
 	source activate gatk
     export MKL_NUM_THREADS=!{task.cpus}
     export OMP_NUM_THREADS=!{task.cpus}
