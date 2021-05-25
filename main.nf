@@ -559,7 +559,7 @@ process chanjo_sambamba {
 
 process SMNCopyNumberCaller {
 	cpus 10
-	memory '30GB'
+	memory '25GB'
 	time '2h'
 	publishDir "${OUTDIR}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
 	tag "$id"
@@ -1065,7 +1065,7 @@ process fetch_MTseqs {
 // gatk FilterMutectCalls in future if FPs overwhelms tord/sofie/carro
 process run_mutect2 {
     cpus 4
-    memory '16 GB'
+    memory '40 GB'
     time '15m'
 	tag "$group"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
@@ -1148,7 +1148,7 @@ process run_hmtnote {
 // run haplogrep 2 on resulting vcf
 process run_haplogrep {
     time '10m'
-    memory '16 GB'
+    memory '30 GB'
     cpus '2'
 	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true'
 
@@ -1981,7 +1981,7 @@ process gatk_coverage {
 
 process gatk_call_ploidy {
     cpus 10
-    memory '20GB'
+    memory '40GB'
     time '2h'
     container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
     scratch true
@@ -2011,7 +2011,7 @@ process gatk_call_ploidy {
 
 process gatk_call_cnv {
     cpus 8
-    memory '25GB'
+    memory '40GB'
     time '3h'
     container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
     scratch true
@@ -2049,7 +2049,7 @@ process gatk_call_cnv {
 
 process postprocessgatk {
     cpus 8
-    memory '25GB'
+    memory '40GB'
     time '3h'
     container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
     scratch true
