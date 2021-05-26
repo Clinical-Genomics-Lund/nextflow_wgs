@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### incomming
+- sharded merged bam and non-sharded bam now produces output for dedup too. Locuscollector no longer redirects bam. This saves upto 70% of temporary files!
+
 ### 3.0.0
 #### Summary of changes
 new functions
