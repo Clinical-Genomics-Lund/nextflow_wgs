@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.0.1
+- source activate gatk to all gatk processes that use 4.1.9 and set +eu. unbound errors
+- increased memory allocation for several gatk and mito processes
+
 ### 3.0.0
 #### Summary of changes
 new functions
