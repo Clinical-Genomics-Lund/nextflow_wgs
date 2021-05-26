@@ -239,6 +239,7 @@ process bwa_merge_shards {
 
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam
+		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_dedup
 
 	when:
 		params.shardbwa
@@ -265,6 +266,7 @@ process bwa_align {
 
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_dedup
 
 	when:
 		params.align && !params.shardbwa
@@ -303,7 +305,6 @@ process locus_collector {
 
 	output:
 		set val(id), group, file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
-		set val(id), file(bam), file(bai) into merged_bam_id
 
 	"""
 	sentieon driver \\
@@ -328,7 +329,7 @@ process dedup {
 
 	input:
 		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) \
-			from locus_collector_scores.groupTuple(by: [0,1]).join(merged_bam_id).combine(dedup_shards)
+			from locus_collector_scores.groupTuple(by: [0,1]).join(bam_dedup.mix(merged_bam_dedup)).combine(dedup_shards)
 
 	output:
 		set val(id), group, file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into all_dedup_bams_bqsr, all_dedup_bams_dnascope, all_dedup_bams_mergepublish

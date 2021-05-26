@@ -3,6 +3,7 @@
 ### 3.0.1
 - source activate gatk to all gatk processes that use 4.1.9 and set +eu. unbound errors
 - increased memory allocation for several gatk and mito processes
+- sharded merged bam and non-sharded bam now produces output for dedup too. Locuscollector no longer redirects bam. This saves upto 70% of temporary files!
 
 ### 3.0.0
 #### Summary of changes
