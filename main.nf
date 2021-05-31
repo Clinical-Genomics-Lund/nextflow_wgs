@@ -266,7 +266,7 @@ process bwa_align {
 
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_dedup
+		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_dedup
 
 	when:
 		params.align && !params.shardbwa
@@ -1732,7 +1732,7 @@ process overview_plot {
 
 
 	output:
-		file("${id[proband_idx]}.genomic_overview.png")
+		file("${group}.genomic_overview.png")
 
 	script:
 		proband_idx = type.findIndexOf{ it == "proband" }
@@ -1967,9 +1967,10 @@ process gatk_coverage {
         set group, id, file("${id}.tsv") into call_ploidy, call_cnv
 
     """
+	THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
-	set +eu
+	set +u
 	source activate gatk
     gatk --java-options "-Xmx20g" CollectReadCounts \\
         -L $params.gatk_intervals \\
@@ -1997,9 +1998,10 @@ process gatk_call_ploidy {
         set group, id, file("ploidy.tar") into ploidy_to_cnvcall, ploidy_to_post
 
     """
+	THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
-	set +eu
+	set +u
 	source activate gatk
     gatk --java-options "-Xmx20g" DetermineGermlineContigPloidy \\
         --model $params.ploidymodel \\
@@ -2028,11 +2030,10 @@ process gatk_call_cnv {
         set group, id, i, file("${group}_${i}.tar") into postprocessgatk
 
     """
-	set +eu
+	THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
+	set +u
 	source activate gatk
 	export HOME=/local/scratch
-	echo "[global]" > ~/.theanorc
-	echo config.compile.timeout = 1000 >> ~/.theanorc
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
     tar -xvf ploidy.tar
@@ -2048,14 +2049,17 @@ process gatk_call_cnv {
     """
 }
 
+	//echo "[global]" > ~/.theanorc
+	//echo config.compile.timeout = 1000 >> ~/.theanorc
+
 process postprocessgatk {
     cpus 8
     memory '40GB'
     time '3h'
     container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
-    scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+    //scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
     publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
     tag "$id"
 
@@ -2081,14 +2085,15 @@ process postprocessgatk {
         caseshards = caseshards.join( ' --calls-shard-path ')
  	shell:
 	'''
-	set +eu
-	source activate gatk
-    export MKL_NUM_THREADS=!{task.cpus}
-    export OMP_NUM_THREADS=!{task.cpus}
+	THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
 	for model in !{tar}; do
 	tar -xvf $model
 	done
     tar -xvf !{ploidy}
+	set +u
+	source activate gatk
+    export MKL_NUM_THREADS=!{task.cpus}
+    export OMP_NUM_THREADS=!{task.cpus}
     gatk --java-options "-Xmx25g" PostprocessGermlineCNVCalls \
         --allosomal-contig X --allosomal-contig Y \
         --contig-ploidy-calls ploidy/!{group}-calls/ \
