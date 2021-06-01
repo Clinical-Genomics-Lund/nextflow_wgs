@@ -319,7 +319,7 @@ process locus_collector {
 // Remove duplicate reads
 process dedup {
 	cpus 16
-	cache 'deep'
+	//cache 'deep'
 	tag "$id ($shard_name)"
 	time '2h'
 	memory '60 GB'
