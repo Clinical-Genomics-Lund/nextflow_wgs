@@ -622,7 +622,7 @@ process expansionhunter {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	publishDir "${OUTDIR}/plots/GAV/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.png'
+	//publishDir "${OUTDIR}/plots/GAV/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.png'
 
 	when:
 		params.str
@@ -633,7 +633,7 @@ process expansionhunter {
 
 	output:
 		set group, id, file("${group}.eh.vcf") into expansionhunter_vcf
-		file("*.png")
+		set group, id, file("${group}.eh_realigned.sort.bam"), file("${group}.eh_realigned.sort.bam.bai"), file("${group}.eh.vcf") into reviewer
 
 	"""
 	source activate htslib10
@@ -642,8 +642,8 @@ process expansionhunter {
 		--reference $genome_file \
 		--variant-catalog $params.expansionhunter_catalog \
 		--output-prefix ${group}.eh
-	source activate py3-env
-    python /GraphAlignmentViewer/GraphAlignmentViewer.py --variant_catalog $params.expansionhunter_catalog_gav --read_align ${group}.eh_realigned.bam
+	samtools sort ${group}.eh_realigned.bam -o ${group}.eh_realigned.sort.bam
+	samtools index ${group}.eh_realigned.sort.bam
 	"""
 }
 
@@ -655,6 +655,7 @@ process stranger {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	container = "/fs1/resources/containers/stranger_0.8.sif"
 
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
@@ -664,13 +665,41 @@ process stranger {
 		set group, id, file("${group}.fixinfo.eh.stranger.vcf") into expansionhunter_vcf_anno
 
 	"""
-	source activate py3-env
-	stranger ${eh_vcf} > ${group}.eh.stranger.vcf
+	stranger ${eh_vcf} -f $params.expansionhunter_catalog > ${group}.eh.stranger.vcf
 	grep ^# ${group}.eh.stranger.vcf > ${group}.fixinfo.eh.stranger.vcf
     grep -v ^# ${group}.eh.stranger.vcf | sed 's/ /_/g' >> ${group}.fixinfo.eh.stranger.vcf
 	"""
+}
 
+process reviewer {
+	tag "$group"
+	cpus 1
+	time '10m'
+	memory '1 GB'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	container = "/fs1/resources/containers/REViewer_2021-06-07.sif"
+	publishDir "${OUTDIR}/plots/reviewer/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.svg'
 	
+	input:
+		set group, id, file(bam), file(bai), file(vcf) from reviewer
+
+	output:
+		file("*svg")
+
+	shell:
+	'''
+	for locus in $(grep LocusId !{params.expansionhunter_catalog} | cut -f 2 -d ":" | sed 's/\"//g' | sed 's/,//g'); do 
+		REViewer \
+		--reads !{bam} \
+		--vcf !{vcf} \
+		--reference !{genome_file} \
+		--catalog !{params.expansionhunter_catalog} \
+		--locus $locus \
+		--output-prefix 7156-15.${locus}
+	done
+    '''
 }
 
 // split multiallelic sites in expansionhunter vcf
