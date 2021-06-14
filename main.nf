@@ -319,7 +319,7 @@ process locus_collector {
 // Remove duplicate reads
 process dedup {
 	cpus 16
-	//cache 'deep'
+	cache 'deep'
 	tag "$id ($shard_name)"
 	time '2h'
 	memory '60 GB'
@@ -2059,7 +2059,7 @@ process gatk_call_cnv {
         set group, id, i, file("${group}_${i}.tar") into postprocessgatk
 
     """
-	THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
+	export THEANO_FLAGS="base_compiledir=."
 	set +u
 	source activate gatk
 	export HOME=/local/scratch
@@ -2086,6 +2086,7 @@ process postprocessgatk {
     memory '40GB'
     time '3h'
     container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
+	
     //scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
