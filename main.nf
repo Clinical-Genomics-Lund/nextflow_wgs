@@ -150,24 +150,6 @@ if(genome_file ){
 			.ifEmpty { exit 1, "BWA index not found: ${genome_file}.bwt" }
 }
 
-// Create genomic shards //
-Channel
-	.fromPath(params.genomic_shards_file)
-	.splitCsv(header:false)
-	.into { locuscollector_shards; dedup_shards; genomicshards }
-
-// A channel to pair neighbouring bams and vcfs. 0 and top value removed later
-// Needs to be 0..n+1 where n is number of shards in shards.csv
-Channel
-	.from( 0..(genomic_num_shards+1) )
-	.collate( 3,1, false )
-	.set{ neighbour_shards }
-
-//merge genomic shards with neighbouring shard combinations
-genomicshards
-	.merge(tuple(neighbour_shards))
-	.into{ bqsr_shard_shard; varcall_shard_shard }
-
 process fastp {
 	cpus 10
 	tag "$id"
@@ -238,7 +220,7 @@ process bwa_merge_shards {
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
 
 	output:
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_locusc
 		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_dedup
 
 	when:
@@ -265,8 +247,8 @@ process bwa_align {
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
 
 	output:
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam
-		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_dedup
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_locusc, bam_markdup
+		// set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_dedup remnant of distri
 
 	when:
 		params.align && !params.shardbwa
@@ -284,211 +266,41 @@ process bwa_align {
 	"""
 }
 
-
-
-// Collect information that will be used by to remove duplicate reads.
-// The output of this step needs to be uncompressed (Sentieon manual uses .gz)
-// or the command will occasionally crash in Sentieon 201808.07 (works in earlier)
-process locus_collector_shard {
-	cpus 16
+process markdup {
+	cpus 40
 	errorStrategy 'retry'
 	maxErrors 5
-	tag "$id ($shard_name)"
-	memory '60 GB'
-	time '2h'
+	tag "$id"
+	memory '120 GB'
+	time '5h'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
 
-	when:
-		params.distributed
-
 	input:
-		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
+		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
 
 	output:
-		set val(id), group, file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk 
+		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt
+		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
+		set group, file("${group}_bam.INFO") into bam_INFO
 
 	"""
 	sentieon driver \\
 		--temp_dir /local/scratch/ \\
 		-t ${task.cpus} \\
-		-i $bam $shard \\
+		-i $bam \\
 		--algo LocusCollector \\
-		--fun score_info ${shard_name}_${id}.score
-	"""
-}
-
-process locus_collector {
-	cpus 16
-	errorStrategy 'retry'
-	maxErrors 5
-	tag "$id"
-	memory '60 GB'
-	time '2h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	when:
-		params.distributed
-
-	input:
-		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
-
-	output:
-		set val(id), group, file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
-
-	"""
+		--fun score_info ${id}.score
 	sentieon driver \\
 		--temp_dir /local/scratch/ \\
 		-t ${task.cpus} \\
-		-i $bam $shard \\
-		--algo LocusCollector \\
-		--fun score_info ${shard_name}_${id}.score
-	"""
-}
-
-
-// Remove duplicate reads
-process dedup {
-	cpus 16
-	cache 'deep'
-	tag "$id ($shard_name)"
-	time '2h'
-	memory '60 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	input:
-		set val(id), group, file(score), file(idx), file(bam), file(bai), val(shard_name), val(shard) \
-			from locus_collector_scores.groupTuple(by: [0,1]).join(bam_dedup.mix(merged_bam_dedup)).combine(dedup_shards)
-
-	output:
-		set val(id), group, file("${shard_name}_${id}.bam"), file("${shard_name}_${id}.bam.bai") into all_dedup_bams_bqsr, all_dedup_bams_dnascope, all_dedup_bams_mergepublish
-		set id, file("${shard_name}_${id}_dedup_metrics.txt") into dedup_metrics
-
-	script:
-		scores = score.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' --score_info ')
-
-	"""
-	sentieon driver \\
-		--temp_dir /local/scratch/ \\
-		-t ${task.cpus} \\
-		-i $bam $shard \\
-		--algo Dedup --score_info $scores \\
-		--metrics ${shard_name}_${id}_dedup_metrics.txt \\
-		--rmdup ${shard_name}_${id}.bam
-	"""
-
-}
-
-process dedup_metrics_merge {
-	tag "$id"
-	time '20m'
-	memory '5 GB'
-	cpus 1
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	input:
-		set id, file(dedup) from dedup_metrics.groupTuple()
-
-	output:
-		set id, file("dedup_metrics.txt") into merged_dedup_metrics
-
-	"""
-	sentieon driver --passthru --algo Dedup --merge dedup_metrics.txt $dedup
-	"""
-}
-
-process bqsr {
-	cpus 16
-	errorStrategy 'retry'
-	maxErrors 5
-	tag "$id ($shard_name)"
-	memory '60 GB'
-	time '1h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	input:
-		set val(id), group, file(bams), file(bai), val(shard_name), val(shard), val(one), val(two), val(three) from \
-			all_dedup_bams_bqsr.groupTuple(by: [0,1]).combine(bqsr_shard_shard)
-
-	output:
-		set val(id), file("${shard_name}_${id}.bqsr.table") into bqsr_table
-
-	script:
-		combo = [one, two, three]
-		combo = (combo - 0) //first dummy value
-		combo = (combo - (genomic_num_shards+1)) //last dummy value
-		commons = combo.collect{ "${it}_${id}.bam" }   //add .bam to each shardie, remove all other bams
-		bam_neigh = commons.join(' -i ')
-
-	"""
-	sentieon driver \\
-		--temp_dir /local/scratch/ \\
-		-t ${task.cpus} \\
-		-r $genome_file \\
-		-i $bam_neigh $shard \\
-		--algo QualCal -k $params.KNOWN ${shard_name}_${id}.bqsr.table
-	"""
-}
-
-// Merge the bqrs shards
-process merge_bqsr {
-	publishDir "${OUTDIR}/bqsr", mode: 'copy', overwrite: 'true'
-	tag "$id"
-	memory '10 GB'
-	time '10m'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	input:
-		set id, file(tables) from bqsr_table.groupTuple()
-
-	output:
-		set val(id), file("${id}_merged.bqsr.table") into bqsr_merged
-
-	"""
-	sentieon driver \\
-		--passthru \\
-		--algo QualCal \\
-		--merge ${id}_merged.bqsr.table $tables
-	"""
-}
-
-
-process merge_dedup_bam {
-	cpus 1
-	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
-	tag "$id"
-	memory '40 GB'
-	time '3h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	input:
-		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
-
-	output:
-		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk
-		set id, group, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam, bam_melt
-		file("${group}.INFO") into bam_INFO
-
-	script:
-		bams_sorted_str = bams.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' -i ')
-		bgroup = "bams"
-
-	"""
-	sentieon util merge -i ${bams_sorted_str} -o ${id}_merged_dedup.bam --mergemode 10
-	echo "BAM	$id	/access/${params.subdir}/bam/${id}_merged_dedup.bam" > ${group}.INFO
+		-i $bam \\
+		--algo Dedup --score_info ${id}.score \\
+		--metrics dedup_metrics.txt \\
+		--rmdup ${id}_dedup.bam
+	echo "BAM	$id	/access/${params.subdir}/bam/${id}_dedup.bam" > ${group}_bam.INFO
 	"""
 }
 
@@ -505,7 +317,7 @@ process sentieon_qc {
 	stageOutMode 'copy'
 
 	input:
-		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(merged_dedup_metrics.mix(dedup_dummy))
+		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
 
 	output:
 		set id, file("${id}.QC") into qc_cdm, qc_melt
@@ -608,7 +420,7 @@ process SMNCopyNumberCaller {
 	output:
 		file("*.tsv") into smn_tsv
 		set file("*.pdf"), file("*.json")
-		file("${group}.INFO") into smn_INFO
+		set group, file("${group}_smn.INFO") into smn_INFO
 
 	"""
 	samtools view -H ${bam.toRealPath()} | \\
@@ -633,7 +445,7 @@ process SMNCopyNumberCaller {
 	source activate py3-env
 	python /SMNCopyNumberCaller/smn_charts.py -s ${id}.json -o .
 	mv ${id}.tsv ${group}_SMN.tsv
-	echo "SMN ${OUTDIR}/smn/${group}_SMN.tsv" > ${group}.INFO
+	echo "SMN ${OUTDIR}/smn/${group}_SMN.tsv" > ${group}_smn.INFO
 	"""
 	
 }
@@ -753,7 +565,7 @@ process vcfbreakmulti_expansionhunter {
 
 	output:
 		file("${group}.expansionhunter.vcf.gz") into expansionhunter_scout
-		file("${group}.INFO") into str_INFO
+		set group, file("${group}_str.INFO") into str_INFO
 
 	script:
 		if (father == "") { father = "null" }
@@ -765,7 +577,7 @@ process vcfbreakmulti_expansionhunter {
 			familyfy_str.pl --vcf ${group}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${group}.expansionhunter.vcf
 			bgzip ${group}.expansionhunter.vcf
 			tabix ${group}.expansionhunter.vcf.gz
-			echo "STR	${OUTDIR}/vcf/${group}.expansionhunter.vcf.gz" > ${group}.INFO
+			echo "STR	${OUTDIR}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
 			"""
 		}
 		else {
@@ -774,7 +586,7 @@ process vcfbreakmulti_expansionhunter {
 			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf
 			bgzip ${group}.expansionhunter.vcf
 			tabix ${group}.expansionhunter.vcf.gz
-			echo "STR	${OUTDIR}/vcf/${group}.expansionhunter.vcf.gz" > ${group}.INFO
+			echo "STR	${OUTDIR}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
 			"""
 		}
 }
@@ -860,7 +672,7 @@ process melt {
 }
 
 // When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
-process dnascope_bam_choice {
+process dnascope {
 	cpus 54
 	memory '40 GB'
 	time '4h'
@@ -870,89 +682,20 @@ process dnascope_bam_choice {
 		params.varcall
 
 	input:
-		set group, id, bam, bqsr from dnascope_bam_choice
+		set group, id, bam, bqsr from complete_bam.mix(dnascope_bam_choice)
 
 	output:
-		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
+		set group, id, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
 		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens_choice
-		file("${group}.INFO") into bamchoice_INFO
+		set group, file("${group}_bamstart.INFO") into bamchoice_INFO
 
-	script:
-	vgroup = "vcfs"
-	ph = "dnascope_choice"
 	"""
 	sentieon driver \\
 		-t ${task.cpus} \\
 		-r $genome_file \\
 		-i ${bam.toRealPath()} \\
-		-q $bqsr \\
 		--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf.gz
-	echo "BAM	$id	/access/${params.subdir}/bam/$bam" > ${group}.INFO
-	"""
-}
-
-// Do variant calling using DNAscope, sharded
-process dnascope {
-	cpus 16
-	tag "$id ($shard_name)"
-	memory '40 GB'
-	time '2h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	when:
-		params.varcall
-
-	input:
-		set id, group, file(bams), file(bai), file(bqsr), val(shard_name), val(shard), val(one), val(two), val(three) \
-			from all_dedup_bams_dnascope.groupTuple(by: [0,1]).join(bqsr_merged.groupTuple()).combine(varcall_shard_shard)
-		
-	output:
-		set id, group, file("${shard_name}_${id}.gvcf.gz"), file("${shard_name}_${id}.gvcf.gz.tbi") into vcf_shard
-
-	script:
-		combo = [one, two, three] // one two three take on values 0 1 2, 1 2 3...30 31 32
-		combo = (combo - 0) //first dummy value removed (0)
-		combo = (combo - (genomic_num_shards+1)) //last dummy value removed (32)
-		commons = (combo.collect{ "${it}_${id}.bam" })   //add .bam to each combo to match bam files from input channel
-		bam_neigh = commons.join(' -i ') 
-
-	"""
-	sentieon driver \\
-		--temp_dir /local/scratch/ \\
-		-t ${task.cpus} \\
-		-r $genome_file \\
-		-i $bam_neigh $shard \\
-		-q $bqsr \\
-		--algo DNAscope --emit_mode GVCF ${shard_name}_${id}.gvcf.gz
-	"""
-}
-
-// Merge gvcf shards
-process merge_gvcf {
-	cpus 16
-	tag "$id ($group)"
-	memory '5 GB'
-	time '2h'
-
-	input:
-		set id, group, file(vcfs), file(idx) from vcf_shard.groupTuple(by: [0,1])
-
-	output:
-		set group, ph, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf
-		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens
-
-	script:
-		vgroup = "vcfs"
-		vcfs_sorted = vcfs.sort(false) { a, b -> a.getBaseName().tokenize("_")[0] as Integer <=> b.getBaseName().tokenize("_")[0] as Integer } .join(' ')
-		ph = "normalpath"
-	"""
-	sentieon driver \\
-		-t ${task.cpus} \\
-		--passthru \\
-		--algo DNAscope \\
-		--merge ${id}.dnascope.gvcf.gz $vcfs_sorted
+	echo "BAM	$id	/access/${params.subdir}/bam/$bam" > ${group}_bamstart.INFO
 	"""
 }
 
@@ -963,7 +706,7 @@ process gvcf_combine {
 	time '5h'
 
 	input:
-		set vgroup, ph, file(vcf), file(idx) from complete_vcf.mix(complete_vcf_choice).mix(gvcf_choice).groupTuple()
+		set vgroup, ph, file(vcf), file(idx) from complete_vcf_choice.mix(gvcf_choice).groupTuple()
 		set val(group), val(id), r1, r2 from vcf_info
 
 	output:
@@ -991,9 +734,9 @@ process create_ped {
 		
 
 	output:
-		file("${group}.ped") into ped_ch
+		set group, id, file("${id}_slice.ped") into ped_ch
 		set id, val(group) into madde_group
-		file("${group}.INFO") into tissue_INFO
+		//file("${group}.INFO") into tissue_INFO
 
 	script:
 		if ( sex =~ /F/) {
@@ -1016,16 +759,33 @@ process create_ped {
 		}
 
 	"""
-	echo "${group}\t${id}\t${father}\t${mother}\t${sex}\t${phenotype}" > ${group}.ped
-	echo "TISSUE $id $ffpe" > ${group}.INFO
+	echo "${group}\t${id}\t${father}\t${mother}\t${sex}\t${phenotype}" > ${id}_slice.ped
 	"""
 }
 
 // collects each individual's ped-line and creates one ped-file
-ped_ch
-	.collectFile(sort: true, storeDir: "${OUTDIR}/ped/")
-	.into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound; ped_pod }
+// ped_ch
+// 	.collectFile(sort: true, storeDir: "${OUTDIR}/ped/")
+// 	.into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound; ped_pod }
+process join_pedigree {
+	cpus 1
+	memory '1MB'
+	time '1m'
+	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
 
+	input:
+		set group, id, pedslice from ped_ch.groupTuple()
+
+	output:
+		set group, file("${group}.ped") into ped_mad, ped_peddy, ped_inher, ped_scout, ped_loqus, ped_prescore, ped_compound, ped_pod
+
+	script:
+	ped = pedslice.join( ' ' )
+
+	"""
+	cat $ped > ${group}.ped
+	"""
+}
 
 //madeline ped, run if family mode
 process madeline {
@@ -1035,15 +795,15 @@ process madeline {
 	container '/fs1/resources/containers/madeline.sif'
 
 	input:
-		file(ped) from ped_mad
+		set group, file(ped) from ped_mad
 		set id, val(group) from madde_group
 
 	output:
 		file("${ped}.madeline.xml") into madeline_ped
-		file("${group}.INFO") into madde_INFO
+		set group, file("${group}_madde.INFO") into madde_INFO
 
 	when:
-		mode == "family"
+		mode == "family" && params.assay == "wgs"
 
 	"""
 	source activate tools
@@ -1055,7 +815,7 @@ process madeline {
 		-L "IndividualId" ${ped}.madeline \\
 		-o ${ped}.madeline \\
 		-x xml
-	echo "MADDE ${OUTDIR}/ped/${ped}.madeline.xml" > ${group}.INFO
+	echo "MADDE ${OUTDIR}/ped/${ped}.madeline.xml" > ${group}_madde.INFO
 	"""
 }
 
@@ -1116,12 +876,12 @@ process fetch_MTseqs {
 
     output:
         set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam
-		file("${group}.INFO") into mtBAM_INFO
+		set group, file("${group}_mtbam.INFO") into mtBAM_INFO
 
     """
     sambamba view -f bam ${bam.toRealPath()} M > ${id}_mito.bam
     samtools index -b ${id}_mito.bam
-	echo "mtBAM	$id	/access/${params.subdir}/bam/${id}_mito.bam" > ${group}.INFO
+	echo "mtBAM	$id	/access/${params.subdir}/bam/${id}_mito.bam" > ${group}_mtbam.INFO
     """
 
 }
@@ -1340,8 +1100,8 @@ process add_to_loqusdb {
 		!params.noupload
 
 	input:
-		set group, file(vcf) from vcf_loqus
-		file(ped) from ped_loqus
+		set group, file(vcf), file(ped) from vcf_loqus.join(ped_loqus)
+		//file(ped) from ped_loqus
 
 	output:
 		file("${group}.loqus") into loqusdb_done
@@ -1427,8 +1187,8 @@ process inher_models {
 	stageOutMode 'copy'
 
 	input:
-		set group, file(vcf) from vcfanno_vcf
-		file(ped) from ped_inher
+		set group, file(vcf), file(ped) from vcfanno_vcf.join(ped_inher)
+		//file(ped) from ped_inher
 
 	output:
 		set group, file("${group}.models.vcf") into inhermod
@@ -1589,7 +1349,7 @@ process genmodscore {
 		set group, file("${group}.scored.vcf") into scored_vcf
 
 	script:
-		if (mode == "family") {
+		if ( mode == "family" && !params.antype == "panel" ) {
 			"""
 			genmod score -i $group -c $params.rank_model -r $vcf -o ${group}.score1.vcf
 			genmod compound ${group}.score1.vcf > ${group}.score2.vcf
@@ -1636,17 +1396,17 @@ process peddy {
 	tag "$group"
 
 	input:
-		file(ped) from ped_peddy
-		set group, file(vcf), file(idx) from vcf_peddy
+		//file(ped) from ped_peddy
+		set group, file(vcf), file(idx), file(ped) from vcf_peddy.join(ped_peddy)
 
 	output:
 		set file("${group}.ped_check.csv"),file("${group}.peddy.ped"), file("${group}.sex_check.csv") into peddy_files
-		file("${group}.INFO") into peddy_INFO
+		set group, file("${group}_peddy.INFO") into peddy_INFO
 
 	"""
 	source activate py3-env
 	python -m peddy --sites hg38 -p ${task.cpus} $vcf $ped --prefix $group
-	echo "PEDDY	${OUTDIR}/ped/${group}.ped_check.csv,${OUTDIR}/ped/${group}.peddy.ped,${OUTDIR}/ped/${group}.sex_check.csv" > ${group}.INFO
+	echo "PEDDY	${OUTDIR}/ped/${group}.ped_check.csv,${OUTDIR}/ped/${group}.peddy.ped,${OUTDIR}/ped/${group}.sex_check.csv" > ${group}_peddy.INFO
 	"""
 }
 
@@ -1822,7 +1582,7 @@ process generate_gens_data {
 		!params.onco && !params.exome
 
 	input:
-		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens.mix(gvcf_gens_choice).join(cov_gens, by:[1])
+		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens_choice.join(cov_gens, by:[1])
 
 	output:
 		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz"), file("${id}.cov.bed.gz.tbi"), file("${id}.baf.bed.gz.tbi"), file("${id}.overview.json.gz")
@@ -2112,9 +1872,6 @@ process gatk_call_cnv {
     """
 }
 
-	//echo "[global]" > ~/.theanorc
-	//echo config.compile.timeout = 1000 >> ~/.theanorc
-
 process postprocessgatk {
     cpus 8
     memory '40GB'
@@ -2362,8 +2119,7 @@ process prescore {
 	time '30m'
 
 	input:
-		set group, file(sv_artefact) from manip_vcf
-		file(ped) from ped_prescore
+		set group, file(sv_artefact), file(ped) from manip_vcf.join(ped_prescore)
 		set group, file(annotsv) from annotsv
 
 	output:
@@ -2387,7 +2143,7 @@ process score_sv {
 
 	output:
 		set group, file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore
-		file("${group}.INFO") into sv_INFO
+		set group, file("${group}_sv.INFO") into sv_INFO
 		set group, file("${group}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
 				
 	script:
@@ -2398,7 +2154,7 @@ process score_sv {
 			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored_tmp.vcf 
 			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
-			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}.INFO
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 			"""
 		}
 		else {
@@ -2407,7 +2163,7 @@ process score_sv {
 			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
 			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
 			tabix ${group}.sv.scored.sorted.vcf.gz -f
-			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}.INFO
+			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 			"""
 		}
 }
@@ -2423,14 +2179,13 @@ process compound_finder {
 		mode == "family"
 
 	input:
-		set group, file(vcf), file(tbi) from sv_rescore
-		file(ped) from ped_compound
+		set group, file(vcf), file(tbi), file(ped) from sv_rescore.join(ped_compound)
 		set group, file(snv), file(tbi) from snv_sv_vcf
 
 	output:
 		set group, file("${group}.snv.rescored.sorted.vcf.gz"), file("${group}.snv.rescored.sorted.vcf.gz.tbi") into vcf_yaml
 			//file("${group}.sv.rescored.sorted.vcf.gz"), file("${group}.sv.rescored.sorted.vcf.gz.tbi") 
-		file("${group}.INFO") into svcompound_INFO
+		set group, file("${group}_svp.INFO") into svcompound_INFO
 				
 	// OBS, if flag --skipsv is chosen modify what sv.vcf is presented to scout in yaml (last line)
 	// and change output file.
@@ -2443,17 +2198,38 @@ process compound_finder {
 			--skipsv
 		bgzip -@ ${task.cpus} ${group}.snv.rescored.sorted.vcf -f
 		tabix ${group}.snv.rescored.sorted.vcf.gz -f
-		echo "SVc	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.rescored.sorted.vcf.gz" > ${group}.INFO
+		echo "SVc	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.rescored.sorted.vcf.gz" > ${group}_svp.INFO
 		"""
 
 }
 
 // Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
 // If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
-bam_INFO
-	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,tissue_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO)
-	.collectFile()
-	.set{ yaml_INFO }
+// bam_INFO
+// 	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO)
+// 	.collectFile()
+// 	.set{ yaml_INFO }
+
+process ouput_files {
+	cpus 1
+	memory '1MB'
+	time '2m'
+
+	input:
+		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO).groupTuple()
+
+	output:
+		set group, file("${group}.INFO") into yaml_INFO
+
+	script:
+		files = files.join( ' ' )
+
+	"""
+	cat $files > ${group}.INFO
+	"""
+}
+
+
 process svvcf_to_bed {
 	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 	tag "group"
@@ -2485,8 +2261,7 @@ process plot_pod {
 
 	input:
 		set group, file(snv) from vcf_pod
-		set group, file(cnv) from svvcf_pod
-		file(ped) from ped_pod
+		set group, file(cnv), file(ped) from svvcf_pod.join(ped_pod)
 		set group, id, sex, type from meta_pod.filter { item -> item[3] == 'proband' }		
 
 	output:
@@ -2515,9 +2290,9 @@ process create_yaml {
 		!params.noupload
 
 	input:
-		file(INFO) from yaml_INFO
-		file(ped) from ped_scout
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from yml_diag
+		//file(INFO) from yaml_INFO
+		//file(ped) from ped_scout
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, file(ped), file(INFO) from yml_diag.join(ped_scout).join(yaml_INFO)
 
 	output:
 		set group, file("${group}.yaml") into yaml
