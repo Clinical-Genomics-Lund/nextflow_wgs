@@ -289,7 +289,7 @@ process bwa_align {
 // Collect information that will be used by to remove duplicate reads.
 // The output of this step needs to be uncompressed (Sentieon manual uses .gz)
 // or the command will occasionally crash in Sentieon 201808.07 (works in earlier)
-process locus_collector {
+process locus_collector_shard {
 	cpus 16
 	errorStrategy 'retry'
 	maxErrors 5
@@ -299,6 +299,9 @@ process locus_collector {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+
+	when:
+		params.distributed
 
 	input:
 		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
@@ -315,6 +318,37 @@ process locus_collector {
 		--fun score_info ${shard_name}_${id}.score
 	"""
 }
+
+process locus_collector {
+	cpus 16
+	errorStrategy 'retry'
+	maxErrors 5
+	tag "$id"
+	memory '60 GB'
+	time '2h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+
+	when:
+		params.distributed
+
+	input:
+		set id, group, file(bam), file(bai), val(shard_name), val(shard) from bam.mix(merged_bam).combine(locuscollector_shards)
+
+	output:
+		set val(id), group, file("${shard_name}_${id}.score"), file("${shard_name}_${id}.score.idx") into locus_collector_scores
+
+	"""
+	sentieon driver \\
+		--temp_dir /local/scratch/ \\
+		-t ${task.cpus} \\
+		-i $bam $shard \\
+		--algo LocusCollector \\
+		--fun score_info ${shard_name}_${id}.score
+	"""
+}
+
 
 // Remove duplicate reads
 process dedup {
