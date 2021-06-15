@@ -679,6 +679,7 @@ process reviewer {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	errorStrategy 'ignore'
 	container = "/fs1/resources/containers/REViewer_2021-06-07.sif"
 	publishDir "${OUTDIR}/plots/reviewer/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.svg'
 	
