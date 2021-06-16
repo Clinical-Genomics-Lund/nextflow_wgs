@@ -320,7 +320,7 @@ process sentieon_qc {
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
 
 	output:
-		set id, file("${id}.QC") into qc_cdm, qc_melt
+		set group, id, file("${id}.QC") into qc_cdm, qc_melt
 		file("*.txt")
 
 	script:
@@ -365,7 +365,7 @@ process qc_to_cdm {
 		!params.noupload
 	
 	input:
-		set id, file(qc), diagnosis, r1, r2 from qc_cdm.join(qc_extra)
+		set group, id, file(qc), diagnosis, r1, r2 from qc_cdm.join(qc_extra)
 
 	output:
 		file("${id}.cdm") into cdm_done
@@ -602,10 +602,11 @@ process melt_qc_val {
 		params.onco
 
 	input:
-		set id, qc from qc_melt
+		set group, id, qc from qc_melt
 
 	output:
-		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) into qc_melt_val, qc_cnvkit_val
+		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) into qc_melt_val
+		set group, id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) into qc_cnvkit_val
 	
 	script:
 		// Collect qc-data if possible from normal sample, if only tumor; tumor
@@ -706,8 +707,7 @@ process gvcf_combine {
 	time '5h'
 
 	input:
-		set vgroup, ph, file(vcf), file(idx) from complete_vcf_choice.mix(gvcf_choice).groupTuple()
-		set val(group), val(id), r1, r2 from vcf_info
+		set group, id, file(vcf), file(idx) from complete_vcf_choice.mix(gvcf_choice).groupTuple()
 
 	output:
 		set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
@@ -826,6 +826,7 @@ process freebayes {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	cache 'deep'
 
 	when: 
 		params.onco
@@ -834,7 +835,7 @@ process freebayes {
         set group, id, file(bam), file(bai) from bam_freebayes.mix(bam_freebayes_choice)
 
     output:
-        set id, file("${id}.pathfreebayes.lines") into freebayes_concat
+        set group, file("${id}.pathfreebayes.lines") into freebayes_concat
 
 	script:
 		if (params.onco) {
@@ -1044,14 +1045,14 @@ process split_normalize {
 		params.annotate
 
 	input:
-		set group, id, file(vcf), file(idx) from combined_vcf
-		set id, file(vcfconcat) from mito_diplod_vep.mix(freebayes_concat)
+		set group, id, file(vcf), file(idx), file(vcfconcat) from combined_vcf.join(mito_diplod_vep.mix(freebayes_concat))
 
 	output:
 		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
 		set group, id, file("${group}.intersected.vcf"), file("${group}.multibreak.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
 		
 	script:
+	id = id[0]
 	// rename M to MT because genmod does not recognize M
 	if(params.onco) {
 		"""
@@ -1100,14 +1101,14 @@ process add_to_loqusdb {
 		!params.noupload
 
 	input:
-		set group, file(vcf), file(ped) from vcf_loqus.join(ped_loqus)
+		set group, id, file(vcf), file(multi), file(ped) from vcf_loqus.join(ped_loqus)
 		//file(ped) from ped_loqus
 
 	output:
 		file("${group}.loqus") into loqusdb_done
 
 	"""
-	echo "-db $params.loqusdb load -f ${ped.toRealPath()} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
+	echo "-db $params.loqusdb load -f ${OUTDIR}/ped/${ped} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
 	"""
 }
 
@@ -1376,14 +1377,14 @@ process vcf_completion {
 
 	output:
 		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf
-		file("${group}.INFO") into snv_INFO
+		set group, file("${group}_snv.INFO") into snv_INFO
 
 	"""
 	sed 's/^MT/M/' -i $vcf
 	sed 's/ID=MT,length/ID=M,length/' -i $vcf
 	bgzip -@ ${task.cpus} $vcf -f
 	tabix ${vcf}.gz -f
-	echo "SNV	${OUTDIR}/vcf/${group}.scored.vcf.gz" > ${group}.INFO
+	echo "SNV	${OUTDIR}/vcf/${group}.scored.vcf.gz" > ${group}_snv.INFO
 	"""
 }
 
@@ -1659,6 +1660,7 @@ process delly_panel {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	cache 'deep'
 	
 	when:
 		params.sv && params.onco
@@ -1693,15 +1695,15 @@ process cnvkit_panel {
 		params.sv && params.onco
 
 	input:
-		set group, id, file(bam), file(bai) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice)
-		set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from qc_cnvkit_val
-		set group, id, file(vcf) from vcf_cnvkit
+		set group, id, file(bam), file(bai), file(vcf), file(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice).join(vcf_cnvkit, by:[0,1]).join(qc_cnvkit_val, by:[0,1]).view()
+		//set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from qc_cnvkit_val.view()
+		//set group, id, file(vcf) from vcf_cnvkit.view()
 	
 	output:
 		set group, id, file("${id}.cnvkit_filtered.vcf") into called_cnvkit_panel
 
 	"""
-	cnvkit.py batch ${bam.toRealPath()} -r $params.cnvkit_reference -p 5 -d results/
+	cnvkit.py batch ${bam.toRealPath()} -r $params.cnvkit_reference -p ${task.cpus} -d results/
 	cnvkit.py call results/*.cns -v $vcf -o ${id}.call.cns
 	filter_cnvkit.pl ${id}.call.cns $MEAN_DEPTH > ${id}.filtered
 	cnvkit.py export vcf ${id}.filtered -i "$id" > ${id}.cnvkit_filtered.vcf
