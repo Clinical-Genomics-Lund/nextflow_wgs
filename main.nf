@@ -1307,7 +1307,7 @@ process add_to_loqusdb {
 		!params.noupload
 
 	input:
-		set group, file(vcf) from vcf_loqus
+		set group, id, file(vcf), file(multi) from vcf_loqus
 		file(ped) from ped_loqus
 
 	output:
