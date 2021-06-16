@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.0.3
+- ignore errors of REViewer
+- loqusdb faulty input caused wrong imports to loqusdb, now fixed
+
 ### 3.0.2
 - GAV replaced with REViewer
 - Stranger 0.8 with updated variant catalogue
