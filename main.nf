@@ -81,6 +81,7 @@ input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_cho
 bam_choice.into{ 
 	expansionhunter_bam_choice; 
 	dnascope_bam_choice;
+	bampath_start;
 	chanjo_bam_choice; 
 	yaml_bam_choice; 
 	cov_bam_choice; 
@@ -688,7 +689,7 @@ process dnascope {
 	output:
 		set group, id, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
 		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens_choice
-		set group, file("${group}_bamstart.INFO") into bamchoice_INFO
+		//set group, file("${group}_bamstart.INFO") into bamchoice_INFO
 
 	"""
 	sentieon driver \\
@@ -696,9 +697,25 @@ process dnascope {
 		-r $genome_file \\
 		-i ${bam.toRealPath()} \\
 		--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf.gz
-	echo "BAM	$id	/access/${params.subdir}/bam/$bam" > ${group}_bamstart.INFO
 	"""
 }
+
+process bamtoyaml {
+	cpus 1
+	time "5m"
+	memory "2MB"
+
+	input:
+		set group, id, bam, bai from bampath_start
+	
+	output:
+		set group, file("${group}_bamstart.INFO") into bamchoice_INFO
+
+	"""
+	echo "BAM	$id	/access/${params.subdir}/bam/${bam.getName()}" > ${group}_bamstart.INFO
+	"""
+}
+
 
 process gvcf_combine {
 	cpus 16
@@ -1723,10 +1740,10 @@ process svdb_merge_panel {
 	stageOutMode 'copy'
 
 	input:
-		set group, id, file(mantaV) from called_manta_panel.groupTuple()
-		set group, id, file(dellyV) from called_delly_panel.groupTuple()
-		set group, id, file(melt) from melt_vcf.groupTuple()
-		set group, id, file(cnvkitV) from called_cnvkit_panel.groupTuple()
+		set group, id, file(mantaV), file(dellyV), file(melt), file(cnvkitV) from called_manta_panel.join(called_delly_panel, by:[0,1]).join(melt_vcf, by:[0,1]).join(called_cnvkit_panel, by:[0,1])
+		// set group, id, file(dellyV) from called_delly_panel.groupTuple()
+		// set group, id, file(melt) from melt_vcf.groupTuple()
+		// set group, id, file(cnvkitV) from called_cnvkit_panel.groupTuple()
 				
 	output:
 		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
@@ -2178,7 +2195,7 @@ process compound_finder {
 	time '2h'
 
 	when:
-		mode == "family"
+		mode == "family" && params.assay == "wgs"
 
 	input:
 		set group, file(vcf), file(tbi), file(ped) from sv_rescore.join(ped_compound)
