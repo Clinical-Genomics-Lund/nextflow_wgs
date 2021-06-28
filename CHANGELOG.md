@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.0.4
+- recurring multi-allelic variant @MT:955 keeps vcfmultibreak in a never ending loop
+- grep -v ^MT 955
+
 ### 3.0.3
 - ignore errors of REViewer
 - loqusdb faulty input caused wrong imports to loqusdb, now fixed
