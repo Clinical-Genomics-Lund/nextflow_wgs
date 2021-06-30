@@ -1780,7 +1780,8 @@ process overview_plot {
 }
 
 process generate_gens_data {
-	publishDir "${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true', pattern: "*.gz*"
+	publishDir "${CRONDIR}/gens", mode: 'copy', overwrite: 'true', pattern: "*.gens"
 	tag "$group"
 	cpus 1
 	time '3h'
@@ -1794,9 +1795,11 @@ process generate_gens_data {
 
 	output:
 		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz"), file("${id}.cov.bed.gz.tbi"), file("${id}.baf.bed.gz.tbi"), file("${id}.overview.json.gz")
+		file("${id}.gens") into gens_middleman
 
 	"""
 	generate_gens_data.pl $cov_stand $gvcf $id $params.GENS_GNOMAD
+	echo "gens load sample --sample-id $id --genome-build 38 --baf ${params.gens_accessdir}/${id}.baf.bed.gz --coverage ${params.gens_accessdir}/${id}.cov.bed.gz --overview-json ${params.gens_accessdir}/${id}.overview.json.gz" > ${id}.gens
 	"""
 }
 
