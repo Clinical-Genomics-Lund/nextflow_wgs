@@ -689,18 +689,16 @@ process reviewer {
 	output:
 		file("*svg")
 
-	shell:
-	'''
-	for locus in $(grep LocusId !{params.expansionhunter_catalog} | cut -f 2 -d ":" | sed 's/\"//g' | sed 's/,//g'); do 
-		REViewer \
-		--reads !{bam} \
-		--vcf !{vcf} \
-		--reference !{genome_file} \
-		--catalog !{params.expansionhunter_catalog} \
-		--locus $locus \
-		--output-prefix 7156-15.${locus}
-	done
+    shell:
     '''
+    grep LocusId !{params.expansionhunter_catalog} | sed 's/[",^ ]//g' | cut -d':' -f2 | perl -na -e 'chomp; \
+    system("REViewer --reads !{bam} \
+    --vcf !{vcf} \
+    --reference !{genome_file} \
+    --catalog !{params.expansionhunter_catalog} \
+    --locus $_ \
+    --output-prefix !{id}");'
+	'''
 }
 
 // split multiallelic sites in expansionhunter vcf

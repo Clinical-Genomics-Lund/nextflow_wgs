@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### 3.0.5
+#### new funcion
+- GENS middleman command added to generate_gens_data. Needed for loading of data into GENS thorugh cron and middleman
+#### bug fixees
+- REViewer now loops through a perl shell script instead of bash. Low covered loci error no longer crash all other svg-image generation
+- fixed a typo which named all svgs as 7156, a validation and verification sample
+
 ### 3.0.4
 - recurring multi-allelic variant @MT:955 keeps vcfmultibreak in a never ending loop
 - grep -v ^MT 955
