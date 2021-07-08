@@ -1999,7 +1999,7 @@ process gatk_coverage {
         set group, id, file("${id}.tsv") into call_ploidy, call_cnv
 
     """
-	THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
+	export THEANO_FLAGS="base_compiledir=."
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
 	set +u
@@ -2030,7 +2030,7 @@ process gatk_call_ploidy {
         set group, id, file("ploidy.tar") into ploidy_to_cnvcall, ploidy_to_post
 
     """
-	THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
+	export THEANO_FLAGS="base_compiledir=."
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
 	set +u
