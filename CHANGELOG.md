@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.0.6
+#### bug fixes
+- correctly assigned theanoflag for gatk coverage and ploidy, would in rare cases cause crashes
+
 ### 3.0.5
 #### new funcion
 - GENS middleman command added to generate_gens_data. Needed for loading of data into GENS thorugh cron and middleman
