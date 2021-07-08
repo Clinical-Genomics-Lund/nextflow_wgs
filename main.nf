@@ -222,7 +222,7 @@ process bwa_merge_shards {
 
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_locusc
-		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_dedup
+		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_dedup, merged_bam_bqsr
 
 	when:
 		params.shardbwa
@@ -238,7 +238,7 @@ process bwa_merge_shards {
 // ALTERNATIVE PATH: Unsharded BWA, utilize local scratch space.
 process bwa_align {
 	cpus 50
-	memory '120 GB'
+	memory '80 GB'
 	// 64 GB peak giab //
 	scratch true
 	stageInMode 'copy'
@@ -249,7 +249,7 @@ process bwa_align {
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
 
 	output:
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_locusc, bam_markdup
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_locusc, bam_markdup, bam_bqsr
 		// set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_dedup remnant of distri
 
 	when:
@@ -273,12 +273,13 @@ process markdup {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$id"
-	memory '120 GB'
+	memory '30 GB'
 	// 12gb peak giab //
-	time '5h'
+	time '3h'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
 	input:
 		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
@@ -307,10 +308,34 @@ process markdup {
 	"""
 }
 
+process bqsr {
+	cpus 40
+	errorStrategy 'retry'
+	maxErrors 5
+	tag "$id"
+	memory '30 GB'
+	// 12gb peak giab //
+	time '5h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*table'
+
+	input:
+		set id, group, file(bam), file(bai) from bam_bqsr.mix(merged_bam_bqsr)
+
+	output:
+		set group, id, file("${id}.bqsr.table") into dnascope_bqsr
+
+	"""
+	sentieon driver -t ${task.cpus} -r $genome_file -i $bam --algo QualCal ${id}.bqsr.table
+	"""	
+}
+
 //Collect various QC data: 
 process sentieon_qc {
-	cpus 54
-	memory '64 GB'
+	cpus 52
+	memory '30 GB'
 	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
 	tag "$id"
 	cache 'deep'
@@ -386,7 +411,7 @@ process qc_to_cdm {
 // Calculate coverage for chanjo
 process chanjo_sambamba {
 	cpus 16
-	memory '64 GB'
+	memory '10 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
 	tag "$id"
 	scratch true
@@ -688,7 +713,7 @@ process dnascope {
 		params.varcall
 
 	input:
-		set group, id, bam, bqsr from complete_bam.mix(dnascope_bam_choice)
+		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1] ).view()
 
 	output:
 		set group, id, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
@@ -699,6 +724,7 @@ process dnascope {
 	sentieon driver \\
 		-t ${task.cpus} \\
 		-r $genome_file \\
+		-q $bqsr \\
 		-i ${bam.toRealPath()} --shard 1:1-248956422 --shard 2:1-242193529 --shard 3:1-198295559 --shard 4:1-190214555 --shard 5:1-120339935 --shard 5:120339936-181538259 --shard 6:1-170805979 --shard 7:1-159345973 --shard 8:1-145138636 --shard 9:1-138394717 --shard 10:1-133797422 --shard 11:1-135086622 --shard 12:1-56232327 --shard 12:56232328-133275309 --shard 13:1-114364328 --shard 14:1-107043718 --shard 15:1-101991189 --shard 16:1-90338345 --shard 17:1-83257441 --shard 18:1-80373285 --shard 19:1-58617616 --shard 20:1-64444167 --shard 21:1-46709983 --shard 22:1-50818468 --shard X:1-124998478 --shard X:124998479-156040895 --shard Y:1-57227415 --shard M:1-16569 \\
 		--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf.gz
 	"""
@@ -885,8 +911,8 @@ process freebayes {
 // create an MT BAM file
 process fetch_MTseqs {
 	cpus 2
-	memory '30GB'
-	time '10m'
+	memory '10GB'
+	time '30m'
 	tag "$id"
 	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
 
@@ -911,8 +937,8 @@ process fetch_MTseqs {
 // gatk FilterMutectCalls in future if FPs overwhelms tord/sofie/carro
 process run_mutect2 {
     cpus 4
-    memory '40 GB'
-    time '15m'
+    memory '50 GB'
+    time '30m'
 	tag "$group"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
@@ -1370,7 +1396,7 @@ process genmodscore {
 		set group, file("${group}.scored.vcf") into scored_vcf
 
 	script:
-		if ( mode == "family" && !params.antype == "panel" ) {
+		if ( mode == "family" && params.antype == "wgs" ) {
 			"""
 			genmod score -i $group -c $params.rank_model -r $vcf -o ${group}.score1.vcf
 			genmod compound ${group}.score1.vcf > ${group}.score2.vcf
@@ -1794,7 +1820,7 @@ process tiddit {
 
 process gatk_coverage {
     cpus 10
-    memory '20GB'
+    memory '40GB'
     time '2h'
     container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
     scratch true
@@ -1859,7 +1885,7 @@ process gatk_call_ploidy {
 
 process gatk_call_cnv {
     cpus 8
-    memory '40GB'
+    memory '45GB'
     time '3h'
     container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
     scratch true
@@ -2170,7 +2196,7 @@ process score_sv {
 				
 	script:
 	
-		if (mode == "family") {
+		if (mode == "family" && params.antype == "wgs") {
 			"""
 			genmod score -i $group -c $params.svrank_model -r $vcf -o ${group}.sv.scored_tmp.vcf
 			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored_tmp.vcf 
