@@ -328,7 +328,10 @@ process bqsr {
 		set group, id, file("${id}.bqsr.table") into dnascope_bqsr
 
 	"""
-	sentieon driver -t ${task.cpus} -r $genome_file -i $bam --algo QualCal ${id}.bqsr.table
+	sentieon driver -t ${task.cpus} \\
+		-r $genome_file -i $bam \\
+		--algo QualCal ${id}.bqsr.table \\
+		-k $params.KNOWN
 	"""	
 }
 
@@ -713,7 +716,7 @@ process dnascope {
 		params.varcall
 
 	input:
-		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1] ).view()
+		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1] )
 
 	output:
 		set group, id, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
