@@ -38,6 +38,10 @@ my %assays = (
             'institute' => 'ahus',
             'institute_owner' => 'ahus'
         },
+        'kit' => {
+            'institute' => 'KIT',
+            'institute_owner' => 'KIT'
+        },
         'wgsvalid' => {
             'institute' => 'klingen_38',
             'institute_owner' => 'klingen-genlista'
@@ -219,7 +223,9 @@ else {
     print STDERR "need at least one VCF, SV/SNV"; exit;
 }
 if ($INFO{STR}) {
-    print OUT "vcf_str: $INFO{STR}\n";
+    if ($analysis ne 'kit') {
+        print OUT "vcf_str: $INFO{STR}\n";
+    }
 }
 if ($INFO{SMN}) {
     print OUT "smn_tsv: $INFO{SMN}\n";
