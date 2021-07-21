@@ -484,7 +484,7 @@ process sentieon_qc {
 		assay = "wgs"
 		if( params.onco || params.exome) {
 			target = "--interval $params.intervals"
-			panel = params.panelhs + "${bam.toRealPath()}" + params.panelhs2 
+			panel = params.panelhs + "$bam" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
 			assay = "panel"
 		}
@@ -493,7 +493,7 @@ process sentieon_qc {
 	sentieon driver \\
 		-r $genome_file $target \\
 		-t ${task.cpus} \\
-		-i ${bam.toRealPath()} \\
+		-i $bam \\
 		--algo MeanQualityByCycle mq_metrics.txt \\
 		--algo QualDistribution qd_metrics.txt \\
 		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
@@ -554,7 +554,7 @@ process chanjo_sambamba {
 		file("${id}.bwa.chanjo.cov") into chanjocov
 
 	"""
-	sambamba depth region -t ${task.cpus} -L $params.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 ${bam.toRealPath()} > ${id}.bwa.chanjo.cov
+	sambamba depth region -t ${task.cpus} -L $params.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}.bwa.chanjo.cov
 	"""
 }
 
@@ -577,7 +577,7 @@ process SMNCopyNumberCaller {
 		file("${group}.INFO") into smn_INFO
 
 	"""
-	samtools view -H ${bam.toRealPath()} | \\
+	samtools view -H $bam | \\
 		sed -e 's/SN:1/SN:chr1/' | sed -e 's/SN:2/SN:chr2/' |  \\
 		sed -e 's/SN:3/SN:chr3/' | sed -e 's/SN:4/SN:chr4/' |  \\
 		sed -e 's/SN:5/SN:chr5/' | sed -e 's/SN:6/SN:chr6/' |  \\
@@ -591,7 +591,7 @@ process SMNCopyNumberCaller {
 		sed -e 's/SN:21/SN:chr21/' | sed -e 's/SN:22/SN:chr22/' |  \\
 		sed -e 's/SN:X/SN:chrX/' | sed -e 's/SN:Y/SN:chrY/' |   \\
 		sed -e 's/SN:MT/SN:chrM/' | \\
-		samtools reheader - ${bam.toRealPath()} > ${id}.bam
+		samtools reheader - $bam > ${id}.bam
 	samtools index -b ${id}.bam -@ ${task.cpus}
 	echo ${id}.bam > manifest.txt
 	smn_caller.py --manifest manifest.txt --genome 38 --prefix ${id} --outDir . --threads ${task.cpus}
@@ -638,7 +638,7 @@ process expansionhunter {
 	"""
 	source activate htslib10
 	ExpansionHunter \
-		--reads ${bam.toRealPath()} \
+		--reads $bam \
 		--reference $genome_file \
 		--variant-catalog $params.expansionhunter_catalog \
 		--output-prefix ${group}.eh
@@ -808,7 +808,7 @@ process melt {
 
 	"""
 	java -jar  /opt/MELT.jar Single \\
-		-bamfile ${bam.toRealPath()} \\
+		-bamfile $bam \\
 		-r 150 \\
 		-h $genome_file \\
 		-n $params.bed_melt \\
@@ -849,7 +849,7 @@ process dnascope_bam_choice {
 	sentieon driver \\
 		-t ${task.cpus} \\
 		-r $genome_file \\
-		-i ${bam.toRealPath()} \\
+		-i $bam \\
 		-q $bqsr \\
 		--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf.gz
 	echo "BAM	$id	/access/${params.subdir}/bam/$bam" > ${group}.INFO
@@ -1044,7 +1044,7 @@ process freebayes {
 	script:
 		if (params.onco) {
 			"""
-			freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 ${bam.toRealPath()} > ${id}.freebayes.vcf
+			freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 $bam > ${id}.freebayes.vcf
 			vcfbreakmulti ${id}.freebayes.vcf > ${id}.freebayes.multibreak.vcf
 			bcftools norm -m-both -c w -O v -f $genome_file -o ${id}.freebayes.multibreak.norm.vcf ${id}.freebayes.multibreak.vcf
 			vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
@@ -1084,7 +1084,7 @@ process fetch_MTseqs {
 		file("${group}.INFO") into mtBAM_INFO
 
     """
-    sambamba view -f bam ${bam.toRealPath()} M > ${id}_mito.bam
+    sambamba view -f bam $bam M > ${id}_mito.bam
     samtools index -b ${id}_mito.bam
 	echo "mtBAM	$id	/access/${params.subdir}/bam/${id}_mito.bam" > ${group}.INFO
     """
@@ -1730,7 +1730,7 @@ process gatkcov {
 	source activate gatk4-env
 
 	gatk CollectReadCounts \\
-		-I ${bam.toRealPath()} -L $params.COV_INTERVAL_LIST \\
+		-I $bam -L $params.COV_INTERVAL_LIST \\
 		--interval-merging-rule OVERLAPPING_ONLY -O ${bam}.hdf5
 
 	gatk --java-options "-Xmx30g" DenoiseReadCounts \\
@@ -1824,7 +1824,7 @@ process manta {
 		bams = bam.join('--bam ')
 
 	"""
-	configManta.py --bam ${bam.toRealPath()} --reference $genome_file --runDir .
+	configManta.py --bam $bam --reference $genome_file --runDir .
 	python runWorkflow.py -m local -j ${task.cpus}
 	mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
 	mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
@@ -1852,7 +1852,7 @@ process manta_panel {
 
 
 	"""
-	configManta.py --bam ${bam.toRealPath()} --reference $genome_file --runDir . --exome --callRegions $params.bedgz --generateEvidenceBam
+	configManta.py --bam $bam --reference $genome_file --runDir . --exome --callRegions $params.bedgz --generateEvidenceBam
 	python runWorkflow.py -m local -j ${task.cpus}
 	mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
 	mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
@@ -1880,7 +1880,7 @@ process delly_panel {
 
 
 	"""
-	delly call -g $genome_file -o ${id}.bcf ${bam.toRealPath()}
+	delly call -g $genome_file -o ${id}.bcf $bam
 	bcftools view ${id}.bcf > ${id}.vcf
 	filter_delly.pl --vcf ${id}.vcf --bed $params.intersect_bed > ${id}.delly.vcf
 	bgzip -c ${id}.delly.vcf > ${id}.delly.vcf.gz
@@ -1910,7 +1910,7 @@ process cnvkit_panel {
 		set group, id, file("${id}.cnvkit_filtered.vcf") into called_cnvkit_panel
 
 	"""
-	cnvkit.py batch ${bam.toRealPath()} -r $params.cnvkit_reference -p 5 -d results/
+	cnvkit.py batch $bam -r $params.cnvkit_reference -p 5 -d results/
 	cnvkit.py call results/*.cns -v $vcf -o ${id}.call.cns
 	filter_cnvkit.pl ${id}.call.cns $MEAN_DEPTH > ${id}.filtered
 	cnvkit.py export vcf ${id}.filtered -i "$id" > ${id}.cnvkit_filtered.vcf
@@ -1974,7 +1974,7 @@ process tiddit {
 		set group, id, file("${id}.tiddit.filtered.vcf") into called_tiddit
 
 	"""
-	TIDDIT.py --sv -o ${id}.tiddit --bam ${bam.toRealPath()}
+	TIDDIT.py --sv -o ${id}.tiddit --bam $bam
 	grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
 	"""
 }
@@ -2008,7 +2008,7 @@ process gatk_coverage {
         -L $params.gatk_intervals \\
         -R $params.genome_file \\
         -imr OVERLAPPING_ONLY \\
-        -I ${bam.toRealPath()} \\
+        -I $bam \\
         --format TSV -O ${id}.tsv
     """
 }
