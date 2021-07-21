@@ -444,7 +444,7 @@ process merge_dedup_bam {
 		set val(id), group, file(bams), file(bais) from all_dedup_bams_mergepublish.groupTuple(by: [0,1])
 
 	output:
-		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk
+		set group, id, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into chanjo_bam, depth_onco, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk
 		set id, group, file("${id}_merged_dedup.bam"), file("${id}_merged_dedup.bam.bai") into qc_bam, bam_melt
 		file("${group}.INFO") into bam_INFO
 
@@ -555,6 +555,31 @@ process chanjo_sambamba {
 
 	"""
 	sambamba depth region -t ${task.cpus} -L $params.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 ${bam.toRealPath()} > ${id}.bwa.chanjo.cov
+	"""
+}
+
+// Calculate coverage for paneldepth
+process depth_onco {
+	cpus 2
+	memory '1 GB'
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
+	tag "$id"
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+
+	when:
+		params.assay == "onco"
+
+	input:	
+		set group, id, file(bam), file(bai) from depth_onco
+
+	output:
+		file("${id}.lowcov.overlapping.bed") into cov_onco
+
+	"""
+	panel_depth.pl $bam $params.scoutbed > ${id}.lowcov.bed
+	overlapping_genes.pl ${id}.lowcov.bed $params.gene_regions > ${id}.lowcov.overlapping.bed
 	"""
 }
 
