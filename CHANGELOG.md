@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.0.7
+#### feature
+- added panel depth as alternative to chanjo for panel-data
+
 ### 3.0.6
 #### bug fixes
 - correctly assigned theanoflag for gatk coverage and ploidy, would in rare cases cause crashes
