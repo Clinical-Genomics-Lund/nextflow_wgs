@@ -61,8 +61,11 @@ workflow.onComplete {
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
-	.map{ row-> tuple(row.group, row.id, file(row.read1), file(row.read2)) }
-	.into { input_files; vcf_info }
+	.map{ row-> tuple(row.group, 
+				row.id, 
+				(row.containsKey("bam") ? file(row.bam) : file(row.read1)), 
+				(row.containsKey("bai") ? file(row.bai) : file(row.read2)) ) }
+	.set { input_files }
 
 fastq = Channel.create()
 bam_choice = Channel.create()
@@ -70,13 +73,12 @@ vcf_choice = Channel.create()
 fastq_sharded = Channel.create()
 gvcf_choice = Channel.create()
 fastq_umi = Channel.create()
+input_files2 = Channel.create()
 
-// If input files are fastq -> normal path. Flags affecting; --shardbwa (sharded bwa) --align(req), --varcall(if variant calling is to be done) and --annotate(if --varcall)
-// bam -> skips align and is variant called (if --varcall is present) and annotated (if --annotate is present)
-// vcf skips align + varcall and is only annotated (if --annotate is present)
-
-// If .bam -> value 1, else if .vcf -> value 2 else if .gvcf -> value 4 else if none(.fq.gz) if params.shardbwa true -> value 3 otherwise 0
-input_files.view().choice(fastq, bam_choice, vcf_choice, fastq_sharded, gvcf_choice, fastq_umi) { it[2]  =~ /\.bam/ ? 1 : ( it[2] =~ /\.vcf/ ? 2 : ( it[2] =~ /\.gvcf/ ? 4 : (params.shardbwa ? 3 : (params.umi ? 5 : 0))))  }
+// If input-files has bam files bypass alignment, otherwise go for fastq-channels
+input_files.view().choice(bam_choice, input_files2 ) { it[2] =~ /\.bam/ ? 0 : 1 }
+// three options for fastq, sharded bwa, normal bwa or umi trimming
+input_files2.view().choice(fastq, fastq_sharded, fastq_umi) { params.shardbwa ? 1 : (params.umi ? 2 : 0)  }
 
 bam_choice.into{ 
 	expansionhunter_bam_choice; 
@@ -97,6 +99,7 @@ bam_choice.into{
 	bam_melt_choice;
 	bam_qc_choice;
 	dedup_dummy_choice;
+	bam_bqsr_choice;
 	bam_gatk_choice }
 
 vcf_choice.into{
@@ -222,7 +225,7 @@ process bwa_merge_shards {
 
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_locusc
-		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_dedup, merged_bam_bqsr
+		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_dedup
 
 	when:
 		params.shardbwa
@@ -249,7 +252,7 @@ process bwa_align {
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
 
 	output:
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_locusc, bam_markdup, bam_bqsr
+		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_locusc, bam_markdup
 		// set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_dedup remnant of distri
 
 	when:
@@ -286,7 +289,7 @@ process markdup {
 
 	output:
 		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk 
-		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt
+		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
 
@@ -322,7 +325,7 @@ process bqsr {
 	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*table'
 
 	input:
-		set id, group, file(bam), file(bai) from bam_bqsr.mix(merged_bam_bqsr)
+		set id, group, file(bam), file(bai) from bam_bqsr.mix(bam_bqsr_choice)
 
 	output:
 		set group, id, file("${id}.bqsr.table") into dnascope_bqsr
