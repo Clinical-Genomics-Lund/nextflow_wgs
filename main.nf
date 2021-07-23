@@ -330,6 +330,7 @@ process bqsr {
 	output:
 		set group, id, file("${id}.bqsr.table") into dnascope_bqsr
 
+
 	"""
 	sentieon driver -t ${task.cpus} \\
 		-r $genome_file -i $bam \\
@@ -364,7 +365,7 @@ process sentieon_qc {
 		assay = "wgs"
 		if( params.onco || params.exome) {
 			target = "--interval $params.intervals"
-			panel = params.panelhs + "${bam.toRealPath()}" + params.panelhs2 
+			panel = params.panelhs + "$bam" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
 			assay = "panel"
 		}
@@ -373,7 +374,7 @@ process sentieon_qc {
 	sentieon driver \\
 		-r $genome_file $target \\
 		-t ${task.cpus} \\
-		-i ${bam.toRealPath()} \\
+		-i $bam \\
 		--algo MeanQualityByCycle mq_metrics.txt \\
 		--algo QualDistribution qd_metrics.txt \\
 		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
@@ -434,7 +435,32 @@ process chanjo_sambamba {
 		file("${id}.bwa.chanjo.cov") into chanjocov
 
 	"""
-	sambamba depth region -t ${task.cpus} -L $params.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 ${bam.toRealPath()} > ${id}.bwa.chanjo.cov
+	sambamba depth region -t ${task.cpus} -L $params.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}.bwa.chanjo.cov
+	"""
+}
+
+// Calculate coverage for paneldepth
+process depth_onco {
+	cpus 2
+	memory '1 GB'
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
+	tag "$id"
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+
+	when:
+		params.assay == "onco"
+
+	input:	
+		set group, id, file(bam), file(bai) from depth_onco
+
+	output:
+		file("${id}.lowcov.overlapping.bed") into cov_onco
+
+	"""
+	panel_depth.pl $bam $params.scoutbed > ${id}.lowcov.bed
+	overlapping_genes.pl ${id}.lowcov.bed $params.gene_regions > ${id}.lowcov.overlapping.bed
 	"""
 }
 
@@ -457,7 +483,7 @@ process SMNCopyNumberCaller {
 		set group, file("${group}_smn.INFO") into smn_INFO
 
 	"""
-	samtools view -H ${bam.toRealPath()} | \\
+	samtools view -H $bam | \\
 		sed -e 's/SN:1/SN:chr1/' | sed -e 's/SN:2/SN:chr2/' |  \\
 		sed -e 's/SN:3/SN:chr3/' | sed -e 's/SN:4/SN:chr4/' |  \\
 		sed -e 's/SN:5/SN:chr5/' | sed -e 's/SN:6/SN:chr6/' |  \\
@@ -471,7 +497,7 @@ process SMNCopyNumberCaller {
 		sed -e 's/SN:21/SN:chr21/' | sed -e 's/SN:22/SN:chr22/' |  \\
 		sed -e 's/SN:X/SN:chrX/' | sed -e 's/SN:Y/SN:chrY/' |   \\
 		sed -e 's/SN:MT/SN:chrM/' | \\
-		samtools reheader - ${bam.toRealPath()} > ${id}.bam
+		samtools reheader - $bam > ${id}.bam
 	samtools index -b ${id}.bam -@ ${task.cpus}
 	echo ${id}.bam > manifest.txt
 	smn_caller.py --manifest manifest.txt --genome 38 --prefix ${id} --outDir . --threads ${task.cpus}
@@ -518,7 +544,7 @@ process expansionhunter {
 	"""
 	source activate htslib10
 	ExpansionHunter \
-		--reads ${bam.toRealPath()} \
+		--reads $bam \
 		--reference $genome_file \
 		--variant-catalog $params.expansionhunter_catalog \
 		--output-prefix ${group}.eh
@@ -569,18 +595,16 @@ process reviewer {
 	output:
 		file("*svg")
 
-	shell:
-	'''
-	for locus in $(grep LocusId !{params.expansionhunter_catalog} | cut -f 2 -d ":" | sed 's/\"//g' | sed 's/,//g'); do 
-		REViewer \
-		--reads !{bam} \
-		--vcf !{vcf} \
-		--reference !{genome_file} \
-		--catalog !{params.expansionhunter_catalog} \
-		--locus $locus \
-		--output-prefix 7156-15.${locus}
-	done
+    shell:
     '''
+    grep LocusId !{params.expansionhunter_catalog} | sed 's/[",^ ]//g' | cut -d':' -f2 | perl -na -e 'chomp; \
+    system("REViewer --reads !{bam} \
+    --vcf !{vcf} \
+    --reference !{genome_file} \
+    --catalog !{params.expansionhunter_catalog} \
+    --locus $_ \
+    --output-prefix !{id}");'
+	'''
 }
 
 // split multiallelic sites in expansionhunter vcf
@@ -691,7 +715,7 @@ process melt {
 
 	"""
 	java -jar  /opt/MELT.jar Single \\
-		-bamfile ${bam.toRealPath()} \\
+		-bamfile $bam \\
 		-r 150 \\
 		-h $genome_file \\
 		-n $params.bed_melt \\
@@ -893,7 +917,7 @@ process freebayes {
 	script:
 		if (params.onco) {
 			"""
-			freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 ${bam.toRealPath()} > ${id}.freebayes.vcf
+			freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 $bam > ${id}.freebayes.vcf
 			vcfbreakmulti ${id}.freebayes.vcf > ${id}.freebayes.multibreak.vcf
 			bcftools norm -m-both -c w -O v -f $genome_file -o ${id}.freebayes.multibreak.norm.vcf ${id}.freebayes.multibreak.vcf
 			vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
@@ -933,7 +957,7 @@ process fetch_MTseqs {
 		set group, file("${group}_mtbam.INFO") into mtBAM_INFO
 
     """
-    sambamba view -f bam ${bam.toRealPath()} M > ${id}_mito.bam
+    sambamba view -f bam $bam M > ${id}_mito.bam
     samtools index -b ${id}_mito.bam
 	echo "mtBAM	$id	/access/${params.subdir}/bam/${id}_mito.bam" > ${group}_mtbam.INFO
     """
@@ -976,7 +1000,7 @@ process run_mutect2 {
 process split_normalize_mito {
     cpus 1
     memory '1GB'
-    time '5m'
+    time '10m'
 
     input:
         set group, id, file(ms_vcf) from ms_vcfs_1
@@ -989,7 +1013,8 @@ process split_normalize_mito {
 		proband_idx = type.findIndexOf{ it == "proband" }
 
     """
-    vcfbreakmulti $ms_vcf > ${ms_vcf}.breakmulti
+	grep -vP "^MT\t955" $ms_vcf > ${ms_vcf}.fix
+    vcfbreakmulti ${ms_vcf}.fix > ${ms_vcf}.breakmulti
     bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
     tabix -p vcf ${ms_vcf}.breakmulti.fix
     bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix
@@ -1577,7 +1602,7 @@ process gatkcov {
 	source activate gatk4-env
 
 	gatk CollectReadCounts \\
-		-I ${bam.toRealPath()} -L $params.COV_INTERVAL_LIST \\
+		-I $bam -L $params.COV_INTERVAL_LIST \\
 		--interval-merging-rule OVERLAPPING_ONLY -O ${bam}.hdf5
 
 	gatk --java-options "-Xmx30g" DenoiseReadCounts \\
@@ -1625,7 +1650,8 @@ process overview_plot {
 }
 
 process generate_gens_data {
-	publishDir "${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true', pattern: "*.gz*"
+	publishDir "${CRONDIR}/gens", mode: 'copy', overwrite: 'true', pattern: "*.gens"
 	tag "$group"
 	cpus 1
 	time '3h'
@@ -1639,9 +1665,11 @@ process generate_gens_data {
 
 	output:
 		set file("${id}.cov.bed.gz"), file("${id}.baf.bed.gz"), file("${id}.cov.bed.gz.tbi"), file("${id}.baf.bed.gz.tbi"), file("${id}.overview.json.gz")
+		file("${id}.gens") into gens_middleman
 
 	"""
 	generate_gens_data.pl $cov_stand $gvcf $id $params.GENS_GNOMAD
+	echo "gens load sample --sample-id $id --genome-build 38 --baf ${params.gens_accessdir}/${id}.baf.bed.gz --coverage ${params.gens_accessdir}/${id}.cov.bed.gz --overview-json ${params.gens_accessdir}/${id}.overview.json.gz" > ${id}.gens
 	"""
 }
 
@@ -1668,7 +1696,7 @@ process manta {
 		bams = bam.join('--bam ')
 
 	"""
-	configManta.py --bam ${bam.toRealPath()} --reference $genome_file --runDir .
+	configManta.py --bam $bam --reference $genome_file --runDir .
 	python runWorkflow.py -m local -j ${task.cpus}
 	mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
 	mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
@@ -1696,7 +1724,7 @@ process manta_panel {
 
 
 	"""
-	configManta.py --bam ${bam.toRealPath()} --reference $genome_file --runDir . --exome --callRegions $params.bedgz --generateEvidenceBam
+	configManta.py --bam $bam --reference $genome_file --runDir . --exome --callRegions $params.bedgz --generateEvidenceBam
 	python runWorkflow.py -m local -j ${task.cpus}
 	mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
 	mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
@@ -1725,7 +1753,7 @@ process delly_panel {
 
 
 	"""
-	delly call -g $genome_file -o ${id}.bcf ${bam.toRealPath()}
+	delly call -g $genome_file -o ${id}.bcf $bam
 	bcftools view ${id}.bcf > ${id}.vcf
 	filter_delly.pl --vcf ${id}.vcf --bed $params.intersect_bed > ${id}.delly.vcf
 	bgzip -c ${id}.delly.vcf > ${id}.delly.vcf.gz
@@ -1755,7 +1783,7 @@ process cnvkit_panel {
 		set group, id, file("${id}.cnvkit_filtered.vcf") into called_cnvkit_panel
 
 	"""
-	cnvkit.py batch ${bam.toRealPath()} -r $params.cnvkit_reference -p ${task.cpus} -d results/
+	cnvkit.py batch $bam -r $params.cnvkit_reference -p 5 -d results/
 	cnvkit.py call results/*.cns -v $vcf -o ${id}.call.cns
 	filter_cnvkit.pl ${id}.call.cns $MEAN_DEPTH > ${id}.filtered
 	cnvkit.py export vcf ${id}.filtered -i "$id" > ${id}.cnvkit_filtered.vcf
@@ -1819,7 +1847,7 @@ process tiddit {
 		set group, id, file("${id}.tiddit.filtered.vcf") into called_tiddit
 
 	"""
-	TIDDIT.py --sv -o ${id}.tiddit --bam ${bam.toRealPath()}
+	TIDDIT.py --sv -o ${id}.tiddit --bam $bam
 	grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
 	"""
 }
@@ -1844,7 +1872,7 @@ process gatk_coverage {
         set group, id, file("${id}.tsv") into call_ploidy, call_cnv
 
     """
-	THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
+	export THEANO_FLAGS="base_compiledir=."
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
 	set +u
@@ -1853,7 +1881,7 @@ process gatk_coverage {
         -L $params.gatk_intervals \\
         -R $params.genome_file \\
         -imr OVERLAPPING_ONLY \\
-        -I ${bam.toRealPath()} \\
+        -I $bam \\
         --format TSV -O ${id}.tsv
     """
 }
@@ -1875,7 +1903,7 @@ process gatk_call_ploidy {
         set group, id, file("ploidy.tar") into ploidy_to_cnvcall, ploidy_to_post
 
     """
-	THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
+	export THEANO_FLAGS="base_compiledir=."
     export MKL_NUM_THREADS=${task.cpus}
     export OMP_NUM_THREADS=${task.cpus}
 	set +u

@@ -1,5 +1,28 @@
 # CHANGELOG
 
+### 3.0.7
+#### feature
+- added panel depth as alternative to chanjo for panel-data
+
+### 3.0.6
+#### bug fixes
+- correctly assigned theanoflag for gatk coverage and ploidy, would in rare cases cause crashes
+
+### 3.0.5
+#### new funcion
+- GENS middleman command added to generate_gens_data. Needed for loading of data into GENS thorugh cron and middleman
+#### bug fixees
+- REViewer now loops through a perl shell script instead of bash. Low covered loci error no longer crash all other svg-image generation
+- fixed a typo which named all svgs as 7156, a validation and verification sample
+
+### 3.0.4
+- recurring multi-allelic variant @MT:955 keeps vcfmultibreak in a never ending loop
+- grep -v ^MT 955
+
+### 3.0.3
+- ignore errors of REViewer
+- loqusdb faulty input caused wrong imports to loqusdb, now fixed
+
 ### 3.0.2
 - GAV replaced with REViewer
 - Stranger 0.8 with updated variant catalogue
