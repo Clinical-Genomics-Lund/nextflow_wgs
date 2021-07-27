@@ -288,7 +288,7 @@ process markdup {
 		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
 
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk 
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
 		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
@@ -748,7 +748,6 @@ process dnascope {
 	output:
 		set group, id, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
 		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens_choice
-		//set group, file("${group}_bamstart.INFO") into bamchoice_INFO
 
 	"""
 	sentieon driver \\
@@ -784,7 +783,7 @@ process gvcf_combine {
 	time '5h'
 
 	input:
-		set group, id, file(vcf), file(idx) from complete_vcf_choice.mix(gvcf_choice).groupTuple()
+		set group, id, file(vcf), file(idx) from complete_vcf_choice.groupTuple()
 
 	output:
 		set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
@@ -1448,6 +1447,7 @@ process vcf_completion {
 	cpus 16
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 	tag "$group"
+	time '1h'
 
 	input:
 		set group, file(vcf) from scored_vcf
@@ -1472,6 +1472,7 @@ process peddy {
 	//container = '/fs1/resources/containers/wgs_20200115.sif'
 	cpus 6
 	tag "$group"
+	time '1h'
 
 	input:
 		//file(ped) from ped_peddy
@@ -2269,8 +2270,7 @@ process compound_finder {
 			//file("${group}.sv.rescored.sorted.vcf.gz"), file("${group}.sv.rescored.sorted.vcf.gz.tbi") 
 		set group, file("${group}_svp.INFO") into svcompound_INFO
 				
-	// OBS, if flag --skipsv is chosen modify what sv.vcf is presented to scout in yaml (last line)
-	// and change output file.
+
 	script:
 		"""
 		compound_finder.pl \\
@@ -2285,12 +2285,6 @@ process compound_finder {
 
 }
 
-// Collects $group.INFO files from each process output that should be included in the yaml for scout loading //
-// If a new process needs to be added to yaml. It needs to follow this procedure, as well as be handled in create_yml.pl //
-// bam_INFO
-// 	.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO)
-// 	.collectFile()
-// 	.set{ yaml_INFO }
 
 process ouput_files {
 	cpus 1
@@ -2358,7 +2352,6 @@ process plot_pod {
 }
 
 process create_yaml {
-	queue 'bigmem'
 	publishDir "${OUTDIR}/yaml", mode: 'copy' , overwrite: 'true'
 	publishDir "${CRONDIR}/scout", mode: 'copy' , overwrite: 'true'
 	errorStrategy 'retry'
@@ -2372,8 +2365,6 @@ process create_yaml {
 		!params.noupload
 
 	input:
-		//file(INFO) from yaml_INFO
-		//file(ped) from ped_scout
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, file(ped), file(INFO) from yml_diag.join(ped_scout).join(yaml_INFO)
 
 	output:
@@ -2382,7 +2373,6 @@ process create_yaml {
 	script:
 
 	"""
-	export PORT_CMDSCOUT2_MONGODB=33002 #TA BORT VÄLDIGT FULT
 	create_yml.pl \\
 		--g $group,$clarity_sample_id --d $diagnosis --panelsdef $params.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
 	"""
