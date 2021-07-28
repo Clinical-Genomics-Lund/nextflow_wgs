@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.0.8
+#### feature
+- added hash element rstreshold (rankscore threshold), that if defined overwrites defualt -1 to createyml.pl
+
 ### 3.0.7
 #### feature
 - added panel depth as alternative to chanjo for panel-data
