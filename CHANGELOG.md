@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.0.9
+#### bug fixes
+- fixed grep for multi-allelic FP loci
+
 ### 3.0.8
 #### feature
 - added hash element rstreshold (rankscore threshold), that if defined overwrites defualt -1 to createyml.pl
