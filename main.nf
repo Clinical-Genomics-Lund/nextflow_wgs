@@ -69,16 +69,12 @@ Channel
 
 fastq = Channel.create()
 bam_choice = Channel.create()
-vcf_choice = Channel.create()
+//vcf_choice = Channel.create()
 fastq_sharded = Channel.create()
-gvcf_choice = Channel.create()
 fastq_umi = Channel.create()
-input_files2 = Channel.create()
 
-// If input-files has bam files bypass alignment, otherwise go for fastq-channels
-input_files.view().choice(bam_choice, input_files2 ) { it[2] =~ /\.bam/ ? 0 : 1 }
-// three options for fastq, sharded bwa, normal bwa or umi trimming
-input_files2.view().choice(fastq, fastq_sharded, fastq_umi) { params.shardbwa ? 1 : (params.umi ? 2 : 0)  }
+// If input-files has bam files bypass alignment, otherwise go for fastq-channels => three options for fastq, sharded bwa, normal bwa or umi trimming
+input_files.view().choice(bam_choice, fastq, fastq_sharded, fastq_umi ) { it[2] =~ /\.bam/ ? 0 : (params.shardbwa ? 2 : (params.umi ? 3 : 1) ) }
 
 bam_choice.into{ 
 	expansionhunter_bam_choice; 
@@ -102,10 +98,11 @@ bam_choice.into{
 	bam_bqsr_choice;
 	bam_gatk_choice }
 
-vcf_choice.into{
-	split_cadd_choice;
-	split_vep_choice;
-}
+// vcf_choice.into{
+// 	split_cadd_choice;
+// 	split_vep_choice;
+// }
+
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
@@ -1200,7 +1197,7 @@ process annotate_vep {
 	stageOutMode 'copy'
 
 	input:
-		set group, id, file(vcf), idx from split_vep.mix(split_vep_choice)
+		set group, id, file(vcf), idx from split_vep//.mix(split_vep_choice)
 
 	output:
 		set group, file("${group}.vep.vcf") into vep
@@ -1324,7 +1321,7 @@ process extract_indels_for_cadd {
 	time '5m'
 
 	input:
-		set group, id, file(vcf), idx from split_cadd.mix(split_cadd_choice)
+		set group, id, file(vcf), idx from split_cadd//.mix(split_cadd_choice)
 	
 	output:
 		set group, file("${group}.only_indels.vcf") into indel_cadd_vep
