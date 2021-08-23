@@ -1165,7 +1165,7 @@ process split_normalize_mito {
 		proband_idx = type.findIndexOf{ it == "proband" }
 
     """
-	grep -vP "^M\s+955" $ms_vcf > ${ms_vcf}.fix
+	grep -vP "^M\\s+955" $ms_vcf > ${ms_vcf}.fix
     vcfbreakmulti ${ms_vcf}.fix > ${ms_vcf}.breakmulti
     bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
     tabix -p vcf ${ms_vcf}.breakmulti.fix
