@@ -128,6 +128,9 @@ while ( <INFO> ) {
     elsif  ($tmp[0] eq "mtBAM") {
         $INFO{mtBAM}->{$tmp[1]} = $tmp[2];
     }
+    elsif  ($tmp[0] eq "IMG") {
+        $INFO{IMG}->{$tmp[1]} = $tmp[2];
+    }
     else {
         $INFO{$tmp[0]} = $tmp[1];
     }
@@ -242,7 +245,20 @@ if ($INFO{PEDDY}) {
     print OUT "peddy_sex: $tmp[2]\n";
 }
 
+## If IMGage is available
+if ($INFO{IMG}) {
 
+    print OUT "custom_images:\n";
+    foreach my $img_type (keys %{ $INFO{IMG} }) {
+        print OUT "  $img_type:\n";
+        print OUT "    - title: $INFO{IMG}{$img_type}\n";
+        print OUT "      description: Genome overview plot, UPD and ROH\n";
+        # print OUT "      width: 4000\n";
+        # print OUT "      height: 2300\n";
+        print OUT "      path: $INFO{IMG}{$img_type}\n";
+    }
+
+}
 
 ### Print gene panels ###
 my $gene_panels = get_genelist($institute);
@@ -263,10 +279,6 @@ print OUT "rank_score_threshold: -1\n";
 print OUT "human_genome_build: $genome\n";
 
 close OUT;
-
-
-
-
 
 
 
