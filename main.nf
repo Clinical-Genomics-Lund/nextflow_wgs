@@ -591,6 +591,7 @@ process reviewer {
 
 	output:
 		file("*svg")
+		file("${group}_rev.INFO") into reviewer_INFO
 
     shell:
     '''
@@ -601,6 +602,7 @@ process reviewer {
     --catalog !{params.expansionhunter_catalog} \
     --locus $_ \
     --output-prefix !{id}");'
+	echo "IMG reviewer !{params.accessdir}/plots/reviewer/!{group}" > !{group}_rev.INFO
 	'''
 }
 
@@ -1619,7 +1621,7 @@ process gatkcov {
 
 // Plot ROH, UPD and coverage in a genomic overview plot
 process overview_plot {
-	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true', pattern: "*.png"
 	tag "$group"
 	time '20m'
 	memory '5 GB'
@@ -1632,6 +1634,7 @@ process overview_plot {
 
 	output:
 		file("${group}.genomic_overview.png")
+		set group, file("${group}_sv.INFO") into oplot_INFO
 
 	script:
 		proband_idx = type.findIndexOf{ it == "proband" }
@@ -1644,6 +1647,7 @@ process overview_plot {
 		 --sex ${sex[proband_idx]} \\
 		 --cov ${cov_denoised[proband_idx]} \\
 		 --out ${group}.genomic_overview.png
+	echo "OPLOT	${params.accessdir}/plots/${group}.genomic_overview.png" > ${group}_oplot.INFO 
 	"""
 }
 
@@ -2289,7 +2293,7 @@ process ouput_files {
 	time '2m'
 
 	input:
-		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO).groupTuple()
+		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO).groupTuple()
 
 	output:
 		set group, file("${group}.INFO") into yaml_INFO
