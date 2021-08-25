@@ -1,5 +1,14 @@
 # CHANGELOG
 
+### 3.1.0
+#### Performance Improvements
+- Removed all distribution of sentieon except first alignment step option
+- Removed bam.toRealPath() from all processes. Bai files are now given along with bam files if alignment is to be skipped. More down below
+#### New/Updated Features
+- VCF start removed temporarily
+- BAM start now work better. Add headers bam + bai to csv with corresponding files
+- BATCH start now available for onco-samples. Thorough channel joining and removal of distributed sentieon made it possible (does not work for wgs profile!)
+
 ### 3.0.9
 #### bug fixes
 - fixed grep for multi-allelic FP loci
