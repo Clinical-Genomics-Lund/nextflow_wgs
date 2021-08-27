@@ -591,7 +591,7 @@ process reviewer {
 
 	output:
 		file("*svg")
-		file("${group}_rev.INFO") into reviewer_INFO
+		set group, file("${group}_rev.INFO") into reviewer_INFO
 
     shell:
     '''
@@ -1058,6 +1058,7 @@ process run_haplogrep {
 
     output:
        file("${group}.haplogrep.png")
+	   set group, file("${group}_haplo.INFO") into haplogrep_INFO
 
     shell:
 
@@ -1073,6 +1074,7 @@ process run_haplogrep {
         gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -dGraphicsAlphaBits=4 -r1200 -dDownScaleFactor=3 -sOutputFile=${sample}.hg2.vcf.png ${sample}.hg2.vcf.ps
     done
     montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
+	echo "IMG haplogrep !{params.accessdir}/plots/mito/!{group}.haplogrep.png" > !{group}_haplo.INFO
     '''
 
 }
@@ -1089,6 +1091,8 @@ process run_eklipse {
 
 	output:
 		set file("*.png"), file("${id}.hetplasmid_frequency.txt")
+		set group, file("${id}_eklipse.INFO") into eklipse_INFO
+
     """
     source activate htslib10
     echo "${bam}\tsample" > infile.txt
@@ -1100,11 +1104,12 @@ process run_eklipse {
     mv eKLIPse_*/eKLIPse_sample.png ./${id}_eklipse.png
     hetplasmid_frequency_eKLIPse.pl --bam ${bam} --in ${id}_deletions.csv
 	mv hetplasmid_frequency.txt ${id}.hetplasmid_frequency.txt
+	echo "IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png" > ${id}_eklipse.INFO
     """
 
 }
 
-
+//eklipseM_INFO.collectFile(name: "eklipse.INFO").set{ eklipse_INFO }
 
 // Splitting & normalizing variants, merging with Freebayes/Mutect2, intersecting against exome/clinvar introns
 process split_normalize {
@@ -1634,7 +1639,7 @@ process overview_plot {
 
 	output:
 		file("${group}.genomic_overview.png")
-		set group, file("${group}_sv.INFO") into oplot_INFO
+		set group, file("${group}_oplot.INFO") into oplot_INFO
 
 	script:
 		proband_idx = type.findIndexOf{ it == "proband" }
@@ -2293,7 +2298,7 @@ process ouput_files {
 	time '2m'
 
 	input:
-		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO).groupTuple()
+		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,reviewer_INFO,eklipse_INFO).groupTuple()
 
 	output:
 		set group, file("${group}.INFO") into yaml_INFO
