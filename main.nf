@@ -843,7 +843,7 @@ process create_ped {
 process join_pedigree {
 	cpus 1
 	memory '1MB'
-	time '1m'
+	time '1h'
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
 
 	input:
