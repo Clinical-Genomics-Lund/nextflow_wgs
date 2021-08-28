@@ -591,7 +591,7 @@ process reviewer {
 
 	output:
 		file("*svg")
-		set group, file("${group}_rev.INFO") into reviewer_INFO
+		//set group, file("${group}_rev.INFO") into reviewer_INFO
 
     shell:
     '''
@@ -1652,7 +1652,7 @@ process overview_plot {
 		 --sex ${sex[proband_idx]} \\
 		 --cov ${cov_denoised[proband_idx]} \\
 		 --out ${group}.genomic_overview.png
-	echo "OPLOT	${params.accessdir}/plots/${group}.genomic_overview.png" > ${group}_oplot.INFO 
+	echo "IMG overviewplot	${params.accessdir}/plots/${group}.genomic_overview.png" > ${group}_oplot.INFO 
 	"""
 }
 
