@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.1.1
+#### Bugfixes
+- params.assay for onco has historical name, depth_onco process used wrong value
+- using shard-specification for depup caused faulty dedupmetrics file
+
 ### 3.1.0
 #### Performance Improvements
 - Removed all distribution of sentieon except first alignment step option
