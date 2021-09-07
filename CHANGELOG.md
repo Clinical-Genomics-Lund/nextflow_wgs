@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 3.1.2
+#### Bugfixes
+- CDM load-file only created for one individual of family, fixed (join function corrected)
+- increased memory allocation for onco_depth
+- removed shards from dedup, caused malformed output for dedup_metrics. Works as intended still
+
 ### 3.1.1
 #### Bugfixes
 - params.assay for onco has historical name, depth_onco process used wrong value
