@@ -1,5 +1,33 @@
 # CHANGELOG
 
+### 3.1.2
+#### Bugfixes
+- CDM load-file only created for one individual of family, fixed (join function corrected)
+- increased memory allocation for onco_depth
+- removed shards from dedup, caused malformed output for dedup_metrics. Works as intended still
+
+### 3.1.1
+#### Bugfixes
+- params.assay for onco has historical name, depth_onco process used wrong value
+- using shard-specification for depup caused faulty dedupmetrics file
+
+### 3.1.0
+#### Performance Improvements
+- Removed all distribution of sentieon except first alignment step option
+- Removed bam.toRealPath() from all processes. Bai files are now given along with bam files if alignment is to be skipped. More down below
+#### New/Updated Features
+- VCF start removed temporarily
+- BAM start now work better. Add headers bam + bai to csv with corresponding files
+- BATCH start now available for onco-samples. Thorough channel joining and removal of distributed sentieon made it possible (does not work for wgs profile!)
+
+### 3.0.9
+#### bug fixes
+- fixed grep for multi-allelic FP loci
+
+### 3.0.8
+#### feature
+- added hash element rstreshold (rankscore threshold), that if defined overwrites defualt -1 to createyml.pl
+
 ### 3.0.7
 #### feature
 - added panel depth as alternative to chanjo for panel-data

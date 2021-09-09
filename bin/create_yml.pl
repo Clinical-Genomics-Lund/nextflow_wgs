@@ -36,7 +36,8 @@ my %assays = (
         },
         'ahus' => {
             'institute' => 'ahus',
-            'institute_owner' => 'ahus'
+            'institute_owner' => 'ahus',
+            'rstreshold' => -10000
         },
         'kit' => {
             'institute' => 'KIT',
@@ -275,7 +276,12 @@ else {
 }
 print OUT "rank_model_version: ".$assays{$assay}{rankm}."\n";
 print OUT "sv_rank_model_version: ".$assays{$assay}{svrankm}."\n";
-print OUT "rank_score_threshold: -1\n";
+if ($assays{$assay}{$analysis}{rstreshold}) {
+    print OUT "rank_score_threshold: ". $assays{$assay}{$analysis}{rstreshold}."\n";
+}
+else {
+    print OUT "rank_score_threshold: -1\n";
+}
 print OUT "human_genome_build: $genome\n";
 
 close OUT;

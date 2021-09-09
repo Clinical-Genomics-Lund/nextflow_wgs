@@ -300,7 +300,7 @@ process markdup {
 	sentieon driver \\
 		--temp_dir /local/scratch/ \\
 		-t ${task.cpus} \\
-		-i $bam --shard 1:1-248956422 --shard 2:1-242193529 --shard 3:1-198295559 --shard 4:1-190214555 --shard 5:1-120339935 --shard 5:120339936-181538259 --shard 6:1-170805979 --shard 7:1-159345973 --shard 8:1-145138636 --shard 9:1-138394717 --shard 10:1-133797422 --shard 11:1-135086622 --shard 12:1-56232327 --shard 12:56232328-133275309 --shard 13:1-114364328 --shard 14:1-107043718 --shard 15:1-101991189 --shard 16:1-90338345 --shard 17:1-83257441 --shard 18:1-80373285 --shard 19:1-58617616 --shard 20:1-64444167 --shard 21:1-46709983 --shard 22:1-50818468 --shard X:1-124998478 --shard X:124998479-156040895 --shard Y:1-57227415 --shard M:1-16569 \\
+		-i $bam \\
 		--algo Dedup --score_info ${id}.score \\
 		--metrics dedup_metrics.txt \\
 		--rmdup ${id}_dedup.bam
@@ -352,7 +352,8 @@ process sentieon_qc {
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
 
 	output:
-		set group, id, file("${id}.QC") into qc_cdm, qc_melt
+		set id, file("${id}.QC") into qc_cdm
+		set group, id, file("${id}.QC") into qc_melt
 		file("*.txt")
 
 	script:
@@ -397,7 +398,7 @@ process qc_to_cdm {
 		!params.noupload
 	
 	input:
-		set group, id, file(qc), diagnosis, r1, r2 from qc_cdm.join(qc_extra)
+		set id, file(qc), diagnosis, r1, r2 from qc_cdm.join(qc_extra)
 
 	output:
 		file("${id}.cdm") into cdm_done
@@ -439,7 +440,7 @@ process chanjo_sambamba {
 // Calculate coverage for paneldepth
 process depth_onco {
 	cpus 2
-	memory '1 GB'
+	memory '10 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
 	tag "$id"
 	scratch true
@@ -447,7 +448,7 @@ process depth_onco {
 	stageOutMode 'copy'
 
 	when:
-		params.assay == "onco"
+		params.assay == "swea"
 
 	input:	
 		set group, id, file(bam), file(bai) from depth_onco
@@ -753,7 +754,7 @@ process dnascope {
 		-t ${task.cpus} \\
 		-r $genome_file \\
 		-q $bqsr \\
-		-i ${bam.toRealPath()} --shard 1:1-248956422 --shard 2:1-242193529 --shard 3:1-198295559 --shard 4:1-190214555 --shard 5:1-120339935 --shard 5:120339936-181538259 --shard 6:1-170805979 --shard 7:1-159345973 --shard 8:1-145138636 --shard 9:1-138394717 --shard 10:1-133797422 --shard 11:1-135086622 --shard 12:1-56232327 --shard 12:56232328-133275309 --shard 13:1-114364328 --shard 14:1-107043718 --shard 15:1-101991189 --shard 16:1-90338345 --shard 17:1-83257441 --shard 18:1-80373285 --shard 19:1-58617616 --shard 20:1-64444167 --shard 21:1-46709983 --shard 22:1-50818468 --shard X:1-124998478 --shard X:124998479-156040895 --shard Y:1-57227415 --shard M:1-16569 \\
+		-i $bam --shard 1:1-248956422 --shard 2:1-242193529 --shard 3:1-198295559 --shard 4:1-190214555 --shard 5:1-120339935 --shard 5:120339936-181538259 --shard 6:1-170805979 --shard 7:1-159345973 --shard 8:1-145138636 --shard 9:1-138394717 --shard 10:1-133797422 --shard 11:1-135086622 --shard 12:1-56232327 --shard 12:56232328-133275309 --shard 13:1-114364328 --shard 14:1-107043718 --shard 15:1-101991189 --shard 16:1-90338345 --shard 17:1-83257441 --shard 18:1-80373285 --shard 19:1-58617616 --shard 20:1-64444167 --shard 21:1-46709983 --shard 22:1-50818468 --shard X:1-124998478 --shard X:124998479-156040895 --shard Y:1-57227415 --shard M:1-16569 \\
 		--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf.gz
 	"""
 }
@@ -845,7 +846,7 @@ process create_ped {
 process join_pedigree {
 	cpus 1
 	memory '1MB'
-	time '1m'
+	time '1h'
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
 
 	input:
@@ -1011,7 +1012,7 @@ process split_normalize_mito {
 		proband_idx = type.findIndexOf{ it == "proband" }
 
     """
-	grep -vP "^MT\t955" $ms_vcf > ${ms_vcf}.fix
+	grep -vP "^M\\s+955" $ms_vcf > ${ms_vcf}.fix
     vcfbreakmulti ${ms_vcf}.fix > ${ms_vcf}.breakmulti
     bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
     tabix -p vcf ${ms_vcf}.breakmulti.fix
