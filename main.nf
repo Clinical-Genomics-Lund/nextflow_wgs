@@ -574,7 +574,7 @@ process stranger {
     grep -v ^# ${group}.eh.stranger.vcf | sed 's/ /_/g' >> ${group}.fixinfo.eh.stranger.vcf
 	"""
 }
-
+//echo "IMG reviewer !{params.accessdir}/plots/reviewer/!{group}" > !{group}_rev.INFO
 process reviewer {
 	tag "$group"
 	cpus 1
@@ -603,7 +603,6 @@ process reviewer {
     --catalog !{params.expansionhunter_catalog} \
     --locus $_ \
     --output-prefix !{id}");'
-	echo "IMG reviewer !{params.accessdir}/plots/reviewer/!{group}" > !{group}_rev.INFO
 	'''
 }
 
@@ -2299,7 +2298,7 @@ process ouput_files {
 	time '2m'
 
 	input:
-		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,reviewer_INFO,eklipse_INFO).groupTuple()
+		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO).groupTuple()
 
 	output:
 		set group, file("${group}.INFO") into yaml_INFO
