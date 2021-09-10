@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.2.0
+### Minor release
+- Added support for loading images into scout, each process generating a plot can now be added as a path to scout-yaml
+- Some support for Grace (new cluster)
+
 ### 3.1.2
 #### Bugfixes
 - CDM load-file only created for one individual of family, fixed (join function corrected)
