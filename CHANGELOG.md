@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 3.2.1
+#### Bugfixes and improvement
+- Image sizes for mitochondrial plots in yaml
+- resource management in processes
+- gatk-ref moved to cached directory
+
 ### 3.2.0
 ### Minor release
 - Added support for loading images into scout, each process generating a plot can now be added as a path to scout-yaml
