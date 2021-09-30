@@ -904,7 +904,7 @@ process freebayes {
 	cache 'deep'
 
 	when: 
-		params.onco
+		params.onco || params.assay == "exome"
 
     input:
         set group, id, file(bam), file(bai) from bam_freebayes.mix(bam_freebayes_choice)
@@ -966,7 +966,7 @@ process fetch_MTseqs {
 process run_mutect2 {
     cpus 4
     memory '50 GB'
-    time '30m'
+    time '1h'
 	tag "$group"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
@@ -1861,7 +1861,7 @@ process tiddit {
 
 process gatk_coverage {
     cpus 10
-    memory '40GB'
+    memory '50GB'
     time '2h'
     container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
     scratch true

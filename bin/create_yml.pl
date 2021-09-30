@@ -249,16 +249,30 @@ if ($INFO{PEDDY}) {
 ## If IMGage is available
 if ($INFO{IMG}) {
     my %img = ( 
-        'overviewplot' => "Genome overview plot, UPD and ROH", 
-        'eklipse' => "Circular mitochondrial plot, Eklipse",
-        'haplogrep' => 'Mitochondrial haplotypes, Haplogrep'   );
+        'overviewplot' => {
+            'desc' => "Genome overview plot, UPD and ROH", 
+            'width' => '2000',
+            'height' => '1000'
+            },
+        'eklipse' => {
+            'desc' => "Circular mitochondrial plot, Eklipse", 
+            'width' => '750',
+            'height' => '750'
+            },
+        'haplogrep' => {             
+            'desc' => "Mitochondrial haplotypes, Haplogrep", 
+            'width' => '750',
+            'height' => '1000'
+            }
+
+    );
     print OUT "custom_images:\n";
     foreach my $img_type (keys %{ $INFO{IMG} }) {
         print OUT "  $img_type:\n";
         print OUT "    - title: $INFO{IMG}{$img_type}\n";
-        print OUT "      description: $img{$img_type}\n";
-        # print OUT "      width: 4000\n";
-        # print OUT "      height: 2300\n";
+        print OUT "      description: $img{$img_type}{desc}\n";
+        print OUT "      width: $img{$img_type}{width}\n";
+        print OUT "      height: $img{$img_type}{height}\n";
         print OUT "      path: $INFO{IMG}{$img_type}\n";
     }
 
