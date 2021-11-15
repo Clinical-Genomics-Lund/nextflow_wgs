@@ -1189,7 +1189,7 @@ process add_to_loqusdb {
 		file("${group}.loqus") into loqusdb_done
 
 	"""
-	echo "-db $params.loqusdb load -f ${OUTDIR}/ped/${ped} --variant-file ${vcf.toRealPath()}" > ${group}.loqus
+	echo "-db $params.loqusdb load -f ${OUTDIR}/ped/${ped} --variant-file ${OUTDIR}/vcf/${vcf}" > ${group}.loqus
 	"""
 }
 
