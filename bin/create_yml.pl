@@ -132,6 +132,9 @@ while ( <INFO> ) {
     elsif  ($tmp[0] eq "IMG") {
         $INFO{IMG}->{$tmp[1]} = $tmp[2];
     }
+    elsif ($tmp[0] eq "STR_IMG") {
+        $INFO{STR_IMG}->{$tmp[1]} = $tmp[2];
+    }
     else {
         $INFO{$tmp[0]} = $tmp[1];
     }
@@ -246,38 +249,6 @@ if ($INFO{PEDDY}) {
     print OUT "peddy_sex: $tmp[2]\n";
 }
 
-## If IMGage is available
-if ($INFO{IMG}) {
-    my %img = ( 
-        'overviewplot' => {
-            'desc' => "Genome overview plot, UPD and ROH", 
-            'width' => '2000',
-            'height' => '1000'
-            },
-        'eklipse' => {
-            'desc' => "Circular mitochondrial plot, Eklipse", 
-            'width' => '750',
-            'height' => '750'
-            },
-        'haplogrep' => {             
-            'desc' => "Mitochondrial haplotypes, Haplogrep", 
-            'width' => '750',
-            'height' => '1000'
-            }
-
-    );
-    print OUT "custom_images:\n";
-    foreach my $img_type (keys %{ $INFO{IMG} }) {
-        print OUT "  $img_type:\n";
-        print OUT "    - title: $INFO{IMG}{$img_type}\n";
-        print OUT "      description: $img{$img_type}{desc}\n";
-        print OUT "      width: $img{$img_type}{width}\n";
-        print OUT "      height: $img{$img_type}{height}\n";
-        print OUT "      path: $INFO{IMG}{$img_type}\n";
-    }
-
-}
-
 ### Print gene panels ###
 my $gene_panels = get_genelist($institute);
 print OUT "gene_panels: [";
@@ -300,6 +271,54 @@ else {
     print OUT "rank_score_threshold: -1\n";
 }
 print OUT "human_genome_build: $genome\n";
+
+
+## If IMGage is available
+print OUT "custom_images:\n";
+my %img = ( 
+    'overviewplot' => {
+        'desc' => "Genome overview plot, UPD and ROH", 
+        'width' => '2000',
+        'height' => '1000'
+        },
+    'eklipse' => {
+        'desc' => "Circular mitochondrial plot, Eklipse", 
+        'width' => '750',
+        'height' => '750'
+        },
+    'haplogrep' => {             
+        'desc' => "Mitochondrial haplotypes, Haplogrep", 
+        'width' => '750',
+        'height' => '1000'
+        },
+    'STR' => {             
+        'desc' => "Reviewer plot for STR loci", 
+        'width' => '500',
+        'height' => '100'
+        }
+);
+if ($INFO{IMG}) {
+    print OUT "  case:\n";
+    foreach my $img_type (keys %{ $INFO{IMG} }) {
+        print OUT "    $img_type:\n";
+        print OUT "      - title: $INFO{IMG}{$img_type}\n";
+        print OUT "        description: $img{$img_type}{desc}\n";
+        print OUT "        width: $img{$img_type}{width}\n";
+        print OUT "        height: $img{$img_type}{height}\n";
+        print OUT "        path: $INFO{IMG}{$img_type}\n";
+    }
+
+}
+if ($INFO{STR_IMG}) {
+    print OUT "  str:\n";
+    foreach my $img_type (keys %{ $INFO{STR_IMG} }) {
+        print OUT "    - title: $INFO{STR_IMG}{$img_type}\n";
+        print OUT "      description: $img{STR}{desc}\n";
+        print OUT "      width: $img{STR}{width}\n";
+        print OUT "      height: $img{STR}{height}\n";
+        print OUT "      path: $INFO{STR_IMG}{$img_type}\n";
+    }
+}
 
 close OUT;
 

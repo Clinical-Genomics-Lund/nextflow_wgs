@@ -574,7 +574,7 @@ process stranger {
     grep -v ^# ${group}.eh.stranger.vcf | sed 's/ /_/g' >> ${group}.fixinfo.eh.stranger.vcf
 	"""
 }
-//echo "IMG reviewer !{params.accessdir}/plots/reviewer/!{group}" > !{group}_rev.INFO
+//for i in $( ls *.svg | cut -f 2 -d "." ); do echo "STR_IMG $i /access/!{params.subdir}/plots/reviewer/!{group}/!{group}.${i}.svg" >> !{group}_rev.INFO; done
 process reviewer {
 	tag "$group"
 	cpus 1
