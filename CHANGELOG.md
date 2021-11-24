@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.2.2
+#### Bugfixes and improvement
+- Changes to custom_images in yaml, case/str
+- Added support for reviewer, activate when scout is updated
+
 ### 3.2.1
 #### Bugfixes and improvement
 - Image sizes for mitochondrial plots in yaml
