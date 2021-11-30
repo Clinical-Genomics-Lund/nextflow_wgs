@@ -7,10 +7,12 @@ From:nfcore/base:1.8
 	VERSION 0.0.2
 
 %environment
+	PATH=/opt/conda/envs/CMD-WGS/bin:$PATH
 	umask 0002
 
 %files
     genmod.patch /
+	environment.yml /
 
 %post
 	rm -rf /var/lib/apt/lists/*
@@ -20,3 +22,4 @@ From:nfcore/base:1.8
 
     pip install genmod
     patch /opt/conda/lib/python3.7/site-packages/genmod/score_variants/compound_scorer.py /genmod.patch
+	/opt/conda/bin/conda env create -f /environment.yml
