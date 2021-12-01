@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.2.3
+#### Bugfixes
+- genmod patch not taking effect in singularity, switched to a smaller genmod container with patch
+- updated processes in main.nf for above container
+
 ### 3.2.2
 #### Bugfixes and improvement
 - Changes to custom_images in yaml, case/str
