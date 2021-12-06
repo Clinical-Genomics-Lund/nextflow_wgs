@@ -1130,7 +1130,7 @@ process split_normalize {
 
 	output:
 		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
-		set group, id, file("${group}.intersected.vcf"), file("${group}.multibreak.vcf") into split_vep, split_cadd, vcf_loqus, vcf_cnvkit
+		set group, id, file("${group}.intersected.vcf"), file("${group}.multibreak.vcf") into split_vep, split_cadd, vcf_cnvkit
 		
 	script:
 	id = id[0]
@@ -1169,28 +1169,6 @@ process split_normalize {
 
 
 
-}
-
-process add_to_loqusdb {
-	cpus 1
-	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
-	tag "$group"
-	memory '1 MB'
-	time '5m'
-
-	when:
-		!params.noupload
-
-	input:
-		set group, id, file(vcf), file(multi), file(ped) from vcf_loqus.join(ped_loqus)
-		//file(ped) from ped_loqus
-
-	output:
-		file("${group}.loqus") into loqusdb_done
-
-	"""
-	echo "-db $params.loqusdb load -f ${OUTDIR}/ped/${ped} --variant-file ${OUTDIR}/vcf/${vcf}" > ${group}.loqus
-	"""
 }
 
 process annotate_vep {
@@ -1460,7 +1438,7 @@ process vcf_completion {
 		set group, file(vcf) from scored_vcf
 
 	output:
-		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf
+		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf, vcf_loqus
 		set group, file("${group}_snv.INFO") into snv_INFO
 
 	"""
@@ -2057,6 +2035,7 @@ process svdb_merge {
 		
 	output:
 		set group, id, file("${group}.merged.bndless.vcf") into vcf_vep, annotsv_vcf
+		set group, file ("${group}.merged.vcf") into loqusdb_sv
 
 	script:
 
@@ -2099,6 +2078,27 @@ process svdb_merge {
 			"""
 		}
 
+}
+
+process add_to_loqusdb {
+	cpus 1
+	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
+	tag "$group"
+	memory '1 MB'
+	time '5m'
+
+	when:
+		!params.noupload
+
+	input:
+		set group, file(vcf), file(tbi), file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv)
+
+	output:
+		file("${group}.loqus") into loqusdb_done
+
+	"""
+	echo "-db $params.loqusdb load -f ${OUTDIR}/ped/${ped} --variant-file ${OUTDIR}/vcf/${vcf} --sv-variants ${OUTDIR}/sv_vcf/merged/${svvcf}" > ${group}.loqus
+	"""
 }
 
 //create AnnotSV tsv file
