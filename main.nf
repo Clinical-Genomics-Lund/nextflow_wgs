@@ -1799,6 +1799,7 @@ process svdb_merge_panel {
 	output:
 		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
 		//set group, id, file("${group}.merged.filtered.vcf") into annotsv_panel
+		set group, file("${group}.merged.filtered.melt.vcf") into loqusdb_sv_panel
 
 	script:
 		tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' } + cnvkitV.collect {it + ':cnvkit ' }
@@ -2035,7 +2036,7 @@ process svdb_merge {
 		
 	output:
 		set group, id, file("${group}.merged.bndless.vcf") into vcf_vep, annotsv_vcf
-		set group, file ("${group}.merged.vcf") into loqusdb_sv
+		set group, file("${group}.merged.vcf") into loqusdb_sv
 
 	script:
 
@@ -2091,13 +2092,13 @@ process add_to_loqusdb {
 		!params.noupload
 
 	input:
-		set group, file(vcf), file(tbi), file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv)
+		set group, file(vcf), file(tbi), file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel))
 
 	output:
 		file("${group}.loqus") into loqusdb_done
 
 	"""
-	echo "-db $params.loqusdb load -f ${OUTDIR}/ped/${ped} --variant-file ${OUTDIR}/vcf/${vcf} --sv-variants ${OUTDIR}/sv_vcf/merged/${svvcf}" > ${group}.loqus
+	echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}.loqus
 	"""
 }
 
