@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.2.4
+#### Feature improvement
+- Added SVs to loqusdb load. Using scored snv-vcf for correct MT->M notation
+
 ### 3.2.3
 #### Bugfixes
 - genmod patch not taking effect in singularity, switched to a smaller genmod container with patch
