@@ -102,6 +102,12 @@ sub merge {
 	}
     }
     
+	## if no del or no dup ##
+	if (!@agg) {
+		@vars = ();
+		return( \@header, \@vars );
+	}
+	
     my $var = join("\t", @agg[0..6]);
     $var .= "\t";
     my @info_fields;
@@ -112,6 +118,7 @@ sub merge {
     $var .= "\t";
     $var .= join("\t", @agg[8..$#agg]);
     push @vars, $var;
+
 
     return( \@header, \@vars );
 }
