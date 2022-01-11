@@ -15,15 +15,15 @@ my %assays = (
         'rankm' => 'SNV-RM-v5.0',
         'svrankm' => 'SV-Panel-RM-v1.0',
         'screening' => {
-            'institute' => 'oncogen',
+            'institute' => 'onkogenetik',
             'institute_owner' => 'onkogenetik',
         },
         'predictive' => {
-            'institute' => 'oncogen',
+            'institute' => 'onkogenetik',
             'institute_owner' => 'onkogenetik'
         },
         'PARP_inhib_normals' => {
-            'institute' => 'oncogen',
+            'institute' => 'onkogenetik',
             'institute_owner' => 'onkogenetik'
         }
     },
