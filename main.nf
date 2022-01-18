@@ -803,63 +803,31 @@ process gvcf_combine {
 process create_ped {
 	tag "$group"
 	time '5m'
+	publishDir "/fs1/viktor/wgs_germline_dev_38/ped", mode: 'copy' , overwrite: 'true'	
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from ped
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from ped.filter { item -> item[7] == 'proband' }
 		
-
 	output:
-		set group, id, file("${id}_slice.ped") into ped_ch
-		set id, val(group) into madde_group
-		//file("${group}.INFO") into tissue_INFO
+		set group, type, file("${group}_base.ped") into ped_mad, ped_peddy, ped_inher, ped_scout, ped_loqus, ped_prescore, ped_compound, ped_pod
+		set group, type_ma, file("${group}_ma.ped") optional true into ped_inher_ma, ped_prescore_ma, ped_compound_ma, ped_mad_ma
+		set group, type_fa, file("${group}_fa.ped") optional true into ped_inher_fa, ped_prescore_fa, ped_compound_fa, ped_mad_fa
+
 
 	script:
-		if ( sex =~ /F/) {
-			sex = "2"
-		}
-		else {
-			sex = "1"
-		}
-		if ( phenotype =~ /unaffected/ ) {
-			phenotype = "1"
-		}
-		else {
-			phenotype = "2"
-		}
 		if ( father == "" ) {
 			father = "0"
 		}
 		if ( mother == "" ) {
 			mother = "0"
 		}
-
-	"""
-	echo "${group}\t${id}\t${father}\t${mother}\t${sex}\t${phenotype}" > ${id}_slice.ped
-	"""
-}
-
-// collects each individual's ped-line and creates one ped-file
-// ped_ch
-// 	.collectFile(sort: true, storeDir: "${OUTDIR}/ped/")
-// 	.into{ ped_mad; ped_peddy; ped_inher; ped_scout; ped_loqus; ped_prescore; ped_compound; ped_pod }
-process join_pedigree {
-	cpus 1
-	memory '1MB'
-	time '1h'
-	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
-
-	input:
-		set group, id, pedslice from ped_ch.groupTuple()
-
-	output:
-		set group, file("${group}.ped") into ped_mad, ped_peddy, ped_inher, ped_scout, ped_loqus, ped_prescore, ped_compound, ped_pod
-
-	script:
-	ped = pedslice.join( ' ' )
-
-	"""
-	cat $ped > ${group}.ped
-	"""
+		type_fa = "fa"
+		type_ma = "ma"
+		"""
+		create_ped.pl --mother $mother --father $father --group $group --id $id --sex $sex
+		"""
+	
+	
 }
 
 //madeline ped, run if family mode
@@ -870,8 +838,7 @@ process madeline {
 	container '/fs1/resources/containers/madeline.sif'
 
 	input:
-		set group, file(ped) from ped_mad
-		set id, val(group) from madde_group
+		set group, type, file(ped) from ped_mad.mix(ped_mad_ma,ped_mad_fa)
 
 	output:
 		file("${ped}.madeline.xml") into madeline_ped
@@ -890,7 +857,7 @@ process madeline {
 		-L "IndividualId" ${ped}.madeline \\
 		-o ${ped}.madeline \\
 		-x xml
-	echo "MADDE ${OUTDIR}/ped/${ped}.madeline.xml" > ${group}_madde.INFO
+	echo "MADDE	$type ${OUTDIR}/ped/${ped}.madeline.xml" > ${group}_madde.INFO
 	"""
 }
 
@@ -1235,31 +1202,6 @@ process vcfanno {
 	"""
 }
 
-
-// # Annotating variant inheritance models:
-process inher_models {
-	cpus 6
-	memory '64 GB'
-	tag "$group"
-	time '10m'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-	container = '/fs1/resources/containers/genmod.sif'
-
-	input:
-		set group, file(vcf), file(ped) from vcfanno_vcf.join(ped_inher)
-		//file(ped) from ped_inher
-
-	output:
-		set group, file("${group}.models.vcf") into inhermod
-
-	"""
-	genmod models $vcf -p ${task.cpus} -f $ped > ${group}.models.vcf
-	"""
-}
-
-
 // Extracting most severe consequence: 
 // Modifying annotations by VEP-plugins, and adding to info-field: 
 // Modifying CLNSIG field to allow it to be used by genmod score properly:
@@ -1270,7 +1212,7 @@ process modify_vcf {
 	time '10m'
 
 	input:
-		set group, file(vcf) from inhermod
+		set group, file(vcf) from vcfanno_vcf
 
 	output:
 		set group, file("${group}.mod.vcf") into mod_vcf
@@ -1384,7 +1326,7 @@ process add_cadd_scores_to_vcf {
 		set group, file(vcf), file(cadd_scores) from splice_marked.join(indel_cadd)
 
 	output:
-		set group, file("${group}.cadd.vcf") into indel_cadd_added
+		set group, file("${group}.cadd.vcf") into ma_vcf, fa_vcf, base_vcf
 
 	"""
 	gunzip -c $cadd_scores > cadd
@@ -1393,6 +1335,30 @@ process add_cadd_scores_to_vcf {
 	genmod annotate --cadd-file cadd.gz $vcf > ${group}.cadd.vcf
 	"""
 }
+
+
+// # Annotating variant inheritance models:
+process inher_models {
+	cpus 6
+	memory '64 GB'
+	tag "$group"
+	time '10m'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	container = '/fs1/resources/containers/genmod.sif'
+
+	input:
+		set group, file(vcf), type, file(ped) from base_vcf.mix(ma_vcf, fa_vcf).join(ped_inher.mix(ped_inher_ma,ped_inher_fa)).view()
+
+	output:
+		set group, type, file("${group}.models.vcf") into inhermod
+
+	"""
+	genmod models $vcf -p ${task.cpus} -f $ped > ${group}.models.vcf
+	"""
+}
+
 
 // Scoring variants: 
 // Adjusting compound scores: 
@@ -1405,23 +1371,28 @@ process genmodscore {
 	container = '/fs1/resources/containers/genmod.sif'
 
 	input:
-		set group, file(vcf) from indel_cadd_added
+		set group, type, file(vcf) from inhermod
 
 	output:
-		set group, file("${group}.scored.vcf") into scored_vcf
+		set group, type, file("${group_score}.scored.vcf") into scored_vcf
 
 	script:
+		group_score = group
+		if ( type == "ma" || type == "fa") {
+			group_score = group + "_" + type
+		}
+
 		if ( mode == "family" && params.antype == "wgs" ) {
 			"""
-			genmod score -i $group -c $params.rank_model -r $vcf -o ${group}.score1.vcf
+			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.score1.vcf
 			genmod compound ${group}.score1.vcf > ${group}.score2.vcf
-			genmod sort -p -f $group ${group}.score2.vcf -o ${group}.scored.vcf
+			genmod sort -p -f $group_score ${group_score}.score2.vcf -o ${group_score}.scored.vcf
 			"""
 		}
 		else {
 			"""
-			genmod score -i $group -c $params.rank_model_s -r $vcf -o ${group}.score1.vcf
-			genmod sort -p -f $group ${group}.score1.vcf -o ${group}.scored.vcf
+			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.score1.vcf
+			genmod sort -p -f $group_score ${group}.score1.vcf -o ${group_score}.scored.vcf
 			"""
 		}
 
@@ -1435,19 +1406,25 @@ process vcf_completion {
 	time '1h'
 
 	input:
-		set group, file(vcf) from scored_vcf
+		set group, type, file(vcf) from scored_vcf
 
 	output:
-		set group, file("${group}.scored.vcf.gz"), file("${group}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf, vcf_loqus
+		set group, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf,snv_sv_vcf_ma,snv_sv_vcf_fa, vcf_loqus
 		set group, file("${group}_snv.INFO") into snv_INFO
 
-	"""
-	sed 's/^MT/M/' -i $vcf
-	sed 's/ID=MT,length/ID=M,length/' -i $vcf
-	bgzip -@ ${task.cpus} $vcf -f
-	tabix ${vcf}.gz -f
-	echo "SNV	${OUTDIR}/vcf/${group}.scored.vcf.gz" > ${group}_snv.INFO
-	"""
+	script:
+		group_score = group
+		if ( type == "ma" || type == "fa") {
+			group_score = group + "_" + type
+		}
+
+		"""
+		sed 's/^MT/M/' -i $vcf
+		sed 's/ID=MT,length/ID=M,length/' -i $vcf
+		bgzip -@ ${task.cpus} $vcf -f
+		tabix ${vcf}.gz -f
+		echo "SNV	${OUTDIR}/vcf/${group_score}.scored.vcf.gz" > ${group}_snv.INFO
+		"""
 }
 
 
@@ -1460,8 +1437,7 @@ process peddy {
 	time '1h'
 
 	input:
-		//file(ped) from ped_peddy
-		set group, file(vcf), file(idx), file(ped) from vcf_peddy.join(ped_peddy)
+		set group, file(vcf), file(idx), file(ped), type from vcf_peddy.join(ped_peddy)
 
 	output:
 		set file("${group}.ped_check.csv"),file("${group}.peddy.ped"), file("${group}.sex_check.csv") into peddy_files
@@ -2092,7 +2068,7 @@ process add_to_loqusdb {
 		!params.noupload
 
 	input:
-		set group, file(vcf), file(tbi), file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel))
+		set group, file(vcf), file(tbi), file(ped), type, file(svvcf) from vcf_loqus.join(ped_loqus.filter { item -> item[1] == 'proband' }).join(loqusdb_sv.mix(loqusdb_sv_panel))
 
 	output:
 		file("${group}.loqus") into loqusdb_done
@@ -2113,9 +2089,9 @@ process annotsv {
 
 	input:
 		set group, id, file(sv) from annotsv_vcf.mix(annotsv_panel)
-		
+			
 	output:
-		set group, file("${group}_annotsv.tsv") into annotsv
+		set group, file("${group}_annotsv.tsv") into annotsv, annotsv_ma, annotsv_fa
 
 	"""
 	export ANNOTSV="/AnnotSV"
@@ -2194,7 +2170,7 @@ process artefact {
 		set group, file(sv) from artefact_vcf
 
 	output:
-		set group, file("${group}.artefact.vcf") into manip_vcf
+		set group, file("${group}.artefact.vcf") into manip_vcf,manip_vcf_ma,manip_vcf_fa
 
 	"""
 	source activate py3-env
@@ -2212,8 +2188,7 @@ process prescore {
 	time '30m'
 
 	input:
-		set group, file(sv_artefact), file(ped), file(annotsv) from manip_vcf.join(ped_prescore).join(annotsv)
-		//set group,  from annotsv
+		set group, file(sv_artefact), type, file(ped), file(annotsv) from manip_vcf.mix(manip_vcf_ma,manip_vcf_fa).join(ped_prescore.mix(ped_prescore_ma,ped_prescore_fa)).join(annotsv.mix(annotsv_ma,annotsv_fa))
 
 	output:
 		set group, file("${group}.annotatedSV.vcf") into annotatedSV
@@ -2233,31 +2208,35 @@ process score_sv {
 	container = '/fs1/resources/containers/genmod.sif'
 
 	input:
-		set group, file(vcf) from annotatedSV
+		set group, type, file(vcf) from annotatedSV
 
 	output:
-		set group, file("${group}.sv.scored.sorted.vcf.gz"), file("${group}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore
+		set group, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore,sv_rescore_ma,sv_rescore_fa
 		set group, file("${group}_sv.INFO") into sv_INFO
-		set group, file("${group}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
+		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
 				
 	script:
+		group_score = group
+		if ( type == "ma" || type == "fa") {
+			group_score = group + "_" + type
+		}
 	
 		if (mode == "family" && params.antype == "wgs") {
 			"""
-			genmod score -i $group -c $params.svrank_model -r $vcf -o ${group}.sv.scored_tmp.vcf
-			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored_tmp.vcf 
-			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
-			tabix ${group}.sv.scored.sorted.vcf.gz -f
-			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+			genmod score -i $group_score -c $params.svrank_model -r $vcf -o ${group_score}.sv.scored_tmp.vcf
+			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group_score}.sv.scored_tmp.vcf 
+			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
+			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
+			echo "SV	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 			"""
 		}
 		else {
 			"""
-			genmod score -i $group -c $params.svrank_model_s -r $vcf -o ${group}.sv.scored.vcf
-			bcftools sort -O v -o ${group}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
-			bgzip -@ ${task.cpus} ${group}.sv.scored.sorted.vcf -f
-			tabix ${group}.sv.scored.sorted.vcf.gz -f
-			echo "SV	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+			genmod score -i $group_score -c $params.svrank_model_s -r $vcf -o ${group_score}.sv.scored.vcf
+			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
+			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
+			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
+			echo "SV	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 			"""
 		}
 }
@@ -2269,29 +2248,30 @@ process compound_finder {
 	memory '10 GB'
 	time '2h'
 
-	when:
-		mode == "family" && params.assay == "wgs"
-
 	input:
-		set group, file(vcf), file(tbi), file(ped) from sv_rescore.join(ped_compound)
-		set group, file(snv), file(tbi) from snv_sv_vcf
+		set group, file(vcf), file(tbi), type, file(ped), file(snv), file(tbi) from sv_rescore.mix(sv_rescore_ma,sv_rescore_fa).join(ped_compound.mix(ped_compound_ma,ped_compound_fa)).join(snv_sv_vcf.mix(snv_sv_vcf_ma,snv_sv_vcf_fa))
+		//set group, file(snv), file(tbi) from snv_sv_vcf
 
 	output:
-		set group, file("${group}.snv.rescored.sorted.vcf.gz"), file("${group}.snv.rescored.sorted.vcf.gz.tbi") into vcf_yaml
-			//file("${group}.sv.rescored.sorted.vcf.gz"), file("${group}.sv.rescored.sorted.vcf.gz.tbi") 
+		set group, file("${group_score}.snv.rescored.sorted.vcf.gz"), file("${group_score}.snv.rescored.sorted.vcf.gz.tbi") into vcf_yaml
 		set group, file("${group}_svp.INFO") into svcompound_INFO
 				
 
 	script:
+		group_score = group
+		if ( type == "ma" || type == "fa") {
+			group_score = group + "_" + type
+		}
+
 		"""
 		compound_finder.pl \\
 			--sv $vcf --ped $ped --snv $snv \\
-			--osv ${group}.sv.rescored.sorted.vcf \\
-			--osnv ${group}.snv.rescored.sorted.vcf \\
+			--osv ${group_score}.sv.rescored.sorted.vcf \\
+			--osnv ${group_score}.snv.rescored.sorted.vcf \\
 			--skipsv
-		bgzip -@ ${task.cpus} ${group}.snv.rescored.sorted.vcf -f
-		tabix ${group}.snv.rescored.sorted.vcf.gz -f
-		echo "SVc	${OUTDIR}/vcf/${group}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group}.snv.rescored.sorted.vcf.gz" > ${group}_svp.INFO
+		bgzip -@ ${task.cpus} ${group_score}.snv.rescored.sorted.vcf -f
+		tabix ${group_score}.snv.rescored.sorted.vcf.gz -f
+		echo "SVc	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group_score}.snv.rescored.sorted.vcf.gz" > ${group}_svp.INFO
 		"""
 
 }
@@ -2348,7 +2328,7 @@ process plot_pod {
 
 	input:
 		set group, file(snv) from vcf_pod
-		set group, file(cnv), file(ped) from svvcf_pod.join(ped_pod)
+		set group, file(cnv), file(ped), type from svvcf_pod.join(ped_pod.filter { item -> item[1] == 'proband' })
 		set group, id, sex, type from meta_pod.filter { item -> item[3] == 'proband' }		
 
 	output:
@@ -2376,7 +2356,7 @@ process create_yaml {
 		!params.noupload
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, file(ped), file(INFO) from yml_diag.join(ped_scout).join(yaml_INFO)
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, type, file(ped), file(INFO) from yml_diag.join(ped_scout).join(yaml_INFO)
 
 	output:
 		set group, file("${group}.yaml") into yaml
