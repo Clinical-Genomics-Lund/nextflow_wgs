@@ -1385,14 +1385,14 @@ process genmodscore {
 		if ( mode == "family" && params.antype == "wgs" ) {
 			"""
 			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.score1.vcf
-			genmod compound ${group}.score1.vcf > ${group}.score2.vcf
+			genmod compound ${group_score}.score1.vcf > ${group_score}.score2.vcf
 			genmod sort -p -f $group_score ${group_score}.score2.vcf -o ${group_score}.scored.vcf
 			"""
 		}
 		else {
 			"""
 			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.score1.vcf
-			genmod sort -p -f $group_score ${group}.score1.vcf -o ${group_score}.scored.vcf
+			genmod sort -p -f $group_score ${group_score}.score1.vcf -o ${group_score}.scored.vcf
 			"""
 		}
 
@@ -1423,7 +1423,7 @@ process vcf_completion {
 		sed 's/ID=MT,length/ID=M,length/' -i $vcf
 		bgzip -@ ${task.cpus} $vcf -f
 		tabix ${vcf}.gz -f
-		echo "SNV	${OUTDIR}/vcf/${group_score}.scored.vcf.gz" > ${group}_snv.INFO
+		echo "SNV	$type	${OUTDIR}/vcf/${group_score}.scored.vcf.gz" > ${group}_snv.INFO
 		"""
 }
 
@@ -1437,7 +1437,7 @@ process peddy {
 	time '1h'
 
 	input:
-		set group, file(vcf), file(idx), file(ped), type from vcf_peddy.join(ped_peddy)
+		set group, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
 
 	output:
 		set file("${group}.ped_check.csv"),file("${group}.peddy.ped"), file("${group}.sex_check.csv") into peddy_files
@@ -2191,7 +2191,7 @@ process prescore {
 		set group, file(sv_artefact), type, file(ped), file(annotsv) from manip_vcf.mix(manip_vcf_ma,manip_vcf_fa).join(ped_prescore.mix(ped_prescore_ma,ped_prescore_fa)).join(annotsv.mix(annotsv_ma,annotsv_fa))
 
 	output:
-		set group, file("${group}.annotatedSV.vcf") into annotatedSV
+		set group, type, file("${group}.annotatedSV.vcf") into annotatedSV
 
 	"""
 	prescore_sv.pl \\
@@ -2227,7 +2227,7 @@ process score_sv {
 			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group_score}.sv.scored_tmp.vcf 
 			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
 			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
-			echo "SV	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+			echo "SV	$type	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 			"""
 		}
 		else {
@@ -2236,7 +2236,7 @@ process score_sv {
 			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
 			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
 			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
-			echo "SV	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+			echo "SV	$type	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 			"""
 		}
 }
@@ -2271,7 +2271,7 @@ process compound_finder {
 			--skipsv
 		bgzip -@ ${task.cpus} ${group_score}.snv.rescored.sorted.vcf -f
 		tabix ${group_score}.snv.rescored.sorted.vcf.gz -f
-		echo "SVc	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group_score}.snv.rescored.sorted.vcf.gz" > ${group}_svp.INFO
+		echo "SVc	$type	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group_score}.snv.rescored.sorted.vcf.gz" > ${group}_svp.INFO
 		"""
 
 }
@@ -2328,7 +2328,7 @@ process plot_pod {
 
 	input:
 		set group, file(snv) from vcf_pod
-		set group, file(cnv), file(ped), type from svvcf_pod.join(ped_pod.filter { item -> item[1] == 'proband' })
+		set group, file(cnv), type, file(ped) from svvcf_pod.join(ped_pod)
 		set group, id, sex, type from meta_pod.filter { item -> item[3] == 'proband' }		
 
 	output:
@@ -2343,8 +2343,9 @@ process plot_pod {
 }
 
 process create_yaml {
-	publishDir "${OUTDIR}/yaml", mode: 'copy' , overwrite: 'true'
-	publishDir "${CRONDIR}/scout", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/yaml", mode: 'copy' , overwrite: 'true', pattern: '*.yaml'
+	publishDir "${OUTDIR}/yaml/alt_affect", mode: 'copy' , overwrite: 'true', pattern: '*.yaml.*a'
+	publishDir "${CRONDIR}/scout", mode: 'copy' , overwrite: 'true', pattern: '*.yaml'
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$group"
