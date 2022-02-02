@@ -2095,11 +2095,20 @@ process add_to_loqusdb {
 		set group, file(vcf), file(tbi), file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel))
 
 	output:
-		file("${group}.loqus") into loqusdb_done
+		file("${group}*.loqus") into loqusdb_done
 
-	"""
-	echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}.loqus
-	"""
+	if (params.assay == "wgs") {
+		"""
+		echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}.loqus
+		echo "-db loqusdb_38_TEST2 load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}_devel.loqus
+		"""
+	}
+	else {
+		"""
+		echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}.loqus
+		"""
+	}
+
 }
 
 //create AnnotSV tsv file
