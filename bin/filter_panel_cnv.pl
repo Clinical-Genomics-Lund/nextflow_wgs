@@ -8,11 +8,13 @@ use strict;
 use Data::Dumper;
 
 my %opt = ();
-GetOptions( \%opt, 'manta=s', 'delly=s'  );
+GetOptions( \%opt, 'mergedvcf=s', 'callers=s'  );
 
 
 
-my $vcf = CMD::vcf2->new('file'=>$ARGV[0] );
+my $vcf = CMD::vcf2->new('file'=>$opt{mergedvcf} );
+
+my $used_callers = $opt{callers};
 
 my @header = split/\n/,$vcf->{header_str};
 my $count = 1;
@@ -21,7 +23,7 @@ foreach my $header (@header) {
     
     if ($header =~ /^##INFO/ && $count == 1) {
         print '##INFO=<ID=SCOUT_CUSTOM,Number=.,Type=String,Description="Custom annotations for scout">'."\n";
-        print '##INFO=<ID=MELT_RANK,Number=.,Type=Number,Description="Evidence level 1-5, 5highest">'."\n";
+        print '##INFO=<ID=MELT_RANK,Number=.,Type=String,Description="Evidence level 1-5, 5highest">'."\n";
         print '##INFO=<ID=MELT_QC,Number=.,Type=String,Description="Quality of call">'."\n";
         $count++;
     }
@@ -39,6 +41,7 @@ while ( my $a = $vcf->next_var() ) {
     my $delly = 0;
     my $manta = 0;
     my $cnvkit = 0;
+    my $gatk = 0;
     my @callers = split/-/,$a->{INFO}->{set};
     foreach my $caller (@callers) {
         if ($caller =~ /delly/) {
@@ -50,8 +53,22 @@ while ( my $a = $vcf->next_var() ) {
         elsif ($caller =~ /cnvkit/) {
             $cnvkit = 1;
         }
+        elsif ($caller =~ /gatk/) {
+            $gatk = 1;
+        }
         elsif ($caller =~ /Intersection/) {
-            $delly = 1; $manta = 1; $cnvkit = 1;
+            if ($used_callers =~ /delly/) {
+                $delly = 1;
+            }
+            if ($used_callers =~ /manta/) {
+                $manta = 1;
+            }
+            if ($used_callers =~ /gatk/) {
+                $gatk = 1;
+            }
+            if ($used_callers =~ /cnvkit/) {
+                $cnvkit = 1;
+            } 
         }
     }
     next if ($a->{INFO}->{SVTYPE} eq 'BND');
@@ -69,6 +86,7 @@ while ( my $a = $vcf->next_var() ) {
     if ($delly && $a->{INFO}->{IMPRECISE}) { push @foundin,"delly~imprecise"; }
     if ($delly && $a->{INFO}->{PRECISE}) { push @foundin,"delly~precise"; }
     if ($cnvkit) { push @foundin,"cnvkit"; }
+    if ($gatk) { push @foundin,"gatk"; }
     #print Dumper($a);
     push @INFO,"SCOUT_CUSTOM=Caller|".join('&',@foundin);
     print join(';',@INFO)."\t";

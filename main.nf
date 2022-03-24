@@ -244,6 +244,7 @@ process bwa_align {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	input:
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
@@ -279,6 +280,7 @@ process markdup {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
 	input:
@@ -319,6 +321,7 @@ process bqsr {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*table'
 
 	input:
@@ -347,6 +350,7 @@ process sentieon_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	input:
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
@@ -695,13 +699,13 @@ process melt_qc_val {
 process melt {
 	cpus 3
 	errorStrategy 'retry'
-	container = '/fs1/resources/containers/container_twist-brca.sif'
+	container = '/fs1/resources/containers/melt_2.2.2.sif'
 	tag "$id"
 	memory '40 GB'
 	time '3h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	//scratch true
+	//stageInMode 'copy'
+	//stageOutMode 'copy'
 
 	input:
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
@@ -713,15 +717,14 @@ process melt {
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
 
 	"""
-	java -jar  /opt/MELT.jar Single \\
+	java -jar /opt/MELTv2.2.2/MELT.jar Single \\
 		-bamfile $bam \\
 		-r 150 \\
 		-h $genome_file \\
-		-n $params.bed_melt \\
+		-n /opt/MELTv2.2.2/add_bed_files/Hg38/Hg38.genes.bed \\
 		-z 50000 \\
-		-d 50 -t $params.mei_list \\
+		-d 50 -t /opt/mei_list \\
 		-w . \\
-		-b 1/2/3/4/5/6/7/8/9/10/11/12/14/15/16/18/19/20/21/22 \\
 		-c $MEAN_DEPTH \\
 		-cov $COV_DEV \\
 		-e $INS_SIZE
@@ -737,6 +740,7 @@ process dnascope {
 	// 12 GB peak giab //
 	time '4h'
 	tag "$id"
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	when:
 		params.varcall
@@ -780,6 +784,7 @@ process gvcf_combine {
 	tag "$group"
 	memory '5 GB'
 	time '5h'
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	input:
 		set group, id, file(vcf), file(idx) from complete_vcf_choice.groupTuple()
@@ -1202,6 +1207,7 @@ process annotate_vep {
 		--plugin CADD,$params.CADD \\
 		--plugin LoFtool \\
 		--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
+		--plugin dbNSFP,/fs1/resources/ref/hg38/annotation_dbs/dbnsfp/dbNSFP4.3a_grch38.gz,REVEL_score,REVEL_rankscore,BayesDel_addAF_score,BayesDel_addAF_rankscore,BayesDel_addAF_pred,BayesDel_noAF_score,BayesDel_noAF_rankscore,BayesDel_noAF_pred \\
 		--fasta $params.VEP_FASTA \\
 		--dir_cache $params.VEP_CACHE \\
 		--dir_plugins $params.VEP_CACHE/Plugins \\
@@ -1676,7 +1682,7 @@ process gatk_coverage {
     tag "$id"   
 
 	when:
-		params.sv && !params.exome
+		params.sv && params.gatkcnv
 
     input:
         set group, id, file(bam), file(bai) from bam_gatk.mix(bam_gatk_choice)
@@ -1835,11 +1841,11 @@ process filter_merge_gatk {
 		set group, id, file(inter), file(gatk), file(denoised) from called_gatk
 
 	output:
-		set group, id, file("${id}.gatk.filtred.merged.vcf") into merged_gatk,merged_gatk_panel
+		set group, id, file("${id}.gatk.filtered.merged.vcf") into merged_gatk,merged_gatk_panel
 
 	"""
 	filter_gatk.pl $gatk > ${id}.gatk.filtered.vcf
-	mergeGATK.pl ${id}.gatk.filtered.vcf > ${id}.gatk.filtred.merged.vcf
+	mergeGATK.pl ${id}.gatk.filtered.vcf > ${id}.gatk.filtered.merged.vcf
 	"""
 }
 
@@ -1914,7 +1920,7 @@ process delly_panel {
 	cache 'deep'
 	
 	when:
-		params.sv && params.onco
+		params.sv && params.onco && params.delly
 
 	input:
 		set group, id, file(bam), file(bai) from bam_delly_panel.mix(bam_dellypanel_choice)
@@ -1952,12 +1958,17 @@ process cnvkit_panel {
 	
 	output:
 		set group, id, file("${id}.cnvkit_filtered.vcf") into called_cnvkit_panel
+		file("${id}.call.cns") into unfiltered_cns
+		file("${group}.genomic_overview.png")
+		set group, file("${group}_oplot.INFO") into cnvkit_INFO
 
 	"""
 	cnvkit.py batch $bam -r $params.cnvkit_reference -p 5 -d results/
 	cnvkit.py call results/*.cns -v $vcf -o ${id}.call.cns
 	filter_cnvkit.pl ${id}.call.cns $MEAN_DEPTH > ${id}.filtered
 	cnvkit.py export vcf ${id}.filtered -i "$id" > ${id}.cnvkit_filtered.vcf
+	cnvkit.py scatter -s results/*dedup.cn{s,r} -o ${group}.genomic_overview.png -v $vcf -i $id
+	echo "IMG overviewplot	${params.accessdir}/plots/${group}.genomic_overview.png" > ${group}_oplot.INFO
 	"""
 
 }
@@ -1974,10 +1985,9 @@ process svdb_merge_panel {
 	stageOutMode 'copy'
 
 	input:
-		set group, id, file(mantaV), file(dellyV), file(melt), file(cnvkitV) from called_manta_panel.join(called_delly_panel, by:[0,1]).join(melt_vcf, by:[0,1]).join(called_cnvkit_panel, by:[0,1])
-		// set group, id, file(dellyV) from called_delly_panel.groupTuple()
-		// set group, id, file(melt) from melt_vcf.groupTuple()
-		// set group, id, file(cnvkitV) from called_cnvkit_panel.groupTuple()
+		//set group, id, file(mantaV), file(dellyV), file(melt), file(cnvkitV) \
+		//	from called_manta_panel.join(called_delly_panel, by:[0,1]).join(melt_vcf, by:[0,1]).join(called_cnvkit_panel, by:[0,1])
+		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_delly_panel,called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf).view()
 				
 	output:
 		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
@@ -1985,17 +1995,47 @@ process svdb_merge_panel {
 		set group, file("${group}.merged.filtered.melt.vcf") into loqusdb_sv_panel
 
 	script:
-		tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' } + cnvkitV.collect {it + ':cnvkit ' }
-		vcfs = tmp.join(' ')
+		//tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' } + cnvkitV.collect {it + ':cnvkit ' }
+		//vcfs = tmp.join(' ')
+		if (vcfs.size() > 1) {
+				// for each sv-caller add idx, find vcf and find priority, add in priority order! //
+				// index of vcfs added from mix //
+				manta_idx = vcfs.findIndexOf{ it =~ 'manta' }
+				delly_idx = vcfs.findIndexOf{ it =~ 'delly' }
+				cnvkit_idx = vcfs.findIndexOf{ it =~ 'cnvkit' }
+				gatk_idx = vcfs.findIndexOf{ it =~ 'gatk' }
 
+				// find vcfs //
+				manta = manta_idx >= 0 ? vcfs[manta_idx].collect {it + ':manta ' } : null
+				delly = delly_idx >= 0 ? vcfs[delly_idx].collect {it + ':delly ' } : null
+				cnvkit = cnvkit_idx >= 0 ? vcfs[cnvkit_idx].collect {it + ':cnvkit ' } : null
+				gatk = gatk_idx >= 0 ? vcfs[gatk_idx].collect {it + ':gatk ' } : null
+				tmp = manta + delly + gatk + cnvkit
+				tmp = tmp - null
+				vcfs_svdb = tmp.join(' ')
+
+				// find priorities //
+				mantap = manta_idx >= 0 ? 'manta' : null
+				dellyp = delly_idx >= 0 ? 'delly' : null
+				gatkp = gatk_idx >= 0 ? 'gatk' : null
+				cnvkitp = cnvkit_idx >= 0 ? 'cnvkit' : null
+				tmpp = [mantap, dellyp, gatkp, cnvkitp]
+				tmpp = tmpp - null
+				priority = tmpp.join(',')
+			
+			"""
+			source activate py3-env
+			svdb --merge --vcf $vcfs_svdb --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $priority > ${group}.merged.vcf
+			filter_panel_cnv.pl --mergedvcf ${group}.merged.vcf --callers $priority > ${group}.merged.filtered.vcf
+			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
+			"""
+		}
+	else {
 		"""
-		source activate py3-env
-		svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,delly,cnvkit > ${group}.merged.vcf
-		filter_panel_cnv.pl ${group}.merged.vcf > ${group}.merged.filtered.vcf
-		vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
+		mv $vcf ${group}.merged.filtered.melt.vcf
 		"""
-
-
+	}
+//			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf // need to add melt somewhere!
 }
 
 process tiddit {
@@ -2212,12 +2252,26 @@ process artefact {
 	output:
 		set group, file("${group}.artefact.vcf") into manip_vcf
 
-	"""
-	source activate py3-env
-	svdb \\
-	--sqdb $params.svdb --query \\
-	--query_vcf $sv --out_occ ACOUNT --out_frq AFRQ > ${group}.artefact.vcf
-	"""
+	script:
+
+	if (params.gatkcnv && params.onco) {
+		"""
+		source activate py3-env
+		svdb \\
+		--query --bnd_distance 25000 --overlap 0.7 --in_occ Obs --out_occ ACOUNT --in_frq Frq --out_frq AFREQ  \\
+		--db $params.svdb \\
+		--query_vcf $sv > ${group}.artefact.vcf
+		"""
+	}
+	else {
+		"""
+		source activate py3-env
+		svdb \\
+		--sqdb $params.svdb --query \\
+		--query_vcf $sv --out_occ ACOUNT --out_frq AFRQ > ${group}.artefact.vcf
+		"""
+	}
+
 }
 
 
@@ -2319,7 +2373,7 @@ process ouput_files {
 	time '2m'
 
 	input:
-		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO).groupTuple()
+		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO).groupTuple()
 
 	output:
 		set group, file("${group}.INFO") into yaml_INFO

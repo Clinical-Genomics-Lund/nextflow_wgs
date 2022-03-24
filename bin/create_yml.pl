@@ -14,6 +14,7 @@ my %assays = (
     'oncov1-0' => {
         'rankm' => 'SNV-RM-v5.0',
         'svrankm' => 'SV-Panel-RM-v1.0',
+        'capture_kit' => 'oncov1-0',
         'screening' => {
             'institute' => 'onkogenetik',
             'institute_owner' => 'onkogenetik',
@@ -25,6 +26,23 @@ my %assays = (
         'PARP_inhib_normals' => {
             'institute' => 'onkogenetik',
             'institute_owner' => 'onkogenetik'
+        }
+    },
+    'oncov2-0' => {
+        'rankm' => 'SNV-RM-v5.0',
+        'svrankm' => 'SV-Panel-RM-v1.0',
+        'capture_kit' => 'oncov2-0',
+        'screening' => {
+            'institute' => 'onkogenetik',
+            'institute_owner' => 'oncogen',
+        },
+        'predictive' => {
+            'institute' => 'onkogenetik',
+            'institute_owner' => 'oncogen'
+        },
+        'PARP_inhib_normals' => {
+            'institute' => 'onkogenetik',
+            'institute_owner' => 'oncogen'
         }
     },
     'wgs-hg38' => {
@@ -163,6 +181,7 @@ my $institute_owner = "klingen";
 if ($opt{assay}) { 
     $institute = $assays{$assay}{$analysis}{institute};
     $institute_owner = $assays{$assay}{$analysis}{institute_owner};
+    $kit = $assays{$assay}{capture_kit};
 }
 ### ASSAY DECIDE OWNER? ####
 print OUT "owner: $institute_owner\n";
