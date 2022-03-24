@@ -123,16 +123,12 @@ my @g_c = split/,/,$opt{g};
 my $group = $g_c[0];
 my $clarity_id = $g_c[1];
 
-### Open out, default $group.yaml ###
-my $out = "$group.yaml";
-if ($opt{out}) { $out = $opt{out}; }
-open (OUT,'>',$out);
-
 ### Read ped, save individuals ####################
 my $files = $opt{files};
 open (INFO, $files) or die "Cannot open $files\n";
 my %INFO;
 my @bams;
+my @inher_patterns;
 while ( <INFO> ) {
 
     my @tmp = split/\s+/,$_;
@@ -153,12 +149,19 @@ while ( <INFO> ) {
     elsif ($tmp[0] eq "STR_IMG") {
         $INFO{STR_IMG}->{$tmp[1]} = $tmp[2];
     }
+    elsif ($tmp[0] eq "SV" or $tmp[0] eq "SVc" or $tmp[0] eq "SNV" or $tmp[0] eq "MADDE") {
+        if ($tmp[0] eq "SNV") {
+            push @inher_patterns,$tmp[1];
+        }
+        $INFO{$tmp[0]}->{$tmp[1]} = $tmp[2];
+    }
     else {
         $INFO{$tmp[0]} = $tmp[1];
     }
 
 }
 close INFO;
+print Dumper(%INFO);
 ####################################################
 
 my $kit = "Intersected WGS"; ## placeholder, does not change for panels
@@ -174,8 +177,7 @@ while ( <PED> ) {
 close PED;
 ####################################################
 
-### PRINT YAML ####
-print OUT "---\n";
+### get genlist ###
 my $institute = "klingen";
 my $institute_owner = "klingen";
 if ($opt{assay}) { 
@@ -183,165 +185,195 @@ if ($opt{assay}) {
     $institute_owner = $assays{$assay}{$analysis}{institute_owner};
     $kit = $assays{$assay}{capture_kit};
 }
-### ASSAY DECIDE OWNER? ####
-print OUT "owner: $institute_owner\n";
-print OUT "family: '$group'\n";
-print OUT "lims_id: '$clarity_id'\n";
-print OUT "samples: \n";
-
-### MATCH ped inidividuals with bams ###
-foreach my $sample (@ped) {
-    my @pedline = split/\t/,$sample;
-    print OUT "  - analysis_type: $antype\n";
-    print OUT "    sample_id: '$pedline[1]'\n";
-    print OUT "    sample_name: '$pedline[1]'\n";
-    print OUT "    mother: '$pedline[3]'\n";
-    print OUT "    father: '$pedline[2]'\n";
-    print OUT "    capture_kit: $kit\n";
-    # unless ($INFO{TISSUE}{$pedline[1]} eq 'false') {
-    #     print OUT "    tissue_type: '$INFO{TISSUE}{$pedline[1]}'\n";
-    # }
-
-    if ($pedline[5] == 1) {
-        print OUT "    phenotype: unaffected\n";
-    }
-    elsif ($pedline[5] == 2) {
-        print OUT "    phenotype: affected\n";
-    }
-    else { print STDERR "not a valid phenotype!\n" }
-    if ($pedline[4] == 1) {
-        print OUT "    sex: male\n";
-    }
-    elsif ($pedline[4] == 2) {
-        print OUT "    sex: female\n";
-    }
-    else { print STDERR "not a valid sex!\n" }
-    if ($INFO{BAM}{$pedline[1]}) {
-        print OUT "    bam_path: $INFO{BAM}{$pedline[1]}\n";
-    }
-    if ($INFO{mtBAM}{$pedline[1]}) {
-        print OUT "    mt_bam: $INFO{mtBAM}{$pedline[1]}\n";
-    }
-}
-##########################################
-
-### Print optional variables ###
-
-## If trio and both SV and SNV calling has been done, SVc should be in INFO-file
-## This contains both SV and SNV info
-if ($INFO{SVc}) {
-    my @tmp = split/,/,$INFO{SVc};
-    print OUT "vcf_snv: $tmp[1]\n"; 
-    print OUT "vcf_sv: $tmp[0]\n";
-}
-## If SNV single, check for SNV, if exist, check for SV
-elsif ($INFO{SNV}) {
-    print OUT "vcf_snv: $INFO{SNV}\n";
-    if ($INFO{SV}) {
-        print OUT "vcf_sv: $INFO{SV}\n";
-    } 
-}
-## If only SV calling
-elsif ($INFO{SV}) {
-    print OUT "vcf_sv: $INFO{SV}\n";
-}
-else {
-    print STDERR "need at least one VCF, SV/SNV"; exit;
-}
-if ($INFO{STR}) {
-    if ($analysis ne 'kit') {
-        print OUT "vcf_str: $INFO{STR}\n";
-    }
-}
-if ($INFO{SMN}) {
-    print OUT "smn_tsv: $INFO{SMN}\n";
-}
-
-if ($INFO{MADDE}) {
-    print OUT "madeline: $INFO{MADDE}\n";
-}
-
-if ($INFO{PEDDY}) {
-    my @tmp = split/,/,$INFO{PEDDY};
-    print OUT "peddy_ped: $tmp[1]\n";
-    print OUT "peddy_check: $tmp[0]\n";
-    print OUT "peddy_sex: $tmp[2]\n";
-}
-
-### Print gene panels ###
 my $gene_panels = get_genelist($institute);
-print OUT "gene_panels: [";
-print OUT join ",", @$gene_panels;
-print OUT "]\n";
-if ($diagnosis eq "pediatrics") {
-    print OUT "default_gene_panels: []\n";
-}
-else {
-    my @panels = split /\+/, $diagnosis;
-    my $panels_str = '"'. join('","', @panels). '"';
-    print OUT "default_gene_panels: [$panels_str]\n";
-}
-print OUT "rank_model_version: ".$assays{$assay}{rankm}."\n";
-print OUT "sv_rank_model_version: ".$assays{$assay}{svrankm}."\n";
-if ($assays{$assay}{$analysis}{rstreshold}) {
-    print OUT "rank_score_threshold: ". $assays{$assay}{$analysis}{rstreshold}."\n";
-}
-else {
-    print OUT "rank_score_threshold: -1\n";
-}
-print OUT "human_genome_build: $genome\n";
+####################################################
 
 
-## If IMGage is available
-print OUT "custom_images:\n";
-my %img = ( 
-    'overviewplot' => {
-        'desc' => "Genome overview plot, UPD and ROH", 
-        'width' => '2000',
-        'height' => '1000'
-        },
-    'eklipse' => {
-        'desc' => "Circular mitochondrial plot, Eklipse", 
-        'width' => '750',
-        'height' => '750'
-        },
-    'haplogrep' => {             
-        'desc' => "Mitochondrial haplotypes, Haplogrep", 
-        'width' => '750',
-        'height' => '1000'
-        },
-    'STR' => {             
-        'desc' => "Reviewer plot for STR loci", 
-        'width' => '500',
-        'height' => '100'
+### PRINT YAML PER INHER_PATTERN ####
+foreach my $ind (@inher_patterns) {
+    my $family = $group;
+    my $out = "$group.yaml";
+    unless ( $ind eq "proband") {
+        $out = "$group.yaml".".".$ind;
+        $family = $group."_".$ind;
+    }
+    
+    ### Open out, default $group.yaml, fix for ma and fa! ###
+    if ($opt{out}) { 
+        $out = $opt{out};
+        unless ( $ind eq "proband") {
+            $out = $out.".".$ind;
         }
-);
-if ($INFO{IMG}) {
-    print OUT "  case:\n";
-    foreach my $img_type (keys %{ $INFO{IMG} }) {
-        print OUT "    $img_type:\n";
-        print OUT "      - title: $INFO{IMG}{$img_type}\n";
-        print OUT "        description: $img{$img_type}{desc}\n";
-        print OUT "        width: $img{$img_type}{width}\n";
-        print OUT "        height: $img{$img_type}{height}\n";
-        print OUT "        path: $INFO{IMG}{$img_type}\n";
+    }
+    open (OUT,'>',$out);
+
+
+    
+    print OUT "---\n";
+    ### ASSAY DECIDE OWNER? ####
+    print OUT "owner: $institute_owner\n";
+    print OUT "family: '$family'\n";
+    print OUT "lims_id: '$clarity_id'\n";
+    print OUT "samples: \n";
+
+    ### MATCH ped inidividuals with bams ###
+    foreach my $sample (@ped) {
+        my @pedline = split/\t/,$sample;
+        print OUT "  - analysis_type: $antype\n";
+        print OUT "    sample_id: '$pedline[1]'\n";
+        print OUT "    sample_name: '$pedline[1]'\n";
+        print OUT "    mother: '$pedline[3]'\n";
+        print OUT "    father: '$pedline[2]'\n";
+        print OUT "    capture_kit: $kit\n";
+
+        if ($pedline[5] == 1) {
+            if ($ind eq "ma" and $pedline[3] eq "0" and $pedline[2] eq "0" and $pedline[4] == 2) {
+                print OUT "    phenotype: affected\n";
+            }
+            elsif ($ind eq "fa" and $pedline[3] eq "0" and $pedline[2] eq "0" and $pedline[4] == 1) {
+                print OUT "    phenotype: affected\n";
+            }
+            else {
+                print OUT "    phenotype: unaffected\n";
+            }
+            
+        }
+        elsif ($pedline[5] == 2) {
+            print OUT "    phenotype: affected\n";
+        }
+        else { print STDERR "not a valid phenotype!\n" }
+        if ($pedline[4] == 1) {
+            print OUT "    sex: male\n";
+        }
+        elsif ($pedline[4] == 2) {
+            print OUT "    sex: female\n";
+        }
+        else { print STDERR "not a valid sex!\n" }
+        if ($INFO{BAM}{$pedline[1]}) {
+            print OUT "    bam_path: $INFO{BAM}{$pedline[1]}\n";
+        }
+        if ($INFO{mtBAM}{$pedline[1]}) {
+            print OUT "    mt_bam: $INFO{mtBAM}{$pedline[1]}\n";
+        }
+    }
+    ##########################################
+
+    ### Print optional variables ###
+
+    ## If trio and both SV and SNV calling has been done, SVc should be in INFO-file
+    ## This contains both SV and SNV info
+    if ($INFO{SVc}) {
+        my @tmp = split/,/,$INFO{SVc}{$ind};
+        print OUT "vcf_snv: $tmp[1]\n"; 
+        print OUT "vcf_sv: $tmp[0]\n";
+    }
+    ## If SNV single, check for SNV, if exist, check for SV
+    elsif ($INFO{SNV}) {
+        print OUT "vcf_snv: $INFO{SNV}{$ind}\n";
+        if ($INFO{SV}) {
+            print OUT "vcf_sv: $INFO{SV}{$ind}\n";
+        } 
+    }
+    ## If only SV calling
+    elsif ($INFO{SV}) {
+        print OUT "vcf_sv: $INFO{SV}{$ind}\n";
+    }
+    else {
+        print STDERR "need at least one VCF, SV/SNV"; exit;
+    }
+    if ($INFO{STR}) {
+        if ($analysis ne 'kit') {
+            print OUT "vcf_str: $INFO{STR}\n";
+        }
+    }
+    if ($INFO{SMN}) {
+        print OUT "smn_tsv: $INFO{SMN}\n";
     }
 
-}
-if ($INFO{STR_IMG}) {
-    print OUT "  str:\n";
-    foreach my $img_type (keys %{ $INFO{STR_IMG} }) {
-        print OUT "    - title: $INFO{STR_IMG}{$img_type}\n";
-        print OUT "      description: $img{STR}{desc}\n";
-        print OUT "      width: $img{STR}{width}\n";
-        print OUT "      height: $img{STR}{height}\n";
-        print OUT "      path: $INFO{STR_IMG}{$img_type}\n";
+    if ($INFO{MADDE}) {
+        print OUT "madeline: $INFO{MADDE}{$ind}\n";
     }
+
+    if ($INFO{PEDDY}) {
+        my @tmp = split/,/,$INFO{PEDDY};
+        print OUT "peddy_ped: $tmp[1]\n";
+        print OUT "peddy_check: $tmp[0]\n";
+        print OUT "peddy_sex: $tmp[2]\n";
+    }
+
+    ### Print gene panels ###
+    print OUT "gene_panels: [";
+    print OUT join ",", @$gene_panels;
+    print OUT "]\n";
+    if ($diagnosis eq "pediatrics") {
+        print OUT "default_gene_panels: []\n";
+    }
+    else {
+        my @panels = split /\+/, $diagnosis;
+        my $panels_str = '"'. join('","', @panels). '"';
+        print OUT "default_gene_panels: [$panels_str]\n";
+    }
+    print OUT "rank_model_version: ".$assays{$assay}{rankm}."\n";
+    print OUT "sv_rank_model_version: ".$assays{$assay}{svrankm}."\n";
+    if ($assays{$assay}{$analysis}{rstreshold}) {
+        print OUT "rank_score_threshold: ". $assays{$assay}{$analysis}{rstreshold}."\n";
+    }
+    else {
+        print OUT "rank_score_threshold: -1\n";
+    }
+    print OUT "human_genome_build: $genome\n";
+
+
+    ## If IMGage is available
+    print OUT "custom_images:\n";
+    my %img = ( 
+        'overviewplot' => {
+            'desc' => "Genome overview plot, UPD and ROH", 
+            'width' => '2000',
+            'height' => '1000'
+            },
+        'eklipse' => {
+            'desc' => "Circular mitochondrial plot, Eklipse", 
+            'width' => '750',
+            'height' => '750'
+            },
+        'haplogrep' => {             
+            'desc' => "Mitochondrial haplotypes, Haplogrep", 
+            'width' => '750',
+            'height' => '1000'
+            },
+        'STR' => {             
+            'desc' => "Reviewer plot for STR loci", 
+            'width' => '500',
+            'height' => '100'
+            }
+    );
+    if ($INFO{IMG}) {
+        print OUT "  case:\n";
+        foreach my $img_type (keys %{ $INFO{IMG} }) {
+            print OUT "    $img_type:\n";
+            print OUT "      - title: $INFO{IMG}{$img_type}\n";
+            print OUT "        description: $img{$img_type}{desc}\n";
+            print OUT "        width: $img{$img_type}{width}\n";
+            print OUT "        height: $img{$img_type}{height}\n";
+            print OUT "        path: $INFO{IMG}{$img_type}\n";
+        }
+
+    }
+    if ($INFO{STR_IMG}) {
+        print OUT "  str:\n";
+        foreach my $img_type (keys %{ $INFO{STR_IMG} }) {
+            print OUT "    - title: $INFO{STR_IMG}{$img_type}\n";
+            print OUT "      description: $img{STR}{desc}\n";
+            print OUT "      width: $img{STR}{width}\n";
+            print OUT "      height: $img{STR}{height}\n";
+            print OUT "      path: $INFO{STR_IMG}{$img_type}\n";
+        }
+    }
+
+    close OUT;
+
 }
-
-close OUT;
-
-
 
 
 
