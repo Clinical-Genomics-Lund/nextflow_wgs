@@ -507,7 +507,7 @@ process SMNCopyNumberCaller {
 	source activate py3-env
 	python /SMNCopyNumberCaller/smn_charts.py -s ${id}.json -o .
 	mv ${id}.tsv ${group}_SMN.tsv
-	echo "SMN ${OUTDIR}/smn/${group}_SMN.tsv" > ${group}_smn.INFO
+	echo "SMN ${params.accessdir}/smn/${group}_SMN.tsv" > ${group}_smn.INFO
 	"""
 	
 }
@@ -639,7 +639,7 @@ process vcfbreakmulti_expansionhunter {
 			familyfy_str.pl --vcf ${group}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${group}.expansionhunter.vcf
 			bgzip ${group}.expansionhunter.vcf
 			tabix ${group}.expansionhunter.vcf.gz
-			echo "STR	${OUTDIR}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
+			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
 			"""
 		}
 		else {
@@ -648,7 +648,7 @@ process vcfbreakmulti_expansionhunter {
 			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf
 			bgzip ${group}.expansionhunter.vcf
 			tabix ${group}.expansionhunter.vcf.gz
-			echo "STR	${OUTDIR}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
+			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
 			"""
 		}
 }
@@ -808,7 +808,7 @@ process gvcf_combine {
 process create_ped {
 	tag "$group"
 	time '5m'
-	publishDir "/fs1/viktor/wgs_germline_dev_38/ped", mode: 'copy' , overwrite: 'true'	
+	publishDir "/${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'	
 
 	input:
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from ped.filter { item -> item[7] == 'proband' }
@@ -862,7 +862,7 @@ process madeline {
 		-L "IndividualId" ${ped}.madeline \\
 		-o ${ped}.madeline \\
 		-x xml
-	echo "MADDE	$type ${OUTDIR}/ped/${ped}.madeline.xml" > ${group}_madde.INFO
+	echo "MADDE	$type ${params.accessdir}/ped/${ped}.madeline.xml" > ${group}_madde.INFO
 	"""
 }
 
@@ -1429,7 +1429,7 @@ process vcf_completion {
 		sed 's/ID=MT,length/ID=M,length/' -i $vcf
 		bgzip -@ ${task.cpus} $vcf -f
 		tabix ${vcf}.gz -f
-		echo "SNV	$type	${OUTDIR}/vcf/${group_score}.scored.vcf.gz" > ${group}_snv.INFO
+		echo "SNV	$type	${params.accessdir}/vcf/${group_score}.scored.vcf.gz" > ${group}_snv.INFO
 		"""
 }
 
@@ -1452,7 +1452,7 @@ process peddy {
 	"""
 	source activate py3-env
 	python -m peddy --sites hg38 -p ${task.cpus} $vcf $ped --prefix $group
-	echo "PEDDY	${OUTDIR}/ped/${group}.ped_check.csv,${OUTDIR}/ped/${group}.peddy.ped,${OUTDIR}/ped/${group}.sex_check.csv" > ${group}_peddy.INFO
+	echo "PEDDY	${params.accessdir}/ped/${group}.ped_check.csv,${params.accessdir}/ped/${group}.peddy.ped,${params.accessdir}/ped/${group}.sex_check.csv" > ${group}_peddy.INFO
 	"""
 }
 
@@ -1916,7 +1916,8 @@ process delly_panel {
 process cnvkit_panel {
 	cpus = 5
 	container = '/fs1/resources/containers/twistmyeloid_active.sif'
-	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	publishDir "${OUTDIR}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
 	tag "$id"
 	time '20m'
 	memory '20 GB'
@@ -2297,7 +2298,7 @@ process score_sv {
 			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group_score}.sv.scored_tmp.vcf 
 			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
 			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
-			echo "SV	$type	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+			echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 			"""
 		}
 		else {
@@ -2306,7 +2307,7 @@ process score_sv {
 			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
 			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
 			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
-			echo "SV	$type	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+			echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 			"""
 		}
 }
@@ -2317,6 +2318,9 @@ process compound_finder {
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 	memory '10 GB'
 	time '2h'
+
+	when:
+		mode == "family" && params.assay == "wgs"
 
 	input:
 		set group, file(vcf), file(tbi), type, file(ped), file(snv), file(tbi) from sv_rescore.mix(sv_rescore_ma,sv_rescore_fa).join(ped_compound.mix(ped_compound_ma,ped_compound_fa)).join(snv_sv_vcf.mix(snv_sv_vcf_ma,snv_sv_vcf_fa))
@@ -2341,7 +2345,7 @@ process compound_finder {
 			--skipsv
 		bgzip -@ ${task.cpus} ${group_score}.snv.rescored.sorted.vcf -f
 		tabix ${group_score}.snv.rescored.sorted.vcf.gz -f
-		echo "SVc	$type	${OUTDIR}/vcf/${group_score}.sv.scored.sorted.vcf.gz,${OUTDIR}/vcf/${group_score}.snv.rescored.sorted.vcf.gz" > ${group}_svp.INFO
+		echo "SVc	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz,${params.accessdir}/vcf/${group_score}.snv.rescored.sorted.vcf.gz" > ${group}_svp.INFO
 		"""
 
 }

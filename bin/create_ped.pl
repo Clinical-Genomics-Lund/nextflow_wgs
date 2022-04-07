@@ -23,6 +23,7 @@ unless ($opt{mother} eq '0') {
 my $sex;
 if ($opt{sex} eq 'F') { $sex = 2;}
 if ($opt{sex} eq 'M') {$sex = 1;}
+if ($opt{sex} ne 'F' or $opt{sex} ne 'M') {$sex = 1;}
 
 open (BASE, '>',$opt{group}."_base.ped" ) or die $!;
 
