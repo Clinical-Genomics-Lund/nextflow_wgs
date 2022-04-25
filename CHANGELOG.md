@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.2.5
+#### Bugfix
+- Fixed a serious bug in prescore_sv.pl, would randomly chose proband-id for duos
+
+
 ### 3.2.4
 #### Feature improvement
 - Added SVs to loqusdb load. Using scored snv-vcf for correct MT->M notation
