@@ -35,6 +35,7 @@ if ($pedsize > 2) {
 my $vcf = CMD::vcf2->new('file'=>$svfile );
 my $ref = readSV($vcf);
 my %SV = %$ref;
+
 ####################################################
 
 
@@ -67,8 +68,10 @@ foreach my $line (@header) {
 	}
 }
 ## Print each original VCF entry with new annotations
+my $count_var = 0;
 foreach my $chrom (keys %SV) {
 	foreach my $var (keys %{ $SV{$chrom} }) {
+		$count_var++;
 		my @vcf_split = split/\t/,$SV{$chrom}->{$var}->{vcf_str};
 		my @info_field = split/;/,$vcf_split[7];
 		my $compound = $SV{$chrom}->{$var}->{COMPOUND};
@@ -171,7 +174,7 @@ foreach my $chrom (keys %SV) {
 	}
 	
 }
-
+print $count_var."\n";
 sub checkoptions {
 	my %opt = %{ $_[0] };
 
@@ -218,11 +221,19 @@ sub read_ped {
 	}
 	my $count = keys %PED;
 	## if single sample, proband is obvious.
-	if ($count <= 2 ) {
+	if ($count == 1 ) {
 		foreach my $ind (keys %PED) {
 			$proband = $ind;
 		}
 	}
+	elsif ($count == 2) {
+		foreach my $ind (keys %PED) {
+			unless ($PED{$ind}->{FATHER} eq 0 && $PED{$ind}->{MOTHER} eq 0) {
+				$proband = $ind;
+			}
+		}
+	}
+	print $proband."\n".$count."\n";
 	return \%PED, $proband, $count;
 }
 
@@ -349,7 +360,7 @@ sub readSV {
 			$INFO{ $A->{GT}->[$ind]->{_sample_id} } = $sum;
 		}
 		## ignore proband 0 variants
-		if ($INFO{$proband} == 0 ) {next;}
+		if ($INFO{$proband} == 0 ) { print Dumper($A); next;}
 		## GENETIC MODEL ##
 		if ($pedsize > 2) {
 			my $gm = model(\%INFO, $chrom);
