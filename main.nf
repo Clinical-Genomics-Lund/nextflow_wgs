@@ -2124,7 +2124,6 @@ process add_to_loqusdb {
 	if (params.assay == "wgs") {
 		"""
 		echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}.loqus
-		echo "-db loqusdb_38_TEST2 load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}_devel.loqus
 		"""
 	}
 	else {
@@ -2231,11 +2230,11 @@ process artefact {
 
 	script:
 
-	if (params.gatkcnv && params.onco) {
+	if (params.gatkcnv) {
 		"""
 		source activate py3-env
 		svdb \\
-		--query --bnd_distance 25000 --overlap 0.7 --in_occ Obs --out_occ ACOUNT --in_frq Frq --out_frq AFREQ  \\
+		--query --bnd_distance 25000 --overlap 0.7 --in_occ Obs --out_occ ACOUNT --in_frq Frq --out_frq AFRQ  \\
 		--db $params.svdb \\
 		--query_vcf $sv > ${group}.artefact.vcf
 		"""

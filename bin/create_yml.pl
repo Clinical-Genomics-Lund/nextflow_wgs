@@ -12,8 +12,8 @@ GetOptions( \%opt, 'g=s', 'd=s', 'p=s', 'out=s', 'genome=s', 'antype=s', 'ped=s'
 ### Define scout institute per assay and/or analysis. ###
 my %assays = (
     'oncov1-0' => {
-        'rankm' => 'SNV-RM-v5.0',
-        'svrankm' => 'SV-Panel-RM-v1.0',
+        'rankm' => 'OncoV1.0-SNV-RM-v5.0',
+        'svrankm' => 'OncoV1.0-SV-Panel-RM-v1.0',
         'capture_kit' => 'oncov1-0',
         'screening' => {
             'institute' => 'onkogenetik',
@@ -29,8 +29,8 @@ my %assays = (
         }
     },
     'oncov2-0' => {
-        'rankm' => 'SNV-RM-v5.0',
-        'svrankm' => 'SV-Panel-RM-v1.0',
+        'rankm' => 'OncoV2.0-SNV-RM-v5.0',
+        'svrankm' => 'OncoV2.0-SV-Panel-RM-v1.0.2',
         'capture_kit' => 'oncov2-0',
         'screening' => {
             'institute' => 'onkogenetik',
