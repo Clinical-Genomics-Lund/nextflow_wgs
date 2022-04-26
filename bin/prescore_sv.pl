@@ -35,6 +35,7 @@ if ($pedsize > 2) {
 my $vcf = CMD::vcf2->new('file'=>$svfile );
 my $ref = readSV($vcf);
 my %SV = %$ref;
+
 ####################################################
 
 
@@ -218,9 +219,16 @@ sub read_ped {
 	}
 	my $count = keys %PED;
 	## if single sample, proband is obvious.
-	if ($count <= 2 ) {
+	if ($count == 1 ) {
 		foreach my $ind (keys %PED) {
 			$proband = $ind;
+		}
+	}
+	elsif ($count == 2) {
+		foreach my $ind (keys %PED) {
+			unless ($PED{$ind}->{FATHER} eq 0 && $PED{$ind}->{MOTHER} eq 0) {
+				$proband = $ind;
+			}
 		}
 	}
 	return \%PED, $proband, $count;
