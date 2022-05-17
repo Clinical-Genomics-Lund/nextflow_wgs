@@ -2102,7 +2102,6 @@ process add_to_loqusdb {
 	if (params.assay == "wgs") {
 		"""
 		echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}.loqus
-		echo "-db loqusdb_38_TEST2 load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}_devel.loqus
 		"""
 	}
 	else {
