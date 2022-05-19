@@ -34,15 +34,15 @@ my %assays = (
         'capture_kit' => 'oncov2-0',
         'screening' => {
             'institute' => 'onkogenetik',
-            'institute_owner' => 'oncogen',
+            'institute_owner' => 'onkogenetik',
         },
         'predictive' => {
             'institute' => 'onkogenetik',
-            'institute_owner' => 'oncogen'
+            'institute_owner' => 'onkogenetik'
         },
         'PARP_inhib_normals' => {
             'institute' => 'onkogenetik',
-            'institute_owner' => 'oncogen'
+            'institute_owner' => 'onkogenetik'
         }
     },
     'wgs-hg38' => {

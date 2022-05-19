@@ -2114,7 +2114,7 @@ process add_to_loqusdb {
 		!params.noupload
 
 	input:
-		set group, file(vcf), file(tbi), file(ped), type, file(svvcf) from vcf_loqus.join(ped_loqus.filter { item -> item[1] == 'proband' }).join(loqusdb_sv.mix(loqusdb_sv_panel))
+		set group, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel)).view()
 
 	output:
 		file("${group}*.loqus") into loqusdb_done
