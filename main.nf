@@ -1174,7 +1174,6 @@ process annotate_vep {
 		--plugin CADD,$params.CADD \\
 		--plugin LoFtool \\
 		--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
-		--plugin dbNSFP,/fs1/resources/ref/hg38/annotation_dbs/dbnsfp/dbNSFP4.3a_grch38.gz,REVEL_score,REVEL_rankscore,BayesDel_addAF_score,BayesDel_addAF_rankscore,BayesDel_addAF_pred,BayesDel_noAF_score,BayesDel_noAF_rankscore,BayesDel_noAF_pred \\
 		--fasta $params.VEP_FASTA \\
 		--dir_cache $params.VEP_CACHE \\
 		--dir_plugins $params.VEP_CACHE/Plugins \\
@@ -1187,6 +1186,7 @@ process annotate_vep {
 		-custom $params.PHASTCONS
 	"""
 }
+// --plugin dbNSFP,/fs1/resources/ref/hg38/annotation_dbs/dbnsfp/dbNSFP4.3a_grch38.gz,REVEL_score,REVEL_rankscore,BayesDel_addAF_score,BayesDel_addAF_rankscore,BayesDel_addAF_pred,BayesDel_noAF_score,BayesDel_noAF_rankscore,BayesDel_noAF_pred \\
 
 // gene, clinvar, loqusdb, enigma(onco)
 process vcfanno {
