@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.2.6
+#### enhancement
+- Added regex to support wgs-hg38-XXXX. suffix to run wgs-profile with different flags. ie --noupload true, no cdm/loqusdb upload for reruns
+
 ### 3.2.5
 #### Bugfix
 - Fixed a serious bug in prescore_sv.pl, would randomly chose proband-id for duos

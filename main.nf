@@ -2381,10 +2381,6 @@ process create_yaml {
 	time '5m'
 	memory '1 GB'
 
-
-	when:
-		!params.noupload
-
 	input:
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, file(ped), file(INFO) from yml_diag.join(ped_scout).join(yaml_INFO)
 
