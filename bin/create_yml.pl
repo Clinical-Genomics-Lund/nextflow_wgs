@@ -161,6 +161,10 @@ print OUT "---\n";
 my $institute = "klingen";
 my $institute_owner = "klingen";
 if ($opt{assay}) { 
+    ## if something added to wgs-hg38, i.e wgs-hg38-nu (no upload loqusdb)
+    if ($assay =~ /wgs-hg38/ ) {
+        $assay = "wgs-hg38";
+    }
     $institute = $assays{$assay}{$analysis}{institute};
     $institute_owner = $assays{$assay}{$analysis}{institute_owner};
 }
