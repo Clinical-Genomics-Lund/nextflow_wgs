@@ -70,7 +70,7 @@ my %assays = (
         'rankm' => '5.2.1_SNV',
         'svrankm' => '5.2_SV',
         'ph' => {
-            'institute' => 'klingen_38',
+            'institute' => 'klingen-genlista',
             'institute_owner' => 'klingen_38'
         },
         'ahus' => {
