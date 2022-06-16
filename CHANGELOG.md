@@ -1,5 +1,17 @@
 # CHANGELOG
 
+### 3.3.0
+#### new features
+- oncov2-0 and wgs profiles now both use loqusdb dumps for SV artefact annotations
+- create pedigree has completely changed, now it is a separate perl-skript
+  - creates one pedigree per affections status of parent, i.e in a trio, three ped-files with mother affect/father affected/no parent affected(default loaded into scout)
+  - will calculate all states per genomod score, per vcf
+  - optionally load these cases into scout, located in a subcategory in yaml-output-folder
+- oncov2-0 now implemented, uses the old onco profile and oncov1-0 uses oncov1-0 profile (to be discontinued)
+  - No longer use delly SV-caller, instead use GATK + CNVkit + manta
+  - new version of MELT that catch much more important variation
+  - indicator of onco-version in rankmodel-name of yaml-file, visable in scout case page
+
 ### 3.2.6
 #### enhancement
 - Added regex to support wgs-hg38-XXXX. suffix to run wgs-profile with different flags. ie --noupload true, no cdm/loqusdb upload for reruns
