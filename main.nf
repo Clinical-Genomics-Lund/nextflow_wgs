@@ -2229,7 +2229,7 @@ process artefact {
 		set group, file("${group}.artefact.vcf") into manip_vcf,manip_vcf_ma,manip_vcf_fa
 
 	script:
-
+	// use loqusdb dump not svdb database //
 	if (params.gatkcnv) {
 		"""
 		source activate py3-env
@@ -2239,6 +2239,7 @@ process artefact {
 		--query_vcf $sv > ${group}.artefact.vcf
 		"""
 	}
+	// for oncov1-0 still use svdb database remove in future//
 	else {
 		"""
 		source activate py3-env
