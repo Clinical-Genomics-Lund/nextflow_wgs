@@ -1392,6 +1392,7 @@ process genmodscore {
 			"""
 			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.score1.vcf
 			genmod compound ${group_score}.score1.vcf > ${group_score}.score2.vcf
+			sed 's/RankScore=${group}:/RankScore=${group_score}:/g' -i ${group_score}.score2.vcf
 			genmod sort -p -f $group_score ${group_score}.score2.vcf -o ${group_score}.scored.vcf
 			"""
 		}
@@ -1415,7 +1416,7 @@ process vcf_completion {
 		set group, type, file(vcf) from scored_vcf
 
 	output:
-		set group, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf,snv_sv_vcf_ma,snv_sv_vcf_fa, vcf_loqus
+		set group, type, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf,snv_sv_vcf_ma,snv_sv_vcf_fa, vcf_loqus
 		set group, file("${group}_snv.INFO") into snv_INFO
 
 	script:
@@ -1443,7 +1444,7 @@ process peddy {
 	time '1h'
 
 	input:
-		set group, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
+		set group, type, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
 
 	output:
 		set file("${group}.ped_check.csv"),file("${group}.peddy.ped"), file("${group}.sex_check.csv") into peddy_files
@@ -2114,7 +2115,7 @@ process add_to_loqusdb {
 		!params.noupload
 
 	input:
-		set group, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel)).view()
+		set group, type, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel)).view()
 
 	output:
 		file("${group}*.loqus") into loqusdb_done
@@ -2282,7 +2283,7 @@ process score_sv {
 		set group, type, file(vcf) from annotatedSV
 
 	output:
-		set group, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore,sv_rescore_ma,sv_rescore_fa
+		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore,sv_rescore_ma,sv_rescore_fa
 		set group, file("${group}_sv.INFO") into sv_INFO
 		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
 				
@@ -2323,7 +2324,7 @@ process compound_finder {
 		mode == "family" && params.assay == "wgs"
 
 	input:
-		set group, file(vcf), file(tbi), type, file(ped), file(snv), file(tbi) from sv_rescore.mix(sv_rescore_ma,sv_rescore_fa).join(ped_compound.mix(ped_compound_ma,ped_compound_fa)).join(snv_sv_vcf.mix(snv_sv_vcf_ma,snv_sv_vcf_fa))
+		set group, type, file(vcf), file(tbi), file(ped), file(snv), file(tbi) from sv_rescore.mix(sv_rescore_ma,sv_rescore_fa).join(ped_compound.mix(ped_compound_ma,ped_compound_fa), by: [0,1]).join(snv_sv_vcf.mix(snv_sv_vcf_ma,snv_sv_vcf_fa),by: [0,1])
 		//set group, file(snv), file(tbi) from snv_sv_vcf
 
 	output:
@@ -2430,7 +2431,7 @@ process create_yaml {
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, type, file(ped), file(INFO) from yml_diag.join(ped_scout).join(yaml_INFO)
 
 	output:
-		set group, file("${group}.yaml") into yaml
+		set group, file("${group}.yaml*") into yaml
 
 	script:
 

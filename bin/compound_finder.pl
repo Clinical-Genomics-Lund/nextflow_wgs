@@ -16,7 +16,7 @@ my $svfile = $opt{sv};
 my $snvfile = $opt{snv};
 my $outsnv = $opt{osnv};
 my $outsv = $opt{osv};
-
+open (LOG, '>', "compound.log") or die $!;
 ##
 if (!defined $outsnv ) {
 	$outsnv = "outsnv.vcf";
@@ -48,7 +48,7 @@ my $ref = readSV($vcf);
 my %SV = %$ref;
 ####################################################
 
-open (LOG, '>', "compound.log") or die $!;
+
 
 
 #####
