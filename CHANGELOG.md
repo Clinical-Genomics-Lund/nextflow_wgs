@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 3.3.1
+#### bug fixes
+- alt affect type was lost for SNV<->SV compound, would get mixed up
+  - added type and joined upon the value
+- compounds for only SNVs for alt affect duos was wrongly renamed, added a sed-command
+
 ### 3.3.0
 #### new features
 - oncov2-0 and wgs profiles now both use loqusdb dumps for SV artefact annotations
