@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.3.2
+#### performance improvements
+- added retries to vcfanno, file-system caching bug out?
+- removed deep caching from freebayes(onco only) weird bug?
+
 ### 3.3.1
 #### bug fixes
 - alt affect type was lost for SNV<->SV compound, would get mixed up
