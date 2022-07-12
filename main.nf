@@ -873,7 +873,6 @@ process freebayes {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	cache 'deep'
 
 	when: 
 		params.onco || params.assay == "exome"
@@ -1193,9 +1192,8 @@ process vcfanno {
 	cpus params.cpu_some
 	memory '32GB'
 	time '20m'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	errorStrategy 'retry'
+	maxErrors 5
 
 	input:
 		set group, file(vcf) from vep
