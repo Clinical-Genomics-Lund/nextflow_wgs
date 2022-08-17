@@ -1,4 +1,8 @@
 # CHANGELOG
+### 3.3.3
+#### minor improvements
+- merged cnv2bed branch, small updates to color scheme for Alamut import files for CNVs
+- increase time limit of create_pedigree
 
 ### 3.3.2
 #### performance improvements
