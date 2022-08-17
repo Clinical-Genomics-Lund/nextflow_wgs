@@ -807,7 +807,7 @@ process gvcf_combine {
 // Create ped from input variables //
 process create_ped {
 	tag "$group"
-	time '5m'
+	time '20m'
 	publishDir "/${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'	
 
 	input:
