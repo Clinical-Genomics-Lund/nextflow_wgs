@@ -63,8 +63,8 @@ Channel
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, 
 				row.id, 
-				(row.containsKey("bam") ? file(row.bam) : file(row.read1)), 
-				(row.containsKey("bai") ? file(row.bai) : file(row.read2)) ) }
+				(row.containsKey("bam") ? file(row.bam) : (row.containsKey("vcf") ? file(row.vcf) : file(row.read1) ) ), 
+				(row.containsKey("bai") ? file(row.bai) : (row.containsKey("idx") ? file(row.idx) : file(row.read2) ) ) ) }
 	.set { input_files }
 
 fastq = Channel.create()
@@ -72,9 +72,15 @@ bam_choice = Channel.create()
 //vcf_choice = Channel.create()
 fastq_sharded = Channel.create()
 fastq_umi = Channel.create()
+annotate_only = Channel.create()
 
 // If input-files has bam files bypass alignment, otherwise go for fastq-channels => three options for fastq, sharded bwa, normal bwa or umi trimming
-input_files.view().choice(bam_choice, fastq, fastq_sharded, fastq_umi ) { it[2] =~ /\.bam/ ? 0 : (params.shardbwa ? 2 : (params.umi ? 3 : 1) ) }
+input_files.view().choice(bam_choice, fastq, fastq_sharded, fastq_umi, annotate_only ) { it[2] =~ /\.bam/ ? 0 : ( it[2] =~ /\.vcf.gz/ ? 4 : (params.shardbwa ? 2 : (params.umi ? 3 : 1) )) }
+
+annotate_only.into{
+	annotate_only_vep;
+	annotate_only_cadd
+}
 
 bam_choice.into{ 
 	expansionhunter_bam_choice; 
@@ -1153,7 +1159,7 @@ process annotate_vep {
 	stageOutMode 'copy'
 
 	input:
-		set group, id, file(vcf), idx from split_vep//.mix(split_vep_choice)
+		set group, id, file(vcf), idx from split_vep.mix(annotate_only_vep)
 
 	output:
 		set group, file("${group}.vep.vcf") into vep
@@ -1253,7 +1259,7 @@ process extract_indels_for_cadd {
 	time '5m'
 
 	input:
-		set group, id, file(vcf), idx from split_cadd//.mix(split_cadd_choice)
+		set group, id, file(vcf), idx from split_cadd.mix(annotate_only_cadd)
 	
 	output:
 		set group, file("${group}.only_indels.vcf") into indel_cadd_vep
@@ -1440,6 +1446,9 @@ process peddy {
 	cpus 6
 	tag "$group"
 	time '1h'
+
+	when:
+		!params.annotate_only
 
 	input:
 		set group, type, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
