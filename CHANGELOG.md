@@ -1,4 +1,10 @@
 # CHANGELOG
+
+### 3.4.0
+#### new features
+- added a script to update wgs-bed file with current clinvar intron + intergenic regions. Also produces a log file of what's been added and removed
+- added support to dry run vcf for testing scoring
+
 ### 3.3.3
 #### minor improvements
 - merged cnv2bed branch, small updates to color scheme for Alamut import files for CNVs
