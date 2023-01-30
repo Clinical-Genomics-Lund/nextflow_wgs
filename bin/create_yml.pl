@@ -82,7 +82,7 @@ my %assays = (
             'institute_owner' => 'klingen-genlista'
         }
     },
-    'clinicalwesv1-0' => {
+    'myeloid_const' => {
         'rankm' => 'SNV-RM-v5.0',
         'svrankm' => 'SV-Panel-RM-v1.0',
         'hemato' => {

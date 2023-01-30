@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.4.1
+#### minor additions/edits
+- fixed filepaths for access-dir for myeloid profile in nextflow.config
+- fixed assay name for create_yml.pl so yaml-file gets correct institute owner for myeloid samples
+
 ### 3.4.0
 #### new features
 - added a script to update wgs-bed file with current clinvar intron + intergenic regions. Also produces a log file of what's been added and removed
