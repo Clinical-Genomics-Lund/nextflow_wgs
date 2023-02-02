@@ -112,7 +112,7 @@ bam_choice.into{
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
-		params.onco
+		params.onco || params.assay == "modycf"
 
 	input:
 		set id, group, file(bam), file(bai) from dedup_dummy_choice
@@ -371,7 +371,7 @@ process sentieon_qc {
 		panel = ""
 		cov = "WgsMetricsAlgo wgs_metrics.txt"
 		assay = "wgs"
-		if( params.onco || params.exome) {
+		if( params.antype == "panel") {
 			target = "--interval $params.intervals"
 			panel = params.panelhs + "$bam" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
@@ -667,7 +667,7 @@ process melt_qc_val {
 	memory '50 MB'
 
 	when:
-		params.onco
+		params.onco || params.assay == "modycf"
 
 	input:
 		set group, id, qc from qc_melt
@@ -717,7 +717,7 @@ process melt {
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
 
 	when:
-		params.onco
+		params.onco || params.assay == "modycf"
 
 	output:
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
@@ -881,7 +881,7 @@ process freebayes {
 	stageOutMode 'copy'
 
 	when: 
-		params.onco || params.assay == "exome"
+		params.antype == "panel"
 
     input:
         set group, id, file(bam), file(bai) from bam_freebayes.mix(bam_freebayes_choice)
@@ -948,7 +948,7 @@ process run_mutect2 {
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
 
 	when:
-		!params.onco
+		params.antype != "panel"
     
     input:
         set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
@@ -1112,7 +1112,7 @@ process split_normalize {
 	script:
 	id = id[0]
 	// rename M to MT because genmod does not recognize M
-	if(params.onco) {
+	if(params.assay != "wgs") {
 		"""
 		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
 		vcfbreakmulti ${id}.concat.freebayes.vcf > ${group}.multibreak.vcf
@@ -1448,7 +1448,7 @@ process peddy {
 	time '1h'
 
 	when:
-		!params.annotate_only
+		!params.annotate_only || !params.assay == "modycf"
 
 	input:
 		set group, type, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
@@ -1473,7 +1473,7 @@ process fastgnomad {
 	time '2h'
 
 	when:
-		!params.onco && !params.exome
+		params.antype == "wgs"
 
 	input:
 		set group, file(vcf) from vcf_gnomad
@@ -1636,7 +1636,7 @@ process generate_gens_data {
 	memory '5 GB'
 
 	when:
-		!params.onco && !params.exome
+		params.antype == "wgs"
 
 	input:
 		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens_choice.join(cov_gens, by:[1])
@@ -1845,7 +1845,7 @@ process manta {
 	stageOutMode 'copy'
 
 	when:
-		params.sv && !params.onco && !params.exome
+		params.sv && params.antype == "wgs"
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta.mix(bam_manta_choice)
@@ -1875,7 +1875,7 @@ process manta_panel {
 	stageOutMode 'copy'
 
 	when:
-		params.sv && params.onco
+		params.sv && params.antype == "panel"
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta_panel.mix(bam_mantapanel_choice)
@@ -1904,7 +1904,7 @@ process delly_panel {
 	cache 'deep'
 	
 	when:
-		params.sv && params.onco && params.delly
+		params.sv && params.antype == "panel" && params.delly
 
 	input:
 		set group, id, file(bam), file(bai) from bam_delly_panel.mix(bam_dellypanel_choice)
@@ -1934,7 +1934,7 @@ process cnvkit_panel {
 	stageOutMode 'copy'
 
 	when:
-		params.sv && params.onco
+		params.sv && params.antype == "panel"
 
 	input:
 		set group, id, file(bam), file(bai), file(vcf), file(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice).join(vcf_cnvkit, by:[0,1]).join(qc_cnvkit_val, by:[0,1]).view()
@@ -2034,7 +2034,7 @@ process tiddit {
 	stageOutMode 'copy'
 
 	when:
-		params.sv && !params.onco &&  !params.exome
+		params.sv && params.antype == "wgs"
 
 
 	input:
@@ -2386,7 +2386,7 @@ process svvcf_to_bed {
 	time '10m'
 
 	when:
-		!params.onco && !params.exome
+		params.antype != "panel"
 
 	input:
 		set group, file(vcf) from svvcf_bed
