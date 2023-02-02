@@ -1448,7 +1448,7 @@ process peddy {
 	time '1h'
 
 	when:
-		!params.annotate_only || !params.assay == "modycf"
+		!params.annotate_only && params.assay != "modycf"
 
 	input:
 		set group, type, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
