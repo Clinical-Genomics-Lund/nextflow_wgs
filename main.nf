@@ -2157,13 +2157,20 @@ process annotsv {
 	output:
 		set group, file("${group}_annotsv.tsv") into annotsv, annotsv_ma, annotsv_fa
 
+	script:
 	"""
+	lines=\$(cat $sv |grep -v '#' |wc -l )
+	if [ \$lines -gt 0 ]
+      	then
 	export ANNOTSV="/AnnotSV"
 	/AnnotSV/bin/AnnotSV -SvinputFile $sv \\
 		-typeOfAnnotation full \\
 		-outputDir $group \\
 		-genomeBuild GRCh38
 	mv $group/*.annotated.tsv ${group}_annotsv.tsv
+	else
+	touch ${group}_annotsv.tsv
+	fi
 	"""
 }
 
@@ -2180,7 +2187,11 @@ process vep_sv {
 	output:
 		set group, id, file("${group}.vep.vcf") into vep_vcf
 
+	script:
 	"""
+	lines=\$(cat $vcf |grep -v '#' |wc -l )
+	if [ \$lines -gt 0 ]
+	then
 	vep \\
 		-i $vcf \\
 		-o ${group}.vep.vcf \\
@@ -2198,6 +2209,9 @@ process vep_sv {
 		--dir_plugins $params.VEP_CACHE/Plugins \\
 		--max_sv_size 50000000 \\
 		--distance 200 -cache
+	else
+	mv $vcf ${group}.vep.vcf
+	fi
 	"""
 }
 
@@ -2311,11 +2325,20 @@ process score_sv {
 		}
 		else {
 			"""
+			lines=\$(cat $vcf |grep -v '#' |wc -l )
+			if [ \$lines -gt 0 ]
+			then
 			genmod score -i $group_score -c $params.svrank_model_s -r $vcf -o ${group_score}.sv.scored.vcf
 			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
 			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
 			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
 			echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+			else
+			mv $vcf ${group_score}.sv.scored.sorted.vcf
+			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
+			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
+			echo "SV        $type   ${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+			fi
 			"""
 		}
 }
