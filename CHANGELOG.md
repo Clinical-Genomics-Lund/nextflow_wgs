@@ -1,5 +1,7 @@
 # CHANGELOG
-
+### Unreleased
+- Add REVEL (Rare Exome Variant Ensemble Learner) Scores to VEP annotations
+	
 ### 3.4.2
 #### hotfix
 - dont print Mitochondrion, we handle the mitochondrion seperatly in the pipeline, caused loqusdb errors
