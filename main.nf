@@ -1176,6 +1176,8 @@ process annotate_vep {
 		--synonyms $params.SYNONYMS \\
 		--fork ${task.cpus} \\
 		--force_overwrite \\
+		--assembly GRCh38 \\
+		--plugin REVEL,$params.REVEL \\
 		--plugin CADD,$params.CADD \\
 		--plugin LoFtool \\
 		--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
