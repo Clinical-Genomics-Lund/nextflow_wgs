@@ -1,4 +1,7 @@
 # CHANGELOG
+### 3.4.3
+#### patch genes
+- added two more genes to expansionhunter variant catalogue.
 
 ### 3.4.2
 #### hotfix
