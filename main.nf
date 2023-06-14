@@ -394,6 +394,45 @@ process sentieon_qc {
 	"""
 }
 
+process sentieon_mitochondrial_qc {
+
+    cpus 52
+    memory '30 GB'
+	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
+	tag "$id"
+	cache 'deep'
+	time '2h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	container = "/fs1/resources/containers/sentieon_202112.sif"
+
+	when:
+		params.antype == "wgs"
+    
+	input:
+        // Needs to be edited:
+		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
+
+	output:
+        // Needs to be edited:
+		set id, file("${id}.QC") into qc_cdm
+		set group, id, file("${id}.QC") into qc_melt
+		file("*.txt")
+
+	script:
+		target = ""
+		panel = ""
+		
+	"""
+	sentieon driver \\
+		-r $genome_file $target \\
+		-t ${task.cpus} \\
+		-i $bam \\
+		--algo CoverageMetrics --cov_thresh 500 mitochondrial_coverage_metrics.txt
+	"""
+    
+}
 
 // Load QC data into CDM (via middleman)
 process qc_to_cdm {
