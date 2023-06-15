@@ -396,9 +396,11 @@ process sentieon_qc {
 
 process sentieon_mitochondrial_qc {
 
+    // Fetch mitochondrial coverage statistics
+    // Calculate mean_coverage and pct_above_500x
+    
     cpus 52
     memory '30 GB'
-	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
 	tag "$id"
 	cache 'deep'
 	time '2h'
@@ -411,27 +413,61 @@ process sentieon_mitochondrial_qc {
 		params.antype == "wgs"
     
 	input:
-        // Needs to be edited:
-		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
+        set group, id, file(bam), file(bai) from qc_mito_bam.groupTuple()
 
 	output:
-        // Needs to be edited:
-		set id, file("${id}.QC") into qc_cdm
-		set group, id, file("${id}.QC") into qc_melt
-		file("*.txt")
-
-	script:
-		target = ""
-		panel = ""
+    	group, id, file("${id}_mito_coverage.tsv") into <<what?>>
 		
 	"""
 	sentieon driver \\
-		-r $genome_file $target \\
+		-r $genome_file \\
 		-t ${task.cpus} \\
 		-i $bam \\
 		--algo CoverageMetrics --cov_thresh 500 mitochondrial_coverage_metrics.txt
+
+    head -1 mitochondrial_coverage_metrics.txt.sample_interval_summary > ${id}_mito_coverage.tsv
+    grep "^M" mitochondrial_coverage_metrics.txt.sample_interval_summary >> ${id}_mito_coverage.tsv
+
 	"""
     
+}
+
+process add_mitochondrial_qc_to_qc_json {
+
+    cpus 52
+	tag "$id"
+    time "10m"
+	stageInMode 'copy'
+	stageOutMode 'copy'
+
+    when:
+        ...
+
+    input:
+        // id, group, mito_qc_file from sentieon_qc, mitochondrial_coverage_metrics.txt from <<sentieon_mitochondrial_qc process above>>
+        id, group, qc_json_file=file("${id}.QC") <<from where?>>
+
+    output:
+        // file("${id}.QC") into qc_cdm
+
+    """
+    // Figure out column indices (somewhat future-proof):
+    mean_coverage_idx=$(cat $mito_qc_file |head -1 | awk -v RS='\t' '/$id_average_coverage/{print NR; exit}')
+    pct_above_500x_idx=$(cat $mito_qc_file |head -1 | awk -v RS='\t' '/$id_%_above_500/{print NR; exit}')
+
+    // Grab sample cov stats
+    mean_coverage=$(grep "^M" $mito_qc_file | cut -f $mean_coverage_idx)
+    pct_above_500x=$(grep "^M" $mito_qc_file | cut -f $pct_above_500x_idx)
+
+    // Add stats above to ${id}.QC (json) file by editing the file in-place
+    // QC vals are nested in their own object/dict under key "mitochondrial_qc"
+    json_updater.py $qc_file \\
+        -i \\
+        --parent-key "mitochondrial_qc" \\
+        -d mean_coverage=$mean_coverage pct_above_500x=$pct_above_500x
+    """
+    
+        
 }
 
 // Load QC data into CDM (via middleman)
@@ -967,7 +1003,7 @@ process fetch_MTseqs {
         set group, id, file(bam), file(bai) from bam_mito.mix(bam_mito_choice)
 
     output:
-        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam
+        set group, id, file("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam, qc_mito_bam
 		set group, file("${group}_mtbam.INFO") into mtBAM_INFO
 
     """
