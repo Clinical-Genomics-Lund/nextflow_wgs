@@ -25,5 +25,5 @@ with open(args.mito_coverage_tsv, "r") as tsv_file:
     pct_above_500x = float(row[f"{args.sample_id}_%_above_500"])
 
 # Spit it out:
-json_data = {"mean_coverage": average_coverage, "pct_above_x": {"pct_above_500x": pct_above_500x}}
+json_data = {"mito_qc": {"mean_coverage": average_coverage, "pct_above_x": {"500": pct_above_500x}}}
 json.dump(json_data, sys.stdout, indent=4)
