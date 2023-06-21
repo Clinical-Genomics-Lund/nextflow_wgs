@@ -926,7 +926,6 @@ process sentieon_mitochondrial_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-  	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	when:
@@ -951,6 +950,26 @@ process sentieon_mitochondrial_qc {
     grep "^M" mt_cov_metrics.txt.sample_interval_summary >> "${id}_mito_coverage.tsv"
 	"""
 }
+
+process build_mitochondrial_qc_json {   
+    cpus 4
+	tag "$id"
+    time "10m"
+	stageInMode 'copy'
+	stageOutMode 'copy'
+  	publishDir "${CRONDIR}/qc", mode: 'copy', overwrite: 'true'
+
+    input:
+        set group, id, file(mito_qc_file) from qc_mito
+
+    output:
+        set group, id, file("${id}_mito_qc.json") into qc_mito_json
+        
+    """
+    mito_tsv_to_json.py ${mito_qc_file} ${id} > "${id}_mito_qc.json"
+    """
+}
+
     
 // gatk FilterMutectCalls in future if FPs overwhelms tord/sofie/carro
 process run_mutect2 {
