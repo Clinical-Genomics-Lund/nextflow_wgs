@@ -349,7 +349,6 @@ process bqsr {
 process sentieon_qc {
 	cpus 52
 	memory '30 GB'
-	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
 	tag "$id"
 	cache 'deep'
 	time '2h'
@@ -362,8 +361,8 @@ process sentieon_qc {
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
 
 	output:
-		set id, file("${id}.QC") into qc_cdm
-		set group, id, file("${id}.QC") into qc_melt
+		set group, id, file("${id}_qc.json") into qc_cdm
+		set group, id, file("${id}_qc.json") into qc_melt
 		file("*.txt")
 
 	script:
@@ -390,7 +389,7 @@ process sentieon_qc {
 		--algo InsertSizeMetricAlgo is_metrics.txt \\
 		--algo $cov
 	$panel
-	qc_sentieon.pl $id $assay > ${id}.QC
+	qc_sentieon.pl $id $assay > ${id}_qc.json
 	"""
 }
 
@@ -951,13 +950,11 @@ process sentieon_mitochondrial_qc {
 	"""
 }
 
-process build_mitochondrial_qc_json {   
+process build_mitochondrial_qc_json {
+   
     cpus 4
 	tag "$id"
     time "10m"
-	stageInMode 'copy'
-	stageOutMode 'copy'
-  	publishDir "${CRONDIR}/qc", mode: 'copy', overwrite: 'true'
 
     input:
         set group, id, file(mito_qc_file) from qc_mito
@@ -1182,6 +1179,31 @@ process split_normalize {
 
 /////////////// Collect QC into single file ///////////////
 
+process merge_qc_json {   
+  	cpus 1
+	errorStrategy 'retry'
+	maxErrors 5
+    publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
+	tag "$id"
+	time '10m'
+    stageInMode 'copy'
+	stageOutMode 'copy'
+
+    input:
+        set group, sample_ids, file(qc) from qc_cdm.mix(qc_mito_json).groupTuple(by: 0)
+
+    output:
+        set id, file("${id}.QC") into qc_cdm_merged
+
+    script:
+        id = sample_ids[0]
+        qc_json_files = qc.join(' ')
+
+    """
+    merge_json_files.py ${qc_json_files} > ${id}.QC
+    """
+}   
+    
 // Load QC data into CDM (via middleman)
 process qc_to_cdm {
 	cpus 1
@@ -1195,7 +1217,7 @@ process qc_to_cdm {
 		!params.noupload
 	
 	input:
-		set id, file(qc), diagnosis, r1, r2 from qc_cdm.join(qc_extra)
+		set id, file(qc), diagnosis, r1, r2 from qc_cdm_merged.join(qc_extra)
 
 	output:
 		file("${id}.cdm") into cdm_done
@@ -1209,7 +1231,6 @@ process qc_to_cdm {
 	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
 	"""
 }
-
     
     
 process annotate_vep {
