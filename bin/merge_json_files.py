@@ -3,9 +3,9 @@
 import json
 import sys
 
-# Contact person: Alexander Koc <alexander.koc@skane.se>
-# Date:           2023-06-21
-# Description:    Merge JSON files into one.
+# Contact:     Alexander Koc <alexander.koc@skane.se>
+# Date:        2023-06-21
+# Description: Merge JSON files into one.
 
 
 def merge_json_files(file_paths):
@@ -17,7 +17,7 @@ def merge_json_files(file_paths):
                 json_data = json.load(file)
                 merged_data.update(json_data)
             except json.JSONDecodeError:
-                print(f"Error: Invalid JSON file '{file_path}'")
+                print(f"Error: Invalid JSON file '{file_path}'", file=sys.stderr)
                 continue
 
     return merged_data
