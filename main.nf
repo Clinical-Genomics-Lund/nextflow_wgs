@@ -1190,13 +1190,12 @@ process merge_qc_json {
 	stageOutMode 'copy'
 
     input:
-        set group, sample_ids, file(qc) from qc_cdm.mix(qc_mito_json).groupTuple(by: 0)
+        set group, id, file(qc) from qc_cdm.mix(qc_mito_json).groupTuple(by: [0,1])
 
     output:
         set id, file("${id}.QC") into qc_cdm_merged
 
     script:
-        id = sample_ids[0]
         qc_json_files = qc.join(' ')
 
     """
