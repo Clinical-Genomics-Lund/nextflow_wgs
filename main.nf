@@ -899,8 +899,7 @@ process fetch_MTseqs {
         set group, id, file(bam), file(bai) from bam_mito.mix(bam_mito_choice)
 
     output:
-        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam
-        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into qc_mito_bam
+        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam, qc_mito_bam
 		set group, file("${group}_mtbam.INFO") into mtBAM_INFO
 
     """
