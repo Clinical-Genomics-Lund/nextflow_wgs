@@ -953,7 +953,7 @@ process sentieon_mitochondrial_qc {
 process build_mitochondrial_qc_json {
    
     cpus 4
-	tag "$id"
+    tag "$id"
     time "10m"
 
     input:
@@ -1180,14 +1180,12 @@ process split_normalize {
 /////////////// Collect QC into single file ///////////////
 
 process merge_qc_json {   
-  	cpus 1
-	errorStrategy 'retry'
-	maxErrors 5
+    cpus 1
+    errorStrategy 'retry'
+    maxErrors 5
     publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
-	tag "$id"
-	time '10m'
-    stageInMode 'copy'
-	stageOutMode 'copy'
+    tag "$id"
+    time '10m'
 
     input:
         set group, id, file(qc) from qc_cdm.mix(qc_mito_json).groupTuple(by: [0,1])
