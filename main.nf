@@ -350,7 +350,6 @@ process sentieon_qc {
 	cpus 52
 	memory '30 GB'
 	tag "$id"
-	cache 'deep'
 	time '2h'
 	scratch true
 	stageInMode 'copy'
@@ -920,7 +919,6 @@ process sentieon_mitochondrial_qc {
     cpus 52
     memory '30 GB'
 	tag "$id"
-	cache 'deep'
 	time '2h'
 	scratch true
 	stageInMode 'copy'
