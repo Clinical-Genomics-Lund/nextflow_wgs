@@ -1,18 +1,20 @@
 # CHANGELOG
-### 3.4.3
-#### patch genes
-- added two more genes to expansionhunter variant catalogue.
 
 ### 3.5.0
 
 #### Added
 
 * Two processes for computing mitochondrial seq QC data from mt bam files and saving to JSON:
-* Python3 script `bin/merge_json_files.py` to merge 1 or more JSON files into one JSON.  Used to generate the final {id}.QC from the json output of the processes `sentieon_qc` and `sentieon_mitochondrial_qc`.
+* Script `bin/merge_json_files.py` to merge 1 or more JSON files into one JSON.  Used to generate the final {id}.QC from the json output of the processes `sentieon_qc` and `sentieon_mitochondrial_qc`.
+* Script `bin/mito_tsv_to_json.py` to extract and convert mtQC data from `sentieon_mitochondrial_qc` process output to json
 
 #### Changed
 
 * process `sentieon_qc` outputs to intermediate {id}_qc.json file instead of the final {id}.QC
+
+### 3.4.3
+#### patch genes
+- added two more genes to expansionhunter variant catalogue.
 
 ### 3.4.2
 #### hotfix
