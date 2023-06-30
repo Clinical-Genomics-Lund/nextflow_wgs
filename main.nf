@@ -349,9 +349,7 @@ process bqsr {
 process sentieon_qc {
 	cpus 52
 	memory '30 GB'
-	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
 	tag "$id"
-	cache 'deep'
 	time '2h'
 	scratch true
 	stageInMode 'copy'
@@ -362,8 +360,8 @@ process sentieon_qc {
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
 
 	output:
-		set id, file("${id}.QC") into qc_cdm
-		set group, id, file("${id}.QC") into qc_melt
+		set group, id, file("${id}_qc.json") into qc_cdm
+		set group, id, file("${id}_qc.json") into qc_melt
 		file("*.txt")
 
 	script:
@@ -390,38 +388,11 @@ process sentieon_qc {
 		--algo InsertSizeMetricAlgo is_metrics.txt \\
 		--algo $cov
 	$panel
-	qc_sentieon.pl $id $assay > ${id}.QC
+	qc_sentieon.pl $id $assay > ${id}_qc.json
 	"""
 }
 
-
-// Load QC data into CDM (via middleman)
-process qc_to_cdm {
-	cpus 1
-	errorStrategy 'retry'
-	maxErrors 5
-	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
-	tag "$id"
-	time '10m'
-
-	when:
-		!params.noupload
-	
-	input:
-		set id, file(qc), diagnosis, r1, r2 from qc_cdm.join(qc_extra)
-
-	output:
-		file("${id}.cdm") into cdm_done
-
-	script:
-		parts = r1.split('/')
-		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
-		rundir = parts[0..idx].join("/")
-
-	"""
-	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
-	"""
-}
+   
 
 // Calculate coverage for chanjo
 process chanjo_sambamba {
@@ -928,7 +899,7 @@ process fetch_MTseqs {
         set group, id, file(bam), file(bai) from bam_mito.mix(bam_mito_choice)
 
     output:
-        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam
+        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam, qc_mito_bam
 		set group, file("${group}_mtbam.INFO") into mtBAM_INFO
 
     """
@@ -939,6 +910,61 @@ process fetch_MTseqs {
 
 }
 
+process sentieon_mitochondrial_qc {
+
+    // Fetch mitochondrial coverage statistics
+    // Calculate mean_coverage and pct_above_500x
+    
+    cpus 52
+    memory '30 GB'
+	tag "$id"
+	time '2h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	container = "/fs1/resources/containers/sentieon_202112.sif"
+
+	when:
+	    params.antype == "wgs"
+    
+	input:
+        set group, id, file(bam), file(bai) from qc_mito_bam
+
+	output:
+    	set group, id, file("${id}_mito_coverage.tsv") into qc_mito
+		
+	"""
+	sentieon driver \\
+		-r $genome_file \\
+		-t ${task.cpus} \\
+		-i $bam \\
+		--algo CoverageMetrics \\
+        --cov_thresh 500 \\
+        mt_cov_metrics.txt
+
+    head -1 mt_cov_metrics.txt.sample_interval_summary > "${id}_mito_coverage.tsv"
+    grep "^M" mt_cov_metrics.txt.sample_interval_summary >> "${id}_mito_coverage.tsv"
+	"""
+}
+
+process build_mitochondrial_qc_json {
+   
+    cpus 4
+    tag "$id"
+    time "10m"
+
+    input:
+        set group, id, file(mito_qc_file) from qc_mito
+
+    output:
+        set group, id, file("${id}_mito_qc.json") into qc_mito_json
+        
+    """
+    mito_tsv_to_json.py ${mito_qc_file} ${id} > "${id}_mito_qc.json"
+    """
+}
+
+    
 // gatk FilterMutectCalls in future if FPs overwhelms tord/sofie/carro
 process run_mutect2 {
     cpus 4
@@ -1148,6 +1174,59 @@ process split_normalize {
 
 }
 
+/////////////// Collect QC into single file ///////////////
+
+process merge_qc_json {   
+    cpus 1
+    errorStrategy 'retry'
+    maxErrors 5
+    publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
+    tag "$id"
+    time '10m'
+
+    input:
+        set group, id, file(qc) from qc_cdm.mix(qc_mito_json).groupTuple(by: [0,1])
+
+    output:
+        set id, file("${id}.QC") into qc_cdm_merged
+
+    script:
+        qc_json_files = qc.join(' ')
+
+    """
+    merge_json_files.py ${qc_json_files} > ${id}.QC
+    """
+}   
+    
+// Load QC data into CDM (via middleman)
+process qc_to_cdm {
+	cpus 1
+	errorStrategy 'retry'
+	maxErrors 5
+	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
+	tag "$id"
+	time '10m'
+
+	when:
+		!params.noupload
+	
+	input:
+		set id, file(qc), diagnosis, r1, r2 from qc_cdm_merged.join(qc_extra)
+
+	output:
+		file("${id}.cdm") into cdm_done
+
+	script:
+		parts = r1.split('/')
+		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
+		rundir = parts[0..idx].join("/")
+
+	"""
+	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
+	"""
+}
+    
+    
 process annotate_vep {
 	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	cpus 54
