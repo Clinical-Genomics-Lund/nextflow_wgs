@@ -988,14 +988,14 @@ process split_normalize_mito {
 		proband_idx = type.findIndexOf{ it == "proband" }
 
     """
-	grep -vP "^M\\s+955" $ms_vcf > ${ms_vcf}.fix
-    vcfbreakmulti ${ms_vcf}.fix > ${ms_vcf}.breakmulti
+    grep -vP "^M\\s+955" $ms_vcf > ${ms_vcf}.fix
+    bcftools norm -m-both -o ${ms_vcf}.breakmulti ${ms_vcf}.fix
     bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
     tabix -p vcf ${ms_vcf}.breakmulti.fix
     bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix
-	bcftools view -i 'FMT/AF[*]>0.05' ${ms_vcf.baseName}.adjusted.vcf -o ${group}.mutect2.breakmulti.filtered5p.vcf
-	bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf
-	filter_mutect2_mito.pl ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf ${id2[proband_idx]} > ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
+    bcftools view -i 'FMT/AF[*]>0.05' ${ms_vcf.baseName}.adjusted.vcf -o ${group}.mutect2.breakmulti.filtered5p.vcf
+    bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf
+    filter_mutect2_mito.pl ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf ${id2[proband_idx]} > ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
     """
 
 }
