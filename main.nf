@@ -111,7 +111,6 @@ bam_choice.into{
 
 // For melt to work if started from bam-file.
 process dedupdummy {
-	publishDir "/${OUTDIR}/test", mode: 'copy' , overwrite: 'true'
 	when:
 		params.onco
 
@@ -1969,7 +1968,6 @@ process qc_to_cdm {
     
     
 process annotate_vep {
-	publishDir "/${OUTDIR}/test", mode: 'copy' , overwrite: 'true', pattern: '*.vcf'
 	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	cpus 54
