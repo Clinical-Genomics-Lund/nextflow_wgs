@@ -1701,7 +1701,7 @@ process run_haplogrep {
 		path "*versions.yml"
 
 	shell:
-		"""
+		'''
 		for sample in `bcftools query -l !{ms_vcf}`; do 
 			bcftools view -c1 -Oz -s $sample -o $sample.vcf.gz !{ms_vcf}
 			java  -Xmx16G -Xms16G -jar /opt/bin/haplogrep.jar classify \
@@ -1724,7 +1724,7 @@ process run_haplogrep {
 		  version: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
 		  container: ${task.container}
 		END_VERSIONS
-		"""
+		'''
 
 	stub:
 		"""
