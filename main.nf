@@ -511,7 +511,7 @@ process sentieon_qc {
 		set group, id, file("${id}_qc.json") into qc_cdm
 		set group, id, file("${id}_qc.json") into qc_melt
 		file("*.txt")
-		path "*versions.yml"
+		//path "*versions.yml"
 
 	script:
 		target = ""
@@ -847,7 +847,7 @@ process reviewer {
 	output:
 		file("*svg")
 		//set group, file("${group}_rev.INFO") into reviewer_INFO
-		path "*versions.yml"
+		//path "*versions.yml"
 
 	shell:
 		'''
@@ -859,14 +859,14 @@ process reviewer {
 		--locus $_ \
 		--output-prefix !{id}");'
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 REViewer: 
-		  version: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')
-		  container: ${task.container}
-		END_VERSIONS
-		'''
 
+		'''
+		// cat <<-END_VERSIONS > ${task.process}_versions.yml
+		// ${task.process}:
+		//  REViewer: 
+		//   version: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')
+		//   container: ${task.container}
+		// END_VERSIONS
 	stub:
 		"""
 		touch ${id}.svg
@@ -1698,7 +1698,7 @@ process run_haplogrep {
 	output:
 		file("${group}.haplogrep.png")
 		set group, file("${group}_haplo.INFO") into haplogrep_INFO
-		path "*versions.yml"
+		//path "*versions.yml"
 
 	shell:
 		'''
@@ -1715,17 +1715,17 @@ process run_haplogrep {
 		montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
 		echo "IMG haplogrep !{params.accessdir}/plots/mito/!{group}.haplogrep.png" > !{group}_haplo.INFO
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 haplogrep: 
-		  version: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/.*Classify v// ; s/ .*//")
-		  container: ${task.container}
-		 montage: 
-		  version: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
-		  container: ${task.container}
-		END_VERSIONS
-		'''
 
+		'''
+		// cat <<-END_VERSIONS > !{task.process}_versions.yml
+		// !{task.process}:
+		//  haplogrep: 
+		//   version: \!(echo \!(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/.*Classify v// ; s/ .*//")
+		//   container: !{task.container}
+		//  montage: 
+		//   version: \!(echo \!(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
+		//   container: !{task.container}
+		// END_VERSIONS
 	stub:
 		"""
 		touch ${group}.haplogrep.png
@@ -3073,7 +3073,7 @@ process postprocessgatk {
 			file("genotyped-intervals-${group}-vs-cohort30.vcf.gz"), \
 			file("genotyped-segments-${group}-vs-cohort30.vcf.gz"), \
 			file("denoised-${group}-vs-cohort30.vcf.gz") into called_gatk
-		path "*versions.yml"
+		//path "*versions.yml"
 
 	script:
 		modelshards = shard.join(' --model-shard-path ') // join each reference shard
@@ -3105,15 +3105,13 @@ process postprocessgatk {
 			--sequence-dictionary !{params.GENOMEDICT} \
 			--calls-shard-path !{caseshards} \
 			--model-shard-path !{modelshards}
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
 		'''
-
+		// cat <<-END_VERSIONS > ${task.process}_versions.yml
+		// ${task.process}:
+		//  GATK: 
+		//   version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+		//   container: ${task.container}
+		// END_VERSIONS
 	stub:
 		"""
 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
