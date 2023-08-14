@@ -1272,7 +1272,6 @@ process annotate_vep {
 	"""
 }
 
-// --plugin dbNSFP,/fs1/resources/ref/hg38/annotation_dbs/dbnsfp/dbNSFP4.3a_grch38.gzBayesDel_addAF_score,BayesDel_addAF_rankscore,BayesDel_addAF_pred,BayesDel_noAF_score,BayesDel_noAF_rankscore,BayesDel_noAF_pred \\   
 
 // gene, clinvar, loqusdb, enigma(onco)
 process vcfanno {
