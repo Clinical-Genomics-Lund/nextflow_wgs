@@ -525,20 +525,28 @@ process sentieon_qc {
 			assay = "panel"
 		}
 		
-	"""
-	sentieon driver \\
-		-r $genome_file $target \\
-		-t ${task.cpus} \\
-		-i $bam \\
-		--algo MeanQualityByCycle mq_metrics.txt \\
-		--algo QualDistribution qd_metrics.txt \\
-		--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
-		--algo AlignmentStat aln_metrics.txt \\
-		--algo InsertSizeMetricAlgo is_metrics.txt \\
-		--algo $cov
-	$panel
-	qc_sentieon.pl $id $assay > ${id}_qc.json
-	"""
+		"""
+		sentieon driver \\
+			-r $genome_file $target \\
+			-t ${task.cpus} \\
+			-i $bam \\
+			--algo MeanQualityByCycle mq_metrics.txt \\
+			--algo QualDistribution qd_metrics.txt \\
+			--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
+			--algo AlignmentStat aln_metrics.txt \\
+			--algo InsertSizeMetricAlgo is_metrics.txt \\
+			--algo $cov
+		$panel
+		qc_sentieon.pl $id $assay > ${id}_qc.json
+
+		cat <<-END_VERSIONS > ${task.process}_versions.yml
+		${task.process}:
+		 Sentieon DRIVER: 
+		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+		  container: ${task.container}
+		END_VERSIONS
+		"""
+
 	stub:
 		"""
 		touch ${id}_qc.json
@@ -859,14 +867,13 @@ process reviewer {
 		--locus $_ \
 		--output-prefix !{id}");'
 
-
+		cat <<-END_VERSIONS > !{task.process}_versions.yml
+		!{task.process}:
+		 REViewer: 
+		  version: $(echo $(REViewer --version 2>&1) | sed 's/^.*REViewer v//')
+		  container: !{task.container}
+		END_VERSIONS
 		'''
-		// cat <<-END_VERSIONS > ${task.process}_versions.yml
-		// ${task.process}:
-		//  REViewer: 
-		//   version: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')
-		//   container: ${task.container}
-		// END_VERSIONS
 	stub:
 		"""
 		touch ${id}.svg
@@ -1715,17 +1722,17 @@ process run_haplogrep {
 		montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
 		echo "IMG haplogrep !{params.accessdir}/plots/mito/!{group}.haplogrep.png" > !{group}_haplo.INFO
 		
-
+		cat <<-END_VERSIONS > !{task.process}_versions.yml
+		!{task.process}:
+		 haplogrep: 
+		  version: $(echo $(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/.*Classify v// ; s/ .*//")
+		  container: !{task.container}
+		 montage: 
+		  version: $(echo $(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
+		  container: !{task.container}
+		END_VERSIONS
 		'''
-		// cat <<-END_VERSIONS > !{task.process}_versions.yml
-		// !{task.process}:
-		//  haplogrep: 
-		//   version: \!(echo \!(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/.*Classify v// ; s/ .*//")
-		//   container: !{task.container}
-		//  montage: 
-		//   version: \!(echo \!(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
-		//   container: !{task.container}
-		// END_VERSIONS
+		
 	stub:
 		"""
 		touch ${group}.haplogrep.png
@@ -3105,13 +3112,14 @@ process postprocessgatk {
 			--sequence-dictionary !{params.GENOMEDICT} \
 			--calls-shard-path !{caseshards} \
 			--model-shard-path !{modelshards}
+
+		cat <<-END_VERSIONS > !{task.process}_versions.yml
+		!{task.process}:
+		 GATK: 
+		  version: $(echo $(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*// ; s/-SNAPSHOT//')
+		  container: !{task.container}
+		END_VERSIONS
 		'''
-		// cat <<-END_VERSIONS > ${task.process}_versions.yml
-		// ${task.process}:
-		//  GATK: 
-		//   version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		//   container: ${task.container}
-		// END_VERSIONS
 	stub:
 		"""
 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
@@ -4138,7 +4146,6 @@ process plot_pod {
 	container = '/fs1/resources/containers/POD_2020-05-19.sif'
 	publishDir "/${OUTDIR}/pod", mode: 'copy' , overwrite: 'true', pattern: '*.pdf'
 	publishDir "/${OUTDIR}/pod", mode: 'copy' , overwrite: 'true', pattern: '*.html'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$group"
 	time '20m'
 	memory '1 GB'
@@ -4150,7 +4157,6 @@ process plot_pod {
 
 	output:
 		set file("${id}_POD_karyotype.pdf"), file("${id}_POD_results.html")
-		path "*versions.yml"
 
 	when:
 		mode == "family" && trio == true
