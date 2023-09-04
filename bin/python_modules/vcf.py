@@ -1,8 +1,27 @@
 import re
 import subprocess
 
-def parse_vcf():
-    pass
+def parse_vcf(file_name):
+    # FIXME: Handle gzipped
+    with open(file_name) as vcf_fh:
+
+        header_lines = list()
+        vcf_meta = dict()
+
+        for line in vcf_fh:
+            line = line.rstrip()
+            if line == "":
+                next
+        
+            if (line.startswith("#")):
+                header_lines.push(line)
+            
+            if (line.startswith("##")):
+                (my_type, meta) = parse_metainfo(line)
+                if (type is not None):
+                    vcf_meta[my_type]['ID'] = meta
+
+
 
 # FIXME
 def parse_metainfo(line):
@@ -29,8 +48,8 @@ def parse_genotype():
 def parse_info():
     pass
 
-def parse_VEP_CSQ():
-    pass
+def parse_VEP_CSQ(CSQ_var, CSQ_meta):
+    CSQ_meta["Description"] = 
 
 # Remove character(s) defined in arg2 if first in string, and arg3 if last in string
 def remove_surrounding(line, before, after):
