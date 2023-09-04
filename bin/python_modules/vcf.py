@@ -54,16 +54,41 @@ def parse_metainfo(line):
         pairs = keyval(trimmed_data, '=')
         return (line_type, pairs)
 
-    return (null, null)
+    return (None, None)
 
-def parse_variant():
-    pass
+def parse_variant(var_str, head, meta):
+    var_data = var_str.split("\t")
+    variants = dict()
 
-def parse_genotype():
-    pass
+    variants[var_str] = var_str
 
-def parse_info():
-    pass
+    # First seven fields
+    for (i in range(0, 7)):
+        variants[head[i]] = var_data[i]
+    
+    # Eight field, INFO
+    variants["INFO"] = parse_info(var_data[7])
+
+    if (variants["INFO"]["CSQ"] is not None):
+        variants["INFO"]["CSQ"] = parse_VEP_CSQ(
+            variants["INFO"]["CSQ"],
+            meta["INFO"]["CSQ"]
+        )
+
+    for (i in range(9, len(var_data))):
+        variants["GT"][head[i]] = parse_genotype(var_data[8], var_data[i])
+
+    return variants
+
+def parse_genotype(format_str, data_str):
+    format_arr = format_str.split(':')
+    data = data_str.split(':')
+
+    gt = zip(format_arr, data)
+
+def parse_info(info_str):
+    info = keyval(info_str, '=', ';')
+    return info
 
 def parse_VEP_CSQ(CSQ_var, CSQ_meta):
     CSQ_meta["Description"] = 
