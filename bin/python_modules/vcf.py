@@ -2,25 +2,42 @@ import re
 import subprocess
 
 def parse_vcf(file_name):
+
+    header_lines = list()
+    vcf_meta = dict()
+    vcf_data = list()
+    header = None
+
     # FIXME: Handle gzipped
     with open(file_name) as vcf_fh:
 
-        header_lines = list()
-        vcf_meta = dict()
-
         for line in vcf_fh:
             line = line.rstrip()
-            if line == "":
+            if line == '':
                 next
         
-            if (line.startswith("#")):
+            if (line.startswith('#')):
                 header_lines.push(line)
             
-            if (line.startswith("##")):
+            if (line.startswith('##')):
                 (my_type, meta) = parse_metainfo(line)
                 if (type is not None):
                     vcf_meta[my_type]['ID'] = meta
+            else if (line.startswith('##')):
+                line_content = line.slice(1)
+                header = line_content.split('\t')
+            else:
+                if header is None:
+                    throw new Error("Malformed VCF: No column description header")
+                variant = parse_variant(line, header, vcf_meta)
+                if "CHROM" in variant:
+                    vcf_data.push(variant)
 
+    # FIXME: Probably not how to do it?
+    samples = header[9]
+    vcf_meta[header] = header_lines.join("\n")
+
+    return (vcf_meta, vcf_data, samples)
 
 
 # FIXME
