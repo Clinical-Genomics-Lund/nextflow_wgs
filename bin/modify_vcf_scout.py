@@ -69,10 +69,25 @@ rank = {
     'intergenic_variant': 37
 }
 
+info_lines = [
+    "##INFO\=<ID=GNOMADAF\,Number=1\,Type=Float,Description=\"Average AF GnomAD\">",
+    "##INFO=<ID=GNOMADAF_MAX,Number=1,Type=Float,Description=\"Highest reported AF in gnomAD\">",
+    "##INFO=<ID=GNOMADPOP_MAX,Number=1,Type=Float,Description=\"Population of highest AF\">",
+    "##INFO=<ID=dbNSFP_GERP___RS,Number=1,Type=Float,Description=\"GERP score\">",
+    "##INFO=<ID=dbNSFP_phyloP100way_vertebrate,Number=1,Type=Float,Description=\"phyloP100 score\">",
+    "##INFO=<ID=dbNSFP_phastCons100way_vertebrate,Number=1,Type=Float,Description=\"phastcons score\">",
+    "##INFO=<ID=CLNSIG_MOD,Number=.,Type=String,Description=\"Modified Variant Clinical Significance, for genmod score _0_ - Uncertain significance, _1_ - not provided, _2_ - Benign, _3_ - Likely benign, _4_ - Likely pathogenic, _5_ - Pathogenic, _6_ - drug response, _7_ - histocompatibility, _255_ - other\">",
+    "##INFO=<ID=most_severe_consequence,Number=.,Type=String,Description=\"Most severe genomic consequence.\">",
+    "##INFO=<ID=CADD,Number=.,Type=String,Description=\"CADD phred score\">",
+    "##INFO=<ID=nhomalt,Number=.,Type=Integer,Description=\"number of alt allele homozygous individuals in gnomad\">",
+]
+
 # vep_csq?
 
 def main():
     print(f"Hello world! First argument: {sys.argv[1]}")
+
+    header = None
 
     with open(sys.argv[1]) as VEP:
         for line in VEP:
@@ -90,12 +105,27 @@ def main():
 
             # Print and store header
             else if (line.startswith("#")):
-                print("Header to output file here")
+                print(info_lines.join("\n"))
+                header = line.slice(1).split("\t")
+
             # Print and store variant information
             # Add gnomadg
             # Add conservation scores
             else:
-                pass
+                print_variant_information(header, vcf_meta)
+
+
+def print_variant_information(line, header, vcf_meta):
+    doobi = parse_variant(header, vcf_meta)
+    add_info_field = list()
+    VARIANTS = line.split("\t")
+    info_field = [line.split(";"), VARIANTS[7]]
+
+    if (doobi["CHROM"].startswith("M")):
+        vep_csq = "Consequence annotations from Ensembl VEP"
+
+    # FIXME: To be continued here ...
+    # Let's see how many sub routines are needed
 
 if __name__ == "__main__":
     main()
