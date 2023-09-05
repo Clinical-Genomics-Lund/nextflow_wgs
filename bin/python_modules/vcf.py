@@ -1,8 +1,12 @@
 import re
 import subprocess
+import sys
 
-def debug(text):
-    print(f'DEBUG: {text}')
+def debug(text, debug_info=''):
+    if debug_info == '':
+        print(f'DEBUG: {text}')
+    else:
+        print(f'DEBUG: {debug_info} {text}')
 
 def parse_vcf(file_name: str) -> tuple[dict, list, list]:
 
@@ -25,7 +29,7 @@ def parse_vcf(file_name: str) -> tuple[dict, list, list]:
             
             if (line.startswith('##')):
                 (my_type, meta) = parse_metainfo(line)
-                if (type is not None):
+                if (my_type is not None):
                     vcf_meta[my_type]['ID'] = meta
             elif (line.startswith('##')):
                 line_content = line[1:]
@@ -47,14 +51,14 @@ def parse_vcf(file_name: str) -> tuple[dict, list, list]:
 def parse_metainfo(comment: str) -> tuple[str, dict]|tuple[None, None]:
 
     comment = re.sub('^##', '', comment)
-    debug(f'comment {comment}')
+    # debug(f'comment {comment}')
     fields = comment.split('=')
     line_type = fields[0]
     data = '='.join(fields[1:])
     # [line_type, data] = comment.split('=')
     valid_linetypes = ['FORMAT', 'INFO', 'SAMPLE', 'FILTER']
 
-    debug(f'{line_type}, {data}')
+    # debug(f'{line_type}, {data}')
 
     if line_type in valid_linetypes:
         trimmed_data = remove_surrounding(data, '<', '>')
@@ -76,18 +80,23 @@ def parse_variant(var_str: str, head: list[str], meta: dict[str, dict]) -> dict:
     # Eight field, INFO
     variants["INFO"] = parse_info(var_data[7])
 
-    if (variants["INFO"]["CSQ"] is not None):
+
+    # FIXME: Run with a sample containing CSQ field
+    if ('CSQ' in variants["INFO"]):
+        debug(meta['INFO'], 'test')
         variants["INFO"]["CSQ"] = parse_VEP_CSQ(
             variants["INFO"]["CSQ"],
             meta["INFO"]["CSQ"]
         )
 
     for i in range(9, len(var_data)):
+        if 'GT' not in variants:
+            variants['GT'] = dict()
         variants["GT"][head[i]] = parse_genotype(var_data[8], var_data[i])
 
     return variants
 
-def parse_genotype(format_str: str, data_str: str) -> dict:
+def parse_genotype(format_str: str, data_str: str) -> dict[str, str]:
     format_arr = format_str.split(':')
     data = data_str.split(':')
 
@@ -98,8 +107,9 @@ def parse_info(info_str: str) -> dict:
     info = keyval(info_str, '=', ';')
     return info
 
-def parse_VEP_CSQ(CSQ_var: str, CSQ_meta: dict[str, str]) -> list:
-    field_names = CSQ_meta['Description'].replace('Consequence annotations from Ensembl VEP. Format: ', '')
+def parse_VEP_CSQ(CSQ_var: str, CSQ_meta: dict[str, str]) -> list[dict[str, str]]:
+    field_names = CSQ_meta['Description']\
+        .replace('Consequence annotations from Ensembl VEP. Format: ', '')
     transcripts = CSQ_var.split(',')
     data_transcripts = list()
     for transcript_CSQ in transcripts:
@@ -113,6 +123,10 @@ def parse_VEP_CSQ(CSQ_var: str, CSQ_meta: dict[str, str]) -> list:
             else:
                 data[field_names[i]] = values[i] if len(values) > i else ""
         data_transcripts.append(data)
+
+    # debug(data_transcripts, 'data_transcripts')
+    sys.exit(1)
+
     return data_transcripts
 
 # Remove character(s) defined in arg2 if first in string, and arg3 if last in string
@@ -125,17 +139,19 @@ def remove_surrounding(line: str, before: str, after: str) -> str:
 # - Keys and values separated by 2nd argument
 # - Pairs separated by 3rd argument
 # - Handles commas in values if surrounded by double quotes
-def keyval(my_str: str, keyval_sep: str, pair_sep: str) -> dict[str, str]:
-    pair_str = my_str.split(pair_sep)
-    assert(len(pair_str) == 2)
+def keyval(my_str: str, keyval_sep: str, pair_sep: str) -> dict[str, str|int]:
+    pair_strs = my_str.split(pair_sep)
+    # debug(pair_strs, 'keyval1')
 
     pairs = dict()
 
-    for pair in pair_str:
+    for pair in pair_strs:
         # If key-value separator exsts, save the value for the key
         if keyval_sep is not None:
-            debug(f'keyval {pair}')
-            (key, val) = pair.split(keyval_sep)
+            # debug(f'keyval {pair}')
+            fields = pair.split(keyval_sep)
+            key = fields[0]
+            val = keyval_sep.join(fields[1:])
             pairs[key] = val
         # Otherwise treat the whole string as a flag and set it to one (true)
         else:

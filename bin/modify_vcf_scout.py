@@ -1,32 +1,35 @@
 import sys
+import pprint
 import python_modules.vcf as vcf
 
+pp = pprint.PrettyPrinter(depth=4)
+
 maxentscan = {
-    "MES-NCSS_downstream_donor":1,
-    "MES-NCSS_downstream_acceptor" :1,
-    "MES-NCSS_upstream_acceptor":1,
-    "MES-NCSS_upstream_donor":1,
-    "MES-SWA_acceptor_alt":1,
-    "MES-SWA_acceptor_diff":1,
-    "MES-SWA_acceptor_ref":1,
-    "MES-SWA_acceptor_ref_comp":1,
-    "MES-SWA_donor_alt":1,
-    "MES-SWA_donor_diff":1,
-    "MES-SWA_donor_ref":1,
-    "MES-SWA_donor_ref_comp":1,
-    "MaxEntScan_alt":1,
-    "MaxEntScan_diff":1,
-    "MaxEntScan_ref": 1
+    'MES-NCSS_downstream_donor': 1,
+    'MES-NCSS_downstream_acceptor': 1,
+    'MES-NCSS_upstream_acceptor': 1,
+    'MES-NCSS_upstream_donor': 1,
+    'MES-SWA_acceptor_alt': 1,
+    'MES-SWA_acceptor_diff': 1,
+    'MES-SWA_acceptor_ref': 1,
+    'MES-SWA_acceptor_ref_comp': 1,
+    'MES-SWA_donor_alt': 1,
+    'MES-SWA_donor_diff': 1,
+    'MES-SWA_donor_ref': 1,
+    'MES-SWA_donor_ref_comp': 1,
+    'MaxEntScan_alt': 1,
+    'MaxEntScan_diff': 1,
+    'MaxEntScan_ref': 1
 }
 
 clinmod = {
-    "Pathogenic": "_5_",
-    "Likely_pathogenic": "_4_",
-    "Likely_benign": "_3_",
-    "Benign": "_2_",
-    "Uncertain_significance": "_0_",
-    "not_provided": "_1_", 
-    "drug_response": "_6_"
+    'Pathogenic': '_5_',
+    'Likely_pathogenic': '_4_',
+    'Likely_benign': '_3_',
+    'Benign': '_2_',
+    'Uncertain_significance': '_0_',
+    'not_provided': '_1_',
+    'drug_response': '_6_'
 }
 
 rank = {
@@ -70,19 +73,17 @@ rank = {
 }
 
 info_lines = [
-    "##INFO\=<ID=GNOMADAF\,Number=1\,Type=Float,Description=\"Average AF GnomAD\">",
-    "##INFO=<ID=GNOMADAF_MAX,Number=1,Type=Float,Description=\"Highest reported AF in gnomAD\">",
-    "##INFO=<ID=GNOMADPOP_MAX,Number=1,Type=Float,Description=\"Population of highest AF\">",
-    "##INFO=<ID=dbNSFP_GERP___RS,Number=1,Type=Float,Description=\"GERP score\">",
-    "##INFO=<ID=dbNSFP_phyloP100way_vertebrate,Number=1,Type=Float,Description=\"phyloP100 score\">",
-    "##INFO=<ID=dbNSFP_phastCons100way_vertebrate,Number=1,Type=Float,Description=\"phastcons score\">",
-    "##INFO=<ID=CLNSIG_MOD,Number=.,Type=String,Description=\"Modified Variant Clinical Significance, for genmod score _0_ - Uncertain significance, _1_ - not provided, _2_ - Benign, _3_ - Likely benign, _4_ - Likely pathogenic, _5_ - Pathogenic, _6_ - drug response, _7_ - histocompatibility, _255_ - other\">",
-    "##INFO=<ID=most_severe_consequence,Number=.,Type=String,Description=\"Most severe genomic consequence.\">",
-    "##INFO=<ID=CADD,Number=.,Type=String,Description=\"CADD phred score\">",
-    "##INFO=<ID=nhomalt,Number=.,Type=Integer,Description=\"number of alt allele homozygous individuals in gnomad\">",
+    '##INFO=<ID=GNOMADAF,Number=1,Type=Float,Description="Average AF GnomAD">',
+    '##INFO=<ID=GNOMADAF_MAX,Number=1,Type=Float,Description="Highest reported AF in gnomAD">',
+    '##INFO=<ID=GNOMADPOP_MAX,Number=1,Type=Float,Description="Population of highest AF">',
+    '##INFO=<ID=dbNSFP_GERP___RS,Number=1,Type=Float,Description="GERP score">',
+    '##INFO=<ID=dbNSFP_phyloP100way_vertebrate,Number=1,Type=Float,Description="phyloP100 score">',
+    '##INFO=<ID=dbNSFP_phastCons100way_vertebrate,Number=1,Type=Float,Description="phastcons score">',
+    '##INFO=<ID=CLNSIG_MOD,Number=.,Type=String,Description="Modified Variant Clinical Significance, for genmod score _0_ - Uncertain significance, _1_ - not provided, _2_ - Benign, _3_ - Likely benign, _4_ - Likely pathogenic, _5_ - Pathogenic, _6_ - drug response, _7_ - histocompatibility, _255_ - other">',
+    '##INFO=<ID=most_severe_consequence,Number=.,Type=String,Description="Most severe genomic consequence.">',
+    '##INFO=<ID=CADD,Number=.,Type=String,Description="CADD phred score">',
+    '##INFO=<ID=nhomalt,Number=.,Type=Integer,Description="number of alt allele homozygous individuals in gnomad">',
 ]
-
-# vep_csq?
 
 def debug(text, debug_info=''):
     if debug_info == '':
@@ -102,6 +103,8 @@ def main():
     vcf_data = list()
     vep_csq = ''
 
+    hits = 0
+
     with open(sys.argv[1]) as VEP:
         for line in VEP:
             line = line.rstrip()
@@ -110,13 +113,20 @@ def main():
             # Print and store Meta-info
             if (line.startswith("##")):
 
-                debug(f'Working on line {line}')
-
                 [header_type, meta] = vcf.parse_metainfo(line)
+                debug(f'{header_type} {meta} {line}', 'Hitting header_type')
                 if header_type is not None:
-                    
-                    vcf_meta[header_type]["ID"] = meta
-                if line.startswith("##INFO=<ID=CSQ,Number/"):
+                    hits += 1
+                    if header_type not in vcf_meta:
+                        vcf_meta[header_type] = dict()
+                    vcf_meta[header_type][meta['ID']] = meta
+
+                if hits > 1:
+                    pp.pprint(vcf_meta)
+                    # debug(vcf_meta, 'hits > 5')
+                    sys.exit(1)
+            
+                if line.startswith('##INFO=<ID=CSQ,Number/'):
                     vep_csq = line
                 # print(f"{header_type}-{meta}")
 
@@ -125,7 +135,7 @@ def main():
 
             # Print and store header
             elif (line.startswith("#")):
-                print('\n'.join(info_lines))
+                # print('\n'.join(info_lines))
                 headers = line[1:].split("\t")
 
             # Print and store variant information
@@ -134,12 +144,17 @@ def main():
             else:
                 print_variant_information(line, headers, vcf_meta, vep_csq)
 
-def print_variant_information(line: str, header: list, vcf_meta: dict, vep_csq: str):
-    parsed_variant_doobi = vcf.parse_variant(header, vcf_meta)
+def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_csq: str):
+
+    # debug(vcf_meta, 'vcf_meta')
+    # debug('STOPPING')
+    # sys.exit(1)
+
+    parsed_variant_doobi = vcf.parse_variant(var_str, header, vcf_meta)
 
     add_info_field = list()
-    variants = line.split("\t")
-    info_field = [line.split(";"), variants[7]]
+    variants = var_str.split("\t")
+    info_field = [var_str.split(";"), variants[7]]
 
     # FIXME: What is this? Mitochondrial?
     if (parsed_variant_doobi["CHROM"].startswith("M")):
@@ -181,35 +196,41 @@ def print_variant_information(line: str, header: list, vcf_meta: dict, vep_csq: 
         info_field = tmpinfo
         info_field.append("GeneticModels=mt")
 
-    print('\t'.join(variants[0:7]))
-    print('\t')
+    # print('\t'.join(variants[0:7]))
+    # print('\t')
 
+    # debug(parsed_variant_doobi, 'doobi')
+    # debug(parsed_variant_doobi['INFO']['CSQ'], 'doobi csq')
     csq = parsed_variant_doobi['INFO']['CSQ'][0]
+
+    # debug(csq, 'CSQ')
 
     # GNOMAD (?)
     # Overall
-    my_max = csq['gnomADg_AF_popmax']
+    my_max = csq.get('gnomADg_AF_popmax')
     if (my_max is not None):
         add_info_field.append(f'GNOMADAF_MAX={my_max}')
     
     # Population with max
     # max_pop = parsed_variant_doobi
-    max_pop = csq['gnomADg_popmax']
+    max_pop = csq.get('gnomADg_popmax')
     if max_pop is not None:
         add_info_field.append(f'GNOMADPOP_MAX={max_pop}')
 
     # GERP
-    gerp = csq['GERP']
-    add_info_field.append(f'dbNSFP_GERP___RS={gerp}')
+    gerp = csq.get('GERP')
+    if gerp is not None:
+        add_info_field.append(f'dbNSFP_GERP___RS={gerp}')
 
     # PHASTCONS
-    pC = csq['phastCons']
+    pC = csq.get('phastCons')
     if pC is not None:
         add_info_field.append(f'dbNSFP_phastCons10way_vertebrate={pC}')
 
     # PHYLOP
-    pP = csq['phyloP100way']
-    add_info_field.append(f'dbNSFP_phyloP100way_vertebrate={pP}')
+    pP = csq.get('phyloP100way')
+    if pP is not None:
+        add_info_field.append(f'dbNSFP_phyloP100way_vertebrate={pP}')
 
     # CADD
     cadd = csq['CADD_PHRED']
@@ -223,9 +244,9 @@ def print_variant_information(line: str, header: list, vcf_meta: dict, vep_csq: 
     most_severe_consequence(add_info_field, parsed_variant_doobi)
 
     info_field.append(add_info_field)
-    print(';'.join(info_field))
-    print('\t')
-    print('\t'.join(variants[8:]))
+    # print(';'.join(info_field))
+    # print('\t')
+    # print('\t'.join(variants[8:]))
 
 # FIXME: Return the result instead and mutate add_info_field from outside
 def modify_clinsig(add_info_field, doobi):

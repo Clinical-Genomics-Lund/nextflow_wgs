@@ -50,7 +50,7 @@ sub parse_vcf {
             die "Malformed VCF: No column description header." unless @head;
             my $variant = parse_variant( $_, \@head, \%vcf_meta );
             if( $variant->{CHROM} ) {
-            push @vcf_data, $variant if defined $variant;
+                push @vcf_data, $variant if defined $variant;
             }
         }
     }
@@ -83,7 +83,11 @@ sub parse_metainfo {
 
 # Parse VCF variant line
 sub parse_variant {
+
     my( $var_str, $head, $meta ) = @_;
+
+    die("Hitting parse_variant")
+
     my @var_data = split /\t/, $var_str;
     my %var;
 
@@ -99,6 +103,8 @@ sub parse_variant {
 
     # Parse VEP annotation field, if any
     if( $var{ INFO }->{ CSQ } ) {
+        print(meta);
+        die("DEBUG STOPPING");
 	    $var{ INFO }->{ CSQ } = parse_VEP_CSQ( $var{INFO}->{CSQ}, $meta->{INFO}->{CSQ} );
     }
     

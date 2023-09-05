@@ -69,27 +69,40 @@ my %rank = (
 
 my $vep_csq;
 
+my $hits = 0;
+
 while( <VEP>) {
     ## Print and store Meta-info
     if( /^##/ ) {
-        print;
+        # print;
         my( $type, $meta ) = parse_metainfo( $_ );
+        if (defined $type) {
+            $hits += 1;
+            # print($type, "\n");
+            # die("Hitting defined type");
+        }
 	    $vcf_meta{$type}->{$meta->{ID}} = $meta if defined $type;
+
+        if ($hits > 1) {
+            print(Dumper(%vcf_meta));
+            die("Looking into vcf meta");
+        }
+
         if ( /^##INFO=<ID=CSQ,Number=/) {$vep_csq = $_;}
     }
     # Print and store header
     elsif( /^#/ ) {
-        print "##INFO\=<ID=GNOMADAF\,Number=1\,Type=Float,Description=\"Average AF GnomAD\">\n";
-        print "##INFO=<ID=GNOMADAF_MAX,Number=1,Type=Float,Description=\"Highest reported AF in gnomAD\">\n";
-        print "##INFO=<ID=GNOMADPOP_MAX,Number=1,Type=Float,Description=\"Population of highest AF\">\n";
-        print "##INFO=<ID=dbNSFP_GERP___RS,Number=1,Type=Float,Description=\"GERP score\">\n";
-        print "##INFO=<ID=dbNSFP_phyloP100way_vertebrate,Number=1,Type=Float,Description=\"phyloP100 score\">\n";
-        print "##INFO=<ID=dbNSFP_phastCons100way_vertebrate,Number=1,Type=Float,Description=\"phastcons score\">\n";
-        print "##INFO=<ID=CLNSIG_MOD,Number=.,Type=String,Description=\"Modified Variant Clinical Significance, for genmod score _0_ - Uncertain significance, _1_ - not provided, _2_ - Benign, _3_ - Likely benign, _4_ - Likely pathogenic, _5_ - Pathogenic, _6_ - drug response, _7_ - histocompatibility, _255_ - other\">\n";
-        print "##INFO=<ID=most_severe_consequence,Number=.,Type=String,Description=\"Most severe genomic consequence.\">\n";
-        print "##INFO=<ID=CADD,Number=.,Type=String,Description=\"CADD phred score\">\n";
-        print "##INFO=<ID=nhomalt,Number=.,Type=Integer,Description=\"number of alt allele homozygous individuals in gnomad\">\n";
-	    print;
+        # print "##INFO\=<ID=GNOMADAF\,Number=1\,Type=Float,Description=\"Average AF GnomAD\">\n";
+        # print "##INFO=<ID=GNOMADAF_MAX,Number=1,Type=Float,Description=\"Highest reported AF in gnomAD\">\n";
+        # print "##INFO=<ID=GNOMADPOP_MAX,Number=1,Type=Float,Description=\"Population of highest AF\">\n";
+        # print "##INFO=<ID=dbNSFP_GERP___RS,Number=1,Type=Float,Description=\"GERP score\">\n";
+        # print "##INFO=<ID=dbNSFP_phyloP100way_vertebrate,Number=1,Type=Float,Description=\"phyloP100 score\">\n";
+        # print "##INFO=<ID=dbNSFP_phastCons100way_vertebrate,Number=1,Type=Float,Description=\"phastcons score\">\n";
+        # print "##INFO=<ID=CLNSIG_MOD,Number=.,Type=String,Description=\"Modified Variant Clinical Significance, for genmod score _0_ - Uncertain significance, _1_ - not provided, _2_ - Benign, _3_ - Likely benign, _4_ - Likely pathogenic, _5_ - Pathogenic, _6_ - drug response, _7_ - histocompatibility, _255_ - other\">\n";
+        # print "##INFO=<ID=most_severe_consequence,Number=.,Type=String,Description=\"Most severe genomic consequence.\">\n";
+        # print "##INFO=<ID=CADD,Number=.,Type=String,Description=\"CADD phred score\">\n";
+        # print "##INFO=<ID=nhomalt,Number=.,Type=Integer,Description=\"number of alt allele homozygous individuals in gnomad\">\n";
+	    # print;
         $_ =~ s/^#//;
 	    @head = split /\t/;
     }
@@ -147,14 +160,15 @@ while( <VEP>) {
             push @info_field,"GeneticModels=mt";
         }
         
-        print join "\t", @VARIANTS[0..6];
+        # print join "\t", @VARIANTS[0..6];
         
-        print "\t";
+        # print "\t";
         ## GNOMAD 
         ### OVERALL
+        print($doobi->{INFO}->{CSQ}->[0]->{gnomADg_AF});
         my $gAF = $doobi->{INFO}->{CSQ}->[0]->{gnomADg_AF};
         if ($gAF) {
-             push @add_info_field,"GNOMADAF=$gAF";
+            push @add_info_field,"GNOMADAF=$gAF";
         }
 	
         ### AF MAX POPULATION
@@ -233,10 +247,10 @@ while( <VEP>) {
         #Add new info field information
         push @info_field, @add_info_field;
         #print new and old information
-        print join ";", @info_field;
-        print "\t";
+        # print join ";", @info_field;
+        # print "\t";
         #print everything after info field
-        print join "\t", @VARIANTS[8..$#VARIANTS];
+        # print join "\t", @VARIANTS[8..$#VARIANTS];
     }
 }
 
@@ -284,7 +298,7 @@ sub parse_variant {
 
     # First seven fields
     for ( 0..6 ) {
-	$var{ $head->[$_] } = $var_data[$_];
+	    $var{ $head->[$_] } = $var_data[$_];
     }
 
     # Eigth field, INFO
@@ -292,12 +306,19 @@ sub parse_variant {
 
     # Parse VEP annotation field, if any
     if( $var{ INFO }->{ CSQ } ) {
-	$var{ INFO }->{ CSQ } = parse_VEP_CSQ( $var{INFO}->{CSQ}, $meta->{INFO}->{CSQ} );
+        # print($var{INFO}->{CSQ});
+        # print("---\n\n\n");
+        # print($meta);
+        # print($meta->{INFO}->{CSQ});
+        # print(Dumper($meta->{INFO}->{CSQ}));
+        # print("\n\n\n---\n\n\n");
+        # die("Stopping in new csq");
+	    $var{ INFO }->{ CSQ } = parse_VEP_CSQ( $var{INFO}->{CSQ}, $meta->{INFO}->{CSQ} );
     }
 
     # Genotypes for each sample
     for ( 9 .. (@var_data-1) ) {
-	$var{ GT } -> { $head->[$_] } = parse_genotype( $var_data[8], $var_data[$_] );
+	    $var{ GT } -> { $head->[$_] } = parse_genotype( $var_data[8], $var_data[$_] );
     }
 
     return \%var;
