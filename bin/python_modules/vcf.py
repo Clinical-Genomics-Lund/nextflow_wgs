@@ -23,12 +23,12 @@ def parse_vcf(file_name):
                 (my_type, meta) = parse_metainfo(line)
                 if (type is not None):
                     vcf_meta[my_type]['ID'] = meta
-            else if (line.startswith('##')):
+            elif (line.startswith('##')):
                 line_content = line.slice(1)
                 header = line_content.split('\t')
             else:
                 if header is None:
-                    throw new Error("Malformed VCF: No column description header")
+                    raise Exception("Malformed VCF: No column description header")
                 variant = parse_variant(line, header, vcf_meta)
                 if "CHROM" in variant:
                     vcf_data.push(variant)
@@ -63,7 +63,7 @@ def parse_variant(var_str, head, meta):
     variants[var_str] = var_str
 
     # First seven fields
-    for (i in range(0, 7)):
+    for i in range(0, 7):
         variants[head[i]] = var_data[i]
     
     # Eight field, INFO
@@ -75,7 +75,7 @@ def parse_variant(var_str, head, meta):
             meta["INFO"]["CSQ"]
         )
 
-    for (i in range(9, len(var_data))):
+    for i in range(9, len(var_data)):
         variants["GT"][head[i]] = parse_genotype(var_data[8], var_data[i])
 
     return variants

@@ -111,7 +111,7 @@ while( <VEP>) {
             #print Dumper($doobi->{INFO}->{CSQ}->[0]);
             foreach my $trans ( @{ $doobi->{INFO}->{CSQ} }) {
                 my @csq_mt;
-                foreach my $key ( @field_names) {
+                foreach my $key (@field_names) {
                    # print $key."  =>  ".$doobi->{INFO}->{CSQ}->[$trans_c]->{$key}."\n";
                     if ($maxentscan{$key}) {
                         push @csq_mt,"";
@@ -123,7 +123,7 @@ while( <VEP>) {
                         push @csq_mt,$doobi->{INFO}->{CSQ}->[$trans_c]->{$key};
                     }
                 }
-                my $csq_trans =  join("|",@csq_mt);
+                my $csq_trans =  join("|", @csq_mt);
                 $csq_trans =~ s/^\|//;
                 #print $csq_trans."\n";
                 if ($trans_c == 0) {

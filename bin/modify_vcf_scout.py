@@ -88,6 +88,9 @@ def main():
     print(f"Hello world! First argument: {sys.argv[1]}")
 
     header = None
+    vcf_meta = dict()
+    vcf_data = list()
+    vep_csq = None
 
     with open(sys.argv[1]) as VEP:
         for line in VEP:
@@ -98,13 +101,17 @@ def main():
             if (line.startswith("##")):
 
                 [header_type, meta] = vcf.parse_metainfo(line)
+                if header_type is not None:
+                    vcf_meta[header_type]["ID"] = meta
+                if line.startswith("##INFO=<ID=CSQ,Number/"):
+                    vep_csq = line
                 print(f"{header_type}-{meta}")
 
                 # Convert in meta data
                 # If INFO=CSQ?
 
             # Print and store header
-            else if (line.startswith("#")):
+            elif (line.startswith("#")):
                 print(info_lines.join("\n"))
                 header = line.slice(1).split("\t")
 
@@ -112,20 +119,150 @@ def main():
             # Add gnomadg
             # Add conservation scores
             else:
-                print_variant_information(header, vcf_meta)
+                print_variant_information(line, header, vcf_meta, vep_csq)
 
 
-def print_variant_information(line, header, vcf_meta):
-    doobi = parse_variant(header, vcf_meta)
+def print_variant_information(line: str, header: str, vcf_meta: str, vep_csq: str):
+    parsed_variant_doobi = vcf.parse_variant(header, vcf_meta)
+
     add_info_field = list()
-    VARIANTS = line.split("\t")
-    info_field = [line.split(";"), VARIANTS[7]]
+    variants = line.split("\t")
+    info_field = [line.split(";"), variants[7]]
 
-    if (doobi["CHROM"].startswith("M")):
-        vep_csq = "Consequence annotations from Ensembl VEP"
+    # FIXME: What is this? Mitochondrial?
+    if (parsed_variant_doobi["CHROM"].startswith("M")):
+        field_names_str = vep_csq.replace("Consequence annotations from Ensembl VEP. Format: ", "")
+        field_names = field_names_str.split("|")
+        info_field_mt = ""
+        trans_c = 0
 
-    # FIXME: To be continued here ...
-    # Let's see how many sub routines are needed
+        for trans in [var['INFO']['CSQ'] for var in parsed_variant_doobi]:
+            csq_mt = list()
+            for key in field_names:
+                if maxentscan[key]:
+                    csq_mt.push("")
+                elif (key == 'Consequence'):
+                    # FIXME: What is this?
+                    tmps = parsed_variant_doobi['INFO']['CSQ'][trans_c][key]
+                    csq_mt.push(tmps.join('&'))
+                else:
+                    # FIXME: What is this?
+                    tmps = parsed_variant_doobi['INFO']['CSQ'][trans_c]
+                    csq_mt.push(tmps)
+            csq_trans = csq_mt.join("|")
+            # FIXME: In perl a leading | was trimmed, is this needed?
+
+            if trans_c == 0:
+                info_field_mt = info_field_mt + csq_trans
+            else:
+                info_field_mt = info_field_mt + "," + csq_trans
+
+            # Next transcript
+            trans_c += 1
+        
+        tmpinfo = list()
+        for info in tmpinfo:
+            if info.find("CSQ") != -1:
+                tmpinfo.push(f'CSQ={info_field_mt}')
+            else:
+                tmpinfo.push(info)
+        info_field = tmpinfo
+        info_field.push("GeneticModels=mt")
+
+    print(variants.slice(0, 7).join('\t'))    
+    print('\t')
+
+    csq = parsed_variant_doobi['INFO']['CSQ'][0]
+
+    # GNOMAD (?)
+    # Overall
+    my_max = csq['gnomADg_AF_popmax']
+    if (my_max is not None):
+        add_info_field.push(f'GNOMADAF_MAX={my_max}')
+    
+    # Population with max
+    # max_pop = parsed_variant_doobi
+    max_pop = csq['gnomADg_popmax']
+    if max_pop is not None:
+        add_info_field.push(f'GNOMADPOP_MAX={max_pop}')
+
+    # GERP
+    gerp = csq['GERP']
+    add_info_field.push(f'dbNSFP_GERP___RS={gerp}')
+
+    # PHASTCONS
+    pC = csq['phastCons']
+    if pC is not None:
+        add_info_field.push(f'dbNSFP_phastCons10way_vertebrate={pC}')
+
+    # PHYLOP
+    pP = csq['phyloP100way']
+    add_info_field.push(f'dbNSFP_phyloP100way_vertebrate={pP}')
+
+    # CADD
+    cadd = csq['CADD_PHRED']
+    if cadd is not None:
+        add_info_field.push(f'CADD={cadd}')
+
+    # CLINSIG MODIFY
+    modify_clinsig(add_info_field, parsed_variant_doobi)
+
+    # MOST SEVERE CONSEQUENCE
+    most_severe_consequence(add_info_field, parsed_variant_doobi)
+
+    info_field.push(add_info_field)
+    print(info_field.join(';'))
+    print('\t')
+    print(variants.slice(8).join('\t'))
+
+# FIXME: Return the result instead and mutate add_info_field from outside
+def modify_clinsig(add_info_field, doobi):
+    csM = doobi['INFO']['CLNSIG']
+    mods = list()
+    if csM is not None:
+        csMs = csM.split(',')
+        for entry in csMs:
+            split_slash = entry.split('/')
+            for entry_slash in split_slash:
+                if clinmod[entry_slash]:
+                    mods.push(clinmod[entry_slash])
+                else:
+                    # FIXME: What is the purpose?
+                    mods.push('_255_')
+    joined_mods = mods.join('|')
+    add_info_field.push(f'CLNSIG_MOD={joined_mods}')
+
+def most_severe_consequence(add_info_field, doobi):
+    csq_ref = doobi['INFO']['CSQ']
+    m_s_c = CSQ(csq_ref)
+    most_severe = '.'
+    if m_s_c is not None:
+        m_s_c_low = [el.lower() for el in m_s_c]
+        most_severe = sorted(m_s_c_low, key=lambda el: rank[el])[-1]
+    add_info_field.push(f'most_severe_consequence={most_severe}')
+
+# THESE ARE ALL COUNTED AS "other":
+
+#      4 Affects
+#     14 association
+#      2 _association
+#     92 Conflicting_interpretations_of_pathogenicity
+#      3 other
+#      4 _other
+#      6 protective
+#      2 _protective
+#     11 _risk_factor
+#     37 risk_factor
+
+# FIXME: Document purpose
+def CSQ(csq):
+    all_csq = list()
+    for b in csq:
+        # If canon pick consensus consequence or if equal most severe
+        tmp = b['Consequence']
+        for conq in tmp:
+            all_csq.push(conq)
+    return all_csq
 
 if __name__ == "__main__":
     main()
