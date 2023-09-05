@@ -84,13 +84,23 @@ info_lines = [
 
 # vep_csq?
 
-def main():
-    print(f"Hello world! First argument: {sys.argv[1]}")
+def debug(text, debug_info=''):
+    if debug_info == '':
+        print(f'DEBUG: {text}')
+    else:
+        print(f'DEBUG: {debug_info} {text}')
 
-    header = None
+
+def main():
+
+    if len(sys.argv) < 2:
+        print(f'One argument is needed: ./modify_vcf_scout.py <vcf file>')
+        sys.exit(1)
+
+    headers = list()
     vcf_meta = dict()
     vcf_data = list()
-    vep_csq = None
+    vep_csq = ''
 
     with open(sys.argv[1]) as VEP:
         for line in VEP:
@@ -100,29 +110,31 @@ def main():
             # Print and store Meta-info
             if (line.startswith("##")):
 
+                debug(f'Working on line {line}')
+
                 [header_type, meta] = vcf.parse_metainfo(line)
                 if header_type is not None:
+                    
                     vcf_meta[header_type]["ID"] = meta
                 if line.startswith("##INFO=<ID=CSQ,Number/"):
                     vep_csq = line
-                print(f"{header_type}-{meta}")
+                # print(f"{header_type}-{meta}")
 
                 # Convert in meta data
                 # If INFO=CSQ?
 
             # Print and store header
             elif (line.startswith("#")):
-                print(info_lines.join("\n"))
-                header = line.slice(1).split("\t")
+                print('\n'.join(info_lines))
+                headers = line[1:].split("\t")
 
             # Print and store variant information
             # Add gnomadg
             # Add conservation scores
             else:
-                print_variant_information(line, header, vcf_meta, vep_csq)
+                print_variant_information(line, headers, vcf_meta, vep_csq)
 
-
-def print_variant_information(line: str, header: str, vcf_meta: str, vep_csq: str):
+def print_variant_information(line: str, header: list, vcf_meta: dict, vep_csq: str):
     parsed_variant_doobi = vcf.parse_variant(header, vcf_meta)
 
     add_info_field = list()
@@ -140,16 +152,16 @@ def print_variant_information(line: str, header: str, vcf_meta: str, vep_csq: st
             csq_mt = list()
             for key in field_names:
                 if maxentscan[key]:
-                    csq_mt.push("")
+                    csq_mt.append("")
                 elif (key == 'Consequence'):
                     # FIXME: What is this?
                     tmps = parsed_variant_doobi['INFO']['CSQ'][trans_c][key]
-                    csq_mt.push(tmps.join('&'))
+                    csq_mt.append(tmps.join('&'))
                 else:
                     # FIXME: What is this?
                     tmps = parsed_variant_doobi['INFO']['CSQ'][trans_c]
-                    csq_mt.push(tmps)
-            csq_trans = csq_mt.join("|")
+                    csq_mt.append(tmps)
+            csq_trans = '|'.join(csq_mt)
             # FIXME: In perl a leading | was trimmed, is this needed?
 
             if trans_c == 0:
@@ -163,13 +175,13 @@ def print_variant_information(line: str, header: str, vcf_meta: str, vep_csq: st
         tmpinfo = list()
         for info in tmpinfo:
             if info.find("CSQ") != -1:
-                tmpinfo.push(f'CSQ={info_field_mt}')
+                tmpinfo.append(f'CSQ={info_field_mt}')
             else:
-                tmpinfo.push(info)
+                tmpinfo.append(info)
         info_field = tmpinfo
-        info_field.push("GeneticModels=mt")
+        info_field.append("GeneticModels=mt")
 
-    print(variants.slice(0, 7).join('\t'))    
+    print('\t'.join(variants[0:7]))
     print('\t')
 
     csq = parsed_variant_doobi['INFO']['CSQ'][0]
@@ -178,31 +190,31 @@ def print_variant_information(line: str, header: str, vcf_meta: str, vep_csq: st
     # Overall
     my_max = csq['gnomADg_AF_popmax']
     if (my_max is not None):
-        add_info_field.push(f'GNOMADAF_MAX={my_max}')
+        add_info_field.append(f'GNOMADAF_MAX={my_max}')
     
     # Population with max
     # max_pop = parsed_variant_doobi
     max_pop = csq['gnomADg_popmax']
     if max_pop is not None:
-        add_info_field.push(f'GNOMADPOP_MAX={max_pop}')
+        add_info_field.append(f'GNOMADPOP_MAX={max_pop}')
 
     # GERP
     gerp = csq['GERP']
-    add_info_field.push(f'dbNSFP_GERP___RS={gerp}')
+    add_info_field.append(f'dbNSFP_GERP___RS={gerp}')
 
     # PHASTCONS
     pC = csq['phastCons']
     if pC is not None:
-        add_info_field.push(f'dbNSFP_phastCons10way_vertebrate={pC}')
+        add_info_field.append(f'dbNSFP_phastCons10way_vertebrate={pC}')
 
     # PHYLOP
     pP = csq['phyloP100way']
-    add_info_field.push(f'dbNSFP_phyloP100way_vertebrate={pP}')
+    add_info_field.append(f'dbNSFP_phyloP100way_vertebrate={pP}')
 
     # CADD
     cadd = csq['CADD_PHRED']
     if cadd is not None:
-        add_info_field.push(f'CADD={cadd}')
+        add_info_field.append(f'CADD={cadd}')
 
     # CLINSIG MODIFY
     modify_clinsig(add_info_field, parsed_variant_doobi)
@@ -210,10 +222,10 @@ def print_variant_information(line: str, header: str, vcf_meta: str, vep_csq: st
     # MOST SEVERE CONSEQUENCE
     most_severe_consequence(add_info_field, parsed_variant_doobi)
 
-    info_field.push(add_info_field)
-    print(info_field.join(';'))
+    info_field.append(add_info_field)
+    print(';'.join(info_field))
     print('\t')
-    print(variants.slice(8).join('\t'))
+    print('\t'.join(variants[8:]))
 
 # FIXME: Return the result instead and mutate add_info_field from outside
 def modify_clinsig(add_info_field, doobi):
@@ -225,11 +237,11 @@ def modify_clinsig(add_info_field, doobi):
             split_slash = entry.split('/')
             for entry_slash in split_slash:
                 if clinmod[entry_slash]:
-                    mods.push(clinmod[entry_slash])
+                    mods.append(clinmod[entry_slash])
                 else:
                     # FIXME: What is the purpose?
-                    mods.push('_255_')
-    joined_mods = mods.join('|')
+                    mods.append('_255_')
+    joined_mods = '|'.join(mods)
     add_info_field.push(f'CLNSIG_MOD={joined_mods}')
 
 def most_severe_consequence(add_info_field, doobi):
@@ -261,7 +273,7 @@ def CSQ(csq):
         # If canon pick consensus consequence or if equal most severe
         tmp = b['Consequence']
         for conq in tmp:
-            all_csq.push(conq)
+            all_csq.append(conq)
     return all_csq
 
 if __name__ == "__main__":
