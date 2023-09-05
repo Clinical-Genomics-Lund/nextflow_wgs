@@ -74,20 +74,8 @@ my $hits = 0;
 while( <VEP>) {
     ## Print and store Meta-info
     if( /^##/ ) {
-        # print;
         my( $type, $meta ) = parse_metainfo( $_ );
-        if (defined $type) {
-            $hits += 1;
-            # print($type, "\n");
-            # die("Hitting defined type");
-        }
 	    $vcf_meta{$type}->{$meta->{ID}} = $meta if defined $type;
-
-        # if ($hits > 1) {
-        #     print(Dumper(%vcf_meta));
-        #     die("Looking into vcf meta");
-        # }
-
         if ( /^##INFO=<ID=CSQ,Number=/) {$vep_csq = $_;}
     }
     # Print and store header
@@ -116,6 +104,7 @@ while( <VEP>) {
         my @info_field = split/;/,$VARIANTS[7];
 
         if ($doobi->{CHROM} =~ /^M/) {
+            die("Hitting the M");
             $vep_csq =~ /Consequence annotations from Ensembl VEP\. Format: (.*?)$/;
             my @field_names = split(/\|/, $1);
             my $info_field_mt = "";
@@ -160,9 +149,9 @@ while( <VEP>) {
             push @info_field,"GeneticModels=mt";
         }
         
-        # print join "\t", @VARIANTS[0..6];
+        print join "\t", @VARIANTS[0..6];
+        print "\t";
         
-        # print "\t";
         ## GNOMAD 
         ### OVERALL
         print($doobi->{INFO}->{CSQ}->[0]->{gnomADg_AF});

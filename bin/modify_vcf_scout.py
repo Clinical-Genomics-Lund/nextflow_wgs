@@ -109,34 +109,23 @@ def main():
     with open(sys.argv[1]) as VEP:
         for line in VEP:
             line = line.rstrip()
-            # print(line)
 
             # Print and store Meta-info
             if (line.startswith("##")):
 
                 [header_type, meta] = vcf.parse_metainfo(line)
-                # debug(f'{header_type} {meta} {line}', 'Hitting header_type')
                 if header_type is not None:
                     hits += 1
                     if header_type not in vcf_meta:
                         vcf_meta[header_type] = dict()
                     vcf_meta[header_type][meta['ID']] = meta
 
-                # if hits > 1:
-                #     pp.pprint(vcf_meta)
-                #     # debug(vcf_meta, 'hits > 5')
-                #     sys.exit(1)
-
                 if line.startswith('##INFO=<ID=CSQ,Number/'):
                     vep_csq = line
-                # print(f"{header_type}-{meta}")
-
-                # Convert in meta data
-                # If INFO=CSQ?
 
             # Print and store header
             elif (line.startswith("#")):
-                # print('\n'.join(info_lines))
+                print('\n'.join(info_lines))
                 headers = line[1:].split("\t")
 
             # Print and store variant information
@@ -148,36 +137,32 @@ def main():
 
 def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_csq: str):
 
-    # debug(vcf_meta, 'vcf_meta')
-    # debug('STOPPING')
-    # sys.exit(1)
-
-    parsed_variant_doobi = vcf.parse_variant(var_str, header, vcf_meta)
+    parsed_variant = vcf.parse_variant(var_str, header, vcf_meta)
 
     add_info_field = list()
     variants = var_str.split("\t")
     info_field = [var_str.split(";"), variants[7]]
 
     # FIXME: What is this? Mitochondrial?
-    if (parsed_variant_doobi["CHROM"].startswith("M")):
+    if (parsed_variant["CHROM"].startswith("M")):
         field_names_str = vep_csq.replace(
             "Consequence annotations from Ensembl VEP. Format: ", "")
         field_names = field_names_str.split("|")
         info_field_mt = ""
         trans_c = 0
 
-        for trans in [var['INFO']['CSQ'] for var in parsed_variant_doobi]:
+        for var_csq in [var['INFO']['CSQ'] for var in parsed_variant]:
             csq_mt = list()
             for key in field_names:
                 if maxentscan[key]:
                     csq_mt.append("")
                 elif (key == 'Consequence'):
                     # FIXME: What is this?
-                    tmps = parsed_variant_doobi['INFO']['CSQ'][trans_c][key]
+                    tmps = parsed_variant['INFO']['CSQ'][trans_c][key]
                     csq_mt.append(tmps.join('&'))
                 else:
                     # FIXME: What is this?
-                    tmps = parsed_variant_doobi['INFO']['CSQ'][trans_c]
+                    tmps = parsed_variant['INFO']['CSQ'][trans_c]
                     csq_mt.append(tmps)
             csq_trans = '|'.join(csq_mt)
             # FIXME: In perl a leading | was trimmed, is this needed?
@@ -199,12 +184,12 @@ def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_cs
         info_field = tmpinfo
         info_field.append("GeneticModels=mt")
 
-    # print('\t'.join(variants[0:7]))
-    # print('\t')
+    print('\t'.join(variants[0:7]))
+    print('\t')
 
     # debug(parsed_variant_doobi, 'doobi')
     # debug(parsed_variant_doobi['INFO']['CSQ'], 'doobi csq')
-    csq = parsed_variant_doobi['INFO']['CSQ'][0]
+    csq = parsed_variant['INFO']['CSQ'][0]
 
     # debug(csq, 'CSQ')
 
@@ -241,13 +226,13 @@ def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_cs
         add_info_field.append(f'CADD={cadd}')
 
     # CLINSIG MODIFY
-    if 'CLNSIG' in parsed_variant_doobi['INFO']:
-        clinsig = get_clinsig(parsed_variant_doobi)
+    if 'CLNSIG' in parsed_variant['INFO']:
+        clinsig = get_clinsig(parsed_variant)
         add_info_field.append(f'CLNSIG_MOD={clinsig}')
 
     # MOST SEVERE CONSEQUENCE
-    if 'Consequence' in parsed_variant_doobi['INFO']:
-        most_severe = most_severe_consequence(parsed_variant_doobi)
+    if 'Consequence' in parsed_variant['INFO']:
+        most_severe = most_severe_consequence(parsed_variant)
         add_info_field.append(f'most_severe_consequence={most_severe}')
 
     info_field.append(add_info_field)

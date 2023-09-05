@@ -1,6 +1,5 @@
 import re
 import subprocess
-import sys
 
 
 def debug(text, debug_info=''):
