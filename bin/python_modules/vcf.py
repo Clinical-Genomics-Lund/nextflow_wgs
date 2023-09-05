@@ -83,7 +83,10 @@ def parse_variant(var_str: str, head: list[str], meta: dict[str, dict]) -> dict:
 
     # FIXME: Run with a sample containing CSQ field
     if ('CSQ' in variants["INFO"]):
-        debug(meta['INFO'], 'test')
+        # debug(meta['INFO'], 'test')
+
+        assert 'CSQ' in meta['INFO'], 'CSQ not found among: {meta}'.format(meta['INFO'])
+
         variants["INFO"]["CSQ"] = parse_VEP_CSQ(
             variants["INFO"]["CSQ"],
             meta["INFO"]["CSQ"]
@@ -125,7 +128,7 @@ def parse_VEP_CSQ(CSQ_var: str, CSQ_meta: dict[str, str]) -> list[dict[str, str]
         data_transcripts.append(data)
 
     # debug(data_transcripts, 'data_transcripts')
-    sys.exit(1)
+    # sys.exit(1)
 
     return data_transcripts
 

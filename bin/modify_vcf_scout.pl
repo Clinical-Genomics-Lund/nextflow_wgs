@@ -83,10 +83,10 @@ while( <VEP>) {
         }
 	    $vcf_meta{$type}->{$meta->{ID}} = $meta if defined $type;
 
-        if ($hits > 1) {
-            print(Dumper(%vcf_meta));
-            die("Looking into vcf meta");
-        }
+        # if ($hits > 1) {
+        #     print(Dumper(%vcf_meta));
+        #     die("Looking into vcf meta");
+        # }
 
         if ( /^##INFO=<ID=CSQ,Number=/) {$vep_csq = $_;}
     }
@@ -304,6 +304,9 @@ sub parse_variant {
     # Eigth field, INFO
     $var{ INFO } = parse_info( $var_data[7] );
 
+    # print("Dumping the meta\n---\n");
+    # print(Dumper($meta->{INFO}->{CSQ}));
+
     # Parse VEP annotation field, if any
     if( $var{ INFO }->{ CSQ } ) {
         # print($var{INFO}->{CSQ});
@@ -351,28 +354,33 @@ sub parse_info {
 sub parse_VEP_CSQ {
     my( $CSQ_var, $CSQ_meta ) = @_;
 
+    # print("INSIDE PARSE_VEP_CSQ\n");
+    # print(Dumper($CSQ_meta));
+
     $CSQ_meta->{Description} =~ /Consequence annotations from Ensembl VEP\. Format: (.*?)$/;
 
     my @field_names = split /\|/, $1;
+    # print(Dumper(@field_names));
+    # die("");
 
     my @transcripts = split /,/, $CSQ_var;
 
     my @data_transcripts;
     foreach my $transcript_CSQ ( @transcripts ) {
-	my @values = split /\|/, $transcript_CSQ;
+        my @values = split /\|/, $transcript_CSQ;
 
-	my %data;
-	for( 0 .. $#field_names ) {
-	    if( $field_names[$_] eq "Consequence" ) {
-		my @conseq_array = split '&', $values[$_];
-		$data{ $field_names[$_] } = \@conseq_array;
-	    }
-	    else {
-		$data{ $field_names[$_] } = ( $values[$_] or "" );
-	    }
-	}
+        my %data;
+        for( 0 .. $#field_names ) {
+            if( $field_names[$_] eq "Consequence" ) {
+                my @conseq_array = split '&', $values[$_];
+                $data{ $field_names[$_] } = \@conseq_array;
+            }
+            else {
+                $data{ $field_names[$_] } = ( $values[$_] or "" );
+            }
+        }
 
-	push( @data_transcripts, \%data )
+        push( @data_transcripts, \%data )
     }
     return \@data_transcripts;
 }

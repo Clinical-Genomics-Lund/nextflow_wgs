@@ -114,17 +114,17 @@ def main():
             if (line.startswith("##")):
 
                 [header_type, meta] = vcf.parse_metainfo(line)
-                debug(f'{header_type} {meta} {line}', 'Hitting header_type')
+                # debug(f'{header_type} {meta} {line}', 'Hitting header_type')
                 if header_type is not None:
                     hits += 1
                     if header_type not in vcf_meta:
                         vcf_meta[header_type] = dict()
                     vcf_meta[header_type][meta['ID']] = meta
 
-                if hits > 1:
-                    pp.pprint(vcf_meta)
-                    # debug(vcf_meta, 'hits > 5')
-                    sys.exit(1)
+                # if hits > 1:
+                #     pp.pprint(vcf_meta)
+                #     # debug(vcf_meta, 'hits > 5')
+                #     sys.exit(1)
             
                 if line.startswith('##INFO=<ID=CSQ,Number/'):
                     vep_csq = line
@@ -233,23 +233,26 @@ def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_cs
         add_info_field.append(f'dbNSFP_phyloP100way_vertebrate={pP}')
 
     # CADD
-    cadd = csq['CADD_PHRED']
+    cadd = csq.get('CADD_PHRED')
     if cadd is not None:
         add_info_field.append(f'CADD={cadd}')
 
     # CLINSIG MODIFY
-    modify_clinsig(add_info_field, parsed_variant_doobi)
+    if 'CLNSIG' in parsed_variant_doobi['INFO']:
+        clinsig = get_clinsig(parsed_variant_doobi)
+        add_info_field.append(f'CLNSIG_MOD={clinsig}')
 
     # MOST SEVERE CONSEQUENCE
-    most_severe_consequence(add_info_field, parsed_variant_doobi)
+    if 'Consequence' in parsed_variant_doobi['INFO']:
+        most_severe = most_severe_consequence(parsed_variant_doobi)
+        add_info_field.append(f'most_severe_consequence={most_severe}')
 
     info_field.append(add_info_field)
     # print(';'.join(info_field))
     # print('\t')
     # print('\t'.join(variants[8:]))
 
-# FIXME: Return the result instead and mutate add_info_field from outside
-def modify_clinsig(add_info_field, doobi):
+def get_clinsig(doobi: dict) -> str:
     csM = doobi['INFO']['CLNSIG']
     mods = list()
     if csM is not None:
@@ -263,16 +266,18 @@ def modify_clinsig(add_info_field, doobi):
                     # FIXME: What is the purpose?
                     mods.append('_255_')
     joined_mods = '|'.join(mods)
-    add_info_field.push(f'CLNSIG_MOD={joined_mods}')
+    return joined_mods
+    # add_info_field.push(f'CLNSIG_MOD={joined_mods}')
 
-def most_severe_consequence(add_info_field, doobi):
+def most_severe_consequence(doobi: dict) -> str:
     csq_ref = doobi['INFO']['CSQ']
     m_s_c = CSQ(csq_ref)
     most_severe = '.'
     if m_s_c is not None:
         m_s_c_low = [el.lower() for el in m_s_c]
         most_severe = sorted(m_s_c_low, key=lambda el: rank[el])[-1]
-    add_info_field.push(f'most_severe_consequence={most_severe}')
+    return most_severe
+    # add_info_field.push(f'most_severe_consequence={most_severe}')
 
 # THESE ARE ALL COUNTED AS "other":
 
