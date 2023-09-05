@@ -2,11 +2,13 @@ import re
 import subprocess
 import sys
 
+
 def debug(text, debug_info=''):
     if debug_info == '':
         print(f'DEBUG: {text}')
     else:
         print(f'DEBUG: {debug_info} {text}')
+
 
 def parse_vcf(file_name: str) -> tuple[dict, list, list]:
 
@@ -23,10 +25,10 @@ def parse_vcf(file_name: str) -> tuple[dict, list, list]:
             line = line.rstrip()
             if line == '':
                 continue
-        
+
             if (line.startswith('#')):
                 header_lines.append(line)
-            
+
             if (line.startswith('##')):
                 (my_type, meta) = parse_metainfo(line)
                 if (my_type is not None):
@@ -36,7 +38,8 @@ def parse_vcf(file_name: str) -> tuple[dict, list, list]:
                 header = line_content.split('\t')
             else:
                 if header is None:
-                    raise Exception("Malformed VCF: No column description header")
+                    raise Exception(
+                        "Malformed VCF: No column description header")
                 variant = parse_variant(line, header, vcf_meta)
                 if "CHROM" in variant:
                     vcf_data.append(variant)
@@ -48,7 +51,7 @@ def parse_vcf(file_name: str) -> tuple[dict, list, list]:
 
 
 # FIXME
-def parse_metainfo(comment: str) -> tuple[str, dict]|tuple[None, None]:
+def parse_metainfo(comment: str) -> tuple[str, dict] | tuple[None, None]:
 
     comment = re.sub('^##', '', comment)
     # debug(f'comment {comment}')
@@ -67,6 +70,7 @@ def parse_metainfo(comment: str) -> tuple[str, dict]|tuple[None, None]:
 
     return (None, None)
 
+
 def parse_variant(var_str: str, head: list[str], meta: dict[str, dict]) -> dict:
     var_data = var_str.split("\t")
     variants = dict()
@@ -76,16 +80,16 @@ def parse_variant(var_str: str, head: list[str], meta: dict[str, dict]) -> dict:
     # First seven fields
     for i in range(0, 7):
         variants[head[i]] = var_data[i]
-    
+
     # Eight field, INFO
     variants["INFO"] = parse_info(var_data[7])
-
 
     # FIXME: Run with a sample containing CSQ field
     if ('CSQ' in variants["INFO"]):
         # debug(meta['INFO'], 'test')
 
-        assert 'CSQ' in meta['INFO'], 'CSQ not found among: {meta}'.format(meta['INFO'])
+        assert 'CSQ' in meta['INFO'], 'CSQ not found among: {meta}'.format(
+            meta['INFO'])
 
         variants["INFO"]["CSQ"] = parse_VEP_CSQ(
             variants["INFO"]["CSQ"],
@@ -99,6 +103,7 @@ def parse_variant(var_str: str, head: list[str], meta: dict[str, dict]) -> dict:
 
     return variants
 
+
 def parse_genotype(format_str: str, data_str: str) -> dict[str, str]:
     format_arr = format_str.split(':')
     data = data_str.split(':')
@@ -106,9 +111,11 @@ def parse_genotype(format_str: str, data_str: str) -> dict[str, str]:
     gt = dict(zip(format_arr, data))
     return gt
 
+
 def parse_info(info_str: str) -> dict:
     info = keyval(info_str, '=', ';')
     return info
+
 
 def parse_VEP_CSQ(CSQ_var: str, CSQ_meta: dict[str, str]) -> list[dict[str, str]]:
     field_names = CSQ_meta['Description']\
@@ -133,6 +140,8 @@ def parse_VEP_CSQ(CSQ_var: str, CSQ_meta: dict[str, str]) -> list[dict[str, str]
     return data_transcripts
 
 # Remove character(s) defined in arg2 if first in string, and arg3 if last in string
+
+
 def remove_surrounding(line: str, before: str, after: str) -> str:
     front_trimmed = re.sub(f"^{before}", "", line)
     back_trimmed = re.sub(f"{after}$", "", front_trimmed)
@@ -142,7 +151,9 @@ def remove_surrounding(line: str, before: str, after: str) -> str:
 # - Keys and values separated by 2nd argument
 # - Pairs separated by 3rd argument
 # - Handles commas in values if surrounded by double quotes
-def keyval(my_str: str, keyval_sep: str, pair_sep: str) -> dict[str, str|int]:
+
+
+def keyval(my_str: str, keyval_sep: str, pair_sep: str) -> dict[str, str | int]:
     pair_strs = my_str.split(pair_sep)
     # debug(pair_strs, 'keyval1')
 
@@ -161,12 +172,14 @@ def keyval(my_str: str, keyval_sep: str, pair_sep: str) -> dict[str, str|int]:
             pairs[pair] = 1
     return pairs
 
+
 def excel_float(val: str) -> str:
     if val == ".":
         return '0'
-    
+
     val = re.sub(".", ",", val)
     return val
+
 
 def is_gzipped(file_name: str) -> bool:
     completed_process = subprocess.run(
@@ -178,4 +191,3 @@ def is_gzipped(file_name: str) -> bool:
     output = completed_process.stdout
     is_gzipped = output.find("gzip compressed") != -1
     return is_gzipped
-

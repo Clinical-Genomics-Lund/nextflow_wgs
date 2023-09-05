@@ -85,6 +85,7 @@ info_lines = [
     '##INFO=<ID=nhomalt,Number=.,Type=Integer,Description="number of alt allele homozygous individuals in gnomad">',
 ]
 
+
 def debug(text, debug_info=''):
     if debug_info == '':
         print(f'DEBUG: {text}')
@@ -125,7 +126,7 @@ def main():
                 #     pp.pprint(vcf_meta)
                 #     # debug(vcf_meta, 'hits > 5')
                 #     sys.exit(1)
-            
+
                 if line.startswith('##INFO=<ID=CSQ,Number/'):
                     vep_csq = line
                 # print(f"{header_type}-{meta}")
@@ -144,6 +145,7 @@ def main():
             else:
                 print_variant_information(line, headers, vcf_meta, vep_csq)
 
+
 def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_csq: str):
 
     # debug(vcf_meta, 'vcf_meta')
@@ -158,7 +160,8 @@ def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_cs
 
     # FIXME: What is this? Mitochondrial?
     if (parsed_variant_doobi["CHROM"].startswith("M")):
-        field_names_str = vep_csq.replace("Consequence annotations from Ensembl VEP. Format: ", "")
+        field_names_str = vep_csq.replace(
+            "Consequence annotations from Ensembl VEP. Format: ", "")
         field_names = field_names_str.split("|")
         info_field_mt = ""
         trans_c = 0
@@ -186,7 +189,7 @@ def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_cs
 
             # Next transcript
             trans_c += 1
-        
+
         tmpinfo = list()
         for info in tmpinfo:
             if info.find("CSQ") != -1:
@@ -210,7 +213,7 @@ def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_cs
     my_max = csq.get('gnomADg_AF_popmax')
     if (my_max is not None):
         add_info_field.append(f'GNOMADAF_MAX={my_max}')
-    
+
     # Population with max
     # max_pop = parsed_variant_doobi
     max_pop = csq.get('gnomADg_popmax')
@@ -252,9 +255,11 @@ def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_cs
     # print('\t')
     # print('\t'.join(variants[8:]))
 
+
 def get_clinsig(doobi: dict) -> str:
     csM = doobi['INFO']['CLNSIG']
     mods = list()
+
     if csM is not None:
         csMs = csM.split(',')
         for entry in csMs:
@@ -268,6 +273,7 @@ def get_clinsig(doobi: dict) -> str:
     joined_mods = '|'.join(mods)
     return joined_mods
     # add_info_field.push(f'CLNSIG_MOD={joined_mods}')
+
 
 def most_severe_consequence(doobi: dict) -> str:
     csq_ref = doobi['INFO']['CSQ']
@@ -293,6 +299,8 @@ def most_severe_consequence(doobi: dict) -> str:
 #     37 risk_factor
 
 # FIXME: Document purpose
+
+
 def CSQ(csq):
     all_csq = list()
     for b in csq:
@@ -301,6 +309,7 @@ def CSQ(csq):
         for conq in tmp:
             all_csq.append(conq)
     return all_csq
+
 
 if __name__ == "__main__":
     main()
