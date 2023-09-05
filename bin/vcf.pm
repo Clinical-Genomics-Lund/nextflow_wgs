@@ -71,6 +71,7 @@ sub parse_metainfo {
     $comment =~ s/^##//;
     my( $type, $data ) = ( $comment =~ /^(.*?)=(.*)$/ );
 
+
     if( $type eq "FORMAT" or $type eq "INFO" or $type eq "SAMPLE" or $type eq "FILTER" ) {
 	    $data = remove_surrounding( $data, '<', '>' );
 	    my $pairs = keyval( $data, '=', ',' );
@@ -83,11 +84,7 @@ sub parse_metainfo {
 
 # Parse VCF variant line
 sub parse_variant {
-
     my( $var_str, $head, $meta ) = @_;
-
-    die("Hitting parse_variant")
-
     my @var_data = split /\t/, $var_str;
     my %var;
 
@@ -103,8 +100,6 @@ sub parse_variant {
 
     # Parse VEP annotation field, if any
     if( $var{ INFO }->{ CSQ } ) {
-        print(meta);
-        die("DEBUG STOPPING");
 	    $var{ INFO }->{ CSQ } = parse_VEP_CSQ( $var{INFO}->{CSQ}, $meta->{INFO}->{CSQ} );
     }
     
