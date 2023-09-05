@@ -118,7 +118,8 @@ def parse_info(info_str: str) -> dict:
 
 def parse_VEP_CSQ(CSQ_var: str, CSQ_meta: dict[str, str]) -> list[dict[str, str]]:
     field_names = CSQ_meta['Description']\
-        .replace('Consequence annotations from Ensembl VEP. Format: ', '')
+        .replace('Consequence annotations from Ensembl VEP. Format: ', '')\
+        .split('|')
     transcripts = CSQ_var.split(',')
     data_transcripts = list()
     for transcript_CSQ in transcripts:
@@ -127,8 +128,10 @@ def parse_VEP_CSQ(CSQ_var: str, CSQ_meta: dict[str, str]) -> list[dict[str, str]
         data = dict()
         for i in range(0, len(field_names)):
             if field_names[i] == 'Consequence':
+                # FIXME: Something strange here
                 conseq_array = values[i].split('&')
-                data[field_names[i]] = conseq_array
+                # FIXME; Compare to the Perl logic
+                data[field_names[i]] = conseq_array[0]
             else:
                 data[field_names[i]] = values[i] if len(values) > i else ""
         data_transcripts.append(data)

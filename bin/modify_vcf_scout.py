@@ -88,9 +88,9 @@ info_lines = [
 
 def debug(text, debug_info=''):
     if debug_info == '':
-        print(f'DEBUG: {text}')
+        print(f'DEBUG: {text}', file=sys.stderr)
     else:
-        print(f'DEBUG: {debug_info} {text}')
+        print(f'DEBUG: {debug_info} {text}', file=sys.stderr)
 
 
 def main():
@@ -126,119 +126,143 @@ def main():
             # Print and store header
             elif (line.startswith("#")):
                 print('\n'.join(info_lines))
-                headers = line[1:].split("\t")
+                header_line = line
+                headers = header_line[1:].split("\t")
+                print(header_line)
 
             # Print and store variant information
             # Add gnomadg
             # Add conservation scores
             else:
-                print_variant_information(line, headers, vcf_meta, vep_csq)
+                # print_variant_information(var_str, header, vcf_meta, vep_csq)
+                # def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_csq: str):
 
+                parsed_variant = vcf.parse_variant(line, headers, vcf_meta)
 
-def print_variant_information(var_str: str, header: list, vcf_meta: dict, vep_csq: str):
+                variants = line.split("\t")
+                original_variant_fields = line.split(";")
+                # info_fields.append(variants[7])
 
-    parsed_variant = vcf.parse_variant(var_str, header, vcf_meta)
+                # FIXME: What is this? Mitochondrial?
+                if (parsed_variant["CHROM"].startswith("M")):
+                    field_names_str = vep_csq.replace(
+                        "Consequence annotations from Ensembl VEP. Format: ", "")
+                    field_names = field_names_str.split("|")
+                    info_field_mt = ""
+                    trans_c = 0
 
-    add_info_field = list()
-    variants = var_str.split("\t")
-    info_field = [var_str.split(";"), variants[7]]
+                    for var_csq in [var['INFO']['CSQ'] for var in parsed_variant]:
+                        csq_mt = list()
+                        for key in field_names:
+                            if maxentscan[key]:
+                                csq_mt.append("")
+                            elif (key == 'Consequence'):
+                                # FIXME: What is this?
+                                tmps = parsed_variant['INFO']['CSQ'][trans_c][key]
+                                csq_mt.append(tmps.join('&'))
+                            else:
+                                # FIXME: What is this?
+                                tmps = parsed_variant['INFO']['CSQ'][trans_c]
+                                csq_mt.append(tmps)
+                        csq_trans = '|'.join(csq_mt)
+                        # FIXME: In perl a leading | was trimmed, is this needed?
 
-    # FIXME: What is this? Mitochondrial?
-    if (parsed_variant["CHROM"].startswith("M")):
-        field_names_str = vep_csq.replace(
-            "Consequence annotations from Ensembl VEP. Format: ", "")
-        field_names = field_names_str.split("|")
-        info_field_mt = ""
-        trans_c = 0
+                        if trans_c == 0:
+                            info_field_mt = info_field_mt + csq_trans
+                        else:
+                            info_field_mt = info_field_mt + "," + csq_trans
 
-        for var_csq in [var['INFO']['CSQ'] for var in parsed_variant]:
-            csq_mt = list()
-            for key in field_names:
-                if maxentscan[key]:
-                    csq_mt.append("")
-                elif (key == 'Consequence'):
-                    # FIXME: What is this?
-                    tmps = parsed_variant['INFO']['CSQ'][trans_c][key]
-                    csq_mt.append(tmps.join('&'))
-                else:
-                    # FIXME: What is this?
-                    tmps = parsed_variant['INFO']['CSQ'][trans_c]
-                    csq_mt.append(tmps)
-            csq_trans = '|'.join(csq_mt)
-            # FIXME: In perl a leading | was trimmed, is this needed?
+                        # Next transcript
+                        trans_c += 1
 
-            if trans_c == 0:
-                info_field_mt = info_field_mt + csq_trans
-            else:
-                info_field_mt = info_field_mt + "," + csq_trans
+                    tmpinfo = list()
+                    for info in tmpinfo:
+                        if info.find("CSQ") != -1:
+                            tmpinfo.append(f'CSQ={info_field_mt}')
+                        else:
+                            tmpinfo.append(info)
+                    info_fields = tmpinfo
+                    info_fields.append("GeneticModels=mt")
 
-            # Next transcript
-            trans_c += 1
+                # print('\t'.join(variants[0:7]))
+                # print('\t')
 
-        tmpinfo = list()
-        for info in tmpinfo:
-            if info.find("CSQ") != -1:
-                tmpinfo.append(f'CSQ={info_field_mt}')
-            else:
-                tmpinfo.append(info)
-        info_field = tmpinfo
-        info_field.append("GeneticModels=mt")
+                # debug(parsed_variant_doobi, 'doobi')
+                # debug(parsed_variant_doobi['INFO']['CSQ'], 'doobi csq')
+                csq = parsed_variant['INFO']['CSQ'][0]
 
-    print('\t'.join(variants[0:7]))
-    print('\t')
+                # debug(csq, 'CSQ')
 
-    # debug(parsed_variant_doobi, 'doobi')
-    # debug(parsed_variant_doobi['INFO']['CSQ'], 'doobi csq')
-    csq = parsed_variant['INFO']['CSQ'][0]
+                # GNOMAD (?)
+                # Overall
+                additional_info = list()
+                my_max = csq.get('gnomADg_AF_popmax')
+                if (my_max is not None):
+                    additional_info.append(f'GNOMADAF_MAX={my_max}')
 
-    # debug(csq, 'CSQ')
+                # Population with max
+                # max_pop = parsed_variant_doobi
+                max_pop = csq.get('gnomADg_popmax')
+                if max_pop is not None:
+                    additional_info.append(f'GNOMADPOP_MAX={max_pop}')
 
-    # GNOMAD (?)
-    # Overall
-    my_max = csq.get('gnomADg_AF_popmax')
-    if (my_max is not None):
-        add_info_field.append(f'GNOMADAF_MAX={my_max}')
+                # GERP
+                gerp = csq.get('GERP')
+                if gerp is not None:
+                    additional_info.append(f'dbNSFP_GERP___RS={gerp}')
 
-    # Population with max
-    # max_pop = parsed_variant_doobi
-    max_pop = csq.get('gnomADg_popmax')
-    if max_pop is not None:
-        add_info_field.append(f'GNOMADPOP_MAX={max_pop}')
+                # PHASTCONS
+                pC = csq.get('phastCons')
+                if pC is not None:
+                    additional_info.append(
+                        f'dbNSFP_phastCons10way_vertebrate={pC}')
 
-    # GERP
-    gerp = csq.get('GERP')
-    if gerp is not None:
-        add_info_field.append(f'dbNSFP_GERP___RS={gerp}')
+                # PHYLOP
+                pP = csq.get('phyloP100way')
+                if pP is not None:
+                    additional_info.append(
+                        f'dbNSFP_phyloP100way_vertebrate={pP}')
 
-    # PHASTCONS
-    pC = csq.get('phastCons')
-    if pC is not None:
-        add_info_field.append(f'dbNSFP_phastCons10way_vertebrate={pC}')
+                # CADD
+                cadd = csq.get('CADD_PHRED')
+                if cadd is not None:
+                    additional_info.append(f'CADD={cadd}')
 
-    # PHYLOP
-    pP = csq.get('phyloP100way')
-    if pP is not None:
-        add_info_field.append(f'dbNSFP_phyloP100way_vertebrate={pP}')
+                # CLINSIG MODIFY
+                if 'CLNSIG' in parsed_variant['INFO']:
+                    clinsig = get_clinsig(parsed_variant)
+                    additional_info.append(f'CLNSIG_MOD={clinsig}')
 
-    # CADD
-    cadd = csq.get('CADD_PHRED')
-    if cadd is not None:
-        add_info_field.append(f'CADD={cadd}')
+                # MOST SEVERE CONSEQUENCE
+                if 'Consequence' in parsed_variant['INFO']:
+                    most_severe = most_severe_consequence(parsed_variant)
+                    additional_info.append(
+                        f'most_severe_consequence={most_severe}')
 
-    # CLINSIG MODIFY
-    if 'CLNSIG' in parsed_variant['INFO']:
-        clinsig = get_clinsig(parsed_variant)
-        add_info_field.append(f'CLNSIG_MOD={clinsig}')
+                # debug(info_field, 'info_field')
 
-    # MOST SEVERE CONSEQUENCE
-    if 'Consequence' in parsed_variant['INFO']:
-        most_severe = most_severe_consequence(parsed_variant)
-        add_info_field.append(f'most_severe_consequence={most_severe}')
+                base_info = original_variant_fields[0].split('\t')
 
-    info_field.append(add_info_field)
-    # print(';'.join(info_field))
-    # print('\t')
-    # print('\t'.join(variants[8:]))
+                # header = original_variant_fields
+                header_output = list()
+                header_output.extend(base_info[0:7])
+                info_field = [base_info[7]]
+                info_field.extend(original_variant_fields[1:])
+                info_field.extend(additional_info)
+                header_output.append(';'.join(info_field))
+                # header_output.extend(original_variant_fields[1:-1])
+                header_output.append(original_variant_fields[-1])
+
+                # header_output.extend(info_field + ';'.join(additional_info))
+                # header_output.extend(original_variant_fields[8:])
+
+                print('\t'.join(header_output))
+
+                # info_fields.extend(additional_info)
+                # output_variant_line = ';'.join(info_fields)
+                # print(output_variant_line)
+                # print('\t')
+                # print('\t'.join(variants[8:]))
 
 
 def get_clinsig(doobi: dict) -> str:

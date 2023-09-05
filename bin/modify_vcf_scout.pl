@@ -232,6 +232,9 @@ while( <VEP>) {
         #Add new info field information
         push @info_field, @add_info_field;
         #print new and old information
+
+        # print(Dumper(@info_field));
+
         print join ";", @info_field;
         print "\t";
         #print everything after info field
@@ -332,6 +335,7 @@ sub parse_VEP_CSQ {
     $CSQ_meta->{Description} =~ /Consequence annotations from Ensembl VEP\. Format: (.*?)$/;
 
     my @field_names = split /\|/, $1;
+
 
     my @transcripts = split /,/, $CSQ_var;
 
