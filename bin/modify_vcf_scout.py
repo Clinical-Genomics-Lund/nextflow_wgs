@@ -139,124 +139,52 @@ def main():
 
                 parsed_variant = vcf.parse_variant(line, headers, vcf_meta)
 
-                variants = line.split("\t")
-                original_variant_fields = line.split(";")
-                # info_fields.append(variants[7])
+                variant_fields = line.split("\t")
+                info_fields = variant_fields[7].split(';')
+                # original_variant_fields = line.split(";")
+                # info_field.append(variant_fields[7])
 
-                # FIXME: What is this? Mitochondrial?
+                # # FIXME: What is this? Mitochondrial?
                 if (parsed_variant["CHROM"].startswith("M")):
-                    field_names_str = vep_csq.replace(
-                        "Consequence annotations from Ensembl VEP. Format: ", "")
-                    field_names = field_names_str.split("|")
-                    info_field_mt = ""
-                    trans_c = 0
-
-                    for var_csq in [var['INFO']['CSQ'] for var in parsed_variant]:
-                        csq_mt = list()
-                        for key in field_names:
-                            if maxentscan[key]:
-                                csq_mt.append("")
-                            elif (key == 'Consequence'):
-                                # FIXME: What is this?
-                                tmps = parsed_variant['INFO']['CSQ'][trans_c][key]
-                                csq_mt.append(tmps.join('&'))
-                            else:
-                                # FIXME: What is this?
-                                tmps = parsed_variant['INFO']['CSQ'][trans_c]
-                                csq_mt.append(tmps)
-                        csq_trans = '|'.join(csq_mt)
-                        # FIXME: In perl a leading | was trimmed, is this needed?
-
-                        if trans_c == 0:
-                            info_field_mt = info_field_mt + csq_trans
-                        else:
-                            info_field_mt = info_field_mt + "," + csq_trans
-
-                        # Next transcript
-                        trans_c += 1
-
-                    tmpinfo = list()
-                    for info in tmpinfo:
-                        if info.find("CSQ") != -1:
-                            tmpinfo.append(f'CSQ={info_field_mt}')
-                        else:
-                            tmpinfo.append(info)
-                    info_fields = tmpinfo
-                    info_fields.append("GeneticModels=mt")
+                    mit_info = parse_mitochondrial_chr(
+                        parsed_variant, vep_csq, info_fields)
+                    info_fields.extend(mit_info)
 
                 # print('\t'.join(variants[0:7]))
                 # print('\t')
 
-                # debug(parsed_variant_doobi, 'doobi')
-                # debug(parsed_variant_doobi['INFO']['CSQ'], 'doobi csq')
                 csq = parsed_variant['INFO']['CSQ'][0]
 
                 # debug(csq, 'CSQ')
 
-                # GNOMAD (?)
-                # Overall
-                additional_info = list()
-                my_max = csq.get('gnomADg_AF_popmax')
-                if (my_max is not None):
-                    additional_info.append(f'GNOMADAF_MAX={my_max}')
+                additional_info = gnomad_info(csq, parsed_variant)
+                info_fields.extend(additional_info)
 
-                # Population with max
-                # max_pop = parsed_variant_doobi
-                max_pop = csq.get('gnomADg_popmax')
-                if max_pop is not None:
-                    additional_info.append(f'GNOMADPOP_MAX={max_pop}')
+                output_fields = list()
+                output_fields.extend(variant_fields[0:7])
+                output_fields.append(';'.join(info_fields))
+                output_fields.extend(variant_fields[8:])
 
-                # GERP
-                gerp = csq.get('GERP')
-                if gerp is not None:
-                    additional_info.append(f'dbNSFP_GERP___RS={gerp}')
-
-                # PHASTCONS
-                pC = csq.get('phastCons')
-                if pC is not None:
-                    additional_info.append(
-                        f'dbNSFP_phastCons10way_vertebrate={pC}')
-
-                # PHYLOP
-                pP = csq.get('phyloP100way')
-                if pP is not None:
-                    additional_info.append(
-                        f'dbNSFP_phyloP100way_vertebrate={pP}')
-
-                # CADD
-                cadd = csq.get('CADD_PHRED')
-                if cadd is not None:
-                    additional_info.append(f'CADD={cadd}')
-
-                # CLINSIG MODIFY
-                if 'CLNSIG' in parsed_variant['INFO']:
-                    clinsig = get_clinsig(parsed_variant)
-                    additional_info.append(f'CLNSIG_MOD={clinsig}')
-
-                # MOST SEVERE CONSEQUENCE
-                if 'Consequence' in parsed_variant['INFO']:
-                    most_severe = most_severe_consequence(parsed_variant)
-                    additional_info.append(
-                        f'most_severe_consequence={most_severe}')
+                print('\t'.join(output_fields))
 
                 # debug(info_field, 'info_field')
 
-                base_info = original_variant_fields[0].split('\t')
+                # base_info = original_variant_fields[0].split('\t')
 
                 # header = original_variant_fields
-                header_output = list()
-                header_output.extend(base_info[0:7])
-                info_field = [base_info[7]]
-                info_field.extend(original_variant_fields[1:])
-                info_field.extend(additional_info)
-                header_output.append(';'.join(info_field))
-                # header_output.extend(original_variant_fields[1:-1])
-                header_output.append(original_variant_fields[-1])
+                # header_output = list()
+                # header_output.extend(base_info[0:7])
+                # info_field = [base_info[7]]
+                # info_field.extend(original_variant_fields[1:])
+                # info_field.extend(additional_info)
+                # header_output.append(';'.join(info_field))
+                # # header_output.extend(original_variant_fields[1:-1])
+                # header_output.append(original_variant_fields[-1])
 
                 # header_output.extend(info_field + ';'.join(additional_info))
                 # header_output.extend(original_variant_fields[8:])
 
-                print('\t'.join(header_output))
+                # print('\t'.join(header_output))
 
                 # info_fields.extend(additional_info)
                 # output_variant_line = ';'.join(info_fields)
@@ -265,8 +193,101 @@ def main():
                 # print('\t'.join(variants[8:]))
 
 
-def get_clinsig(doobi: dict) -> str:
-    csM = doobi['INFO']['CLNSIG']
+def parse_mitochondrial_chr(parsed_variant: dict, vep_csq: str, info_field: list[str]) -> list[str]:
+    # FIXME: What is this? Mitochondrial?
+    field_names_str = vep_csq.replace(
+        "Consequence annotations from Ensembl VEP. Format: ", "")
+    field_names = field_names_str.split("|")
+    info_field_mt = ""
+    trans_c = 0
+
+    for var_csq in [var['INFO']['CSQ'] for var in parsed_variant]:
+        csq_mt = list()
+        for key in field_names:
+            if maxentscan[key]:
+                csq_mt.append("")
+            elif (key == 'Consequence'):
+                # FIXME: What is this?
+                tmps = parsed_variant['INFO']['CSQ'][trans_c][key]
+                csq_mt.append(tmps.join('&'))
+            else:
+                # FIXME: What is this?
+                tmps = parsed_variant['INFO']['CSQ'][trans_c]
+                csq_mt.append(tmps)
+        csq_trans = '|'.join(csq_mt)
+        # FIXME: In perl a leading | was trimmed, is this needed?
+
+        if trans_c == 0:
+            info_field_mt = info_field_mt + csq_trans
+        else:
+            info_field_mt = info_field_mt + "," + csq_trans
+
+        # Next transcript
+        trans_c += 1
+
+    tmpinfo = list()
+    for info in info_field:
+        if info.find("CSQ") != -1:
+            tmpinfo.append(f'CSQ={info_field_mt}')
+        else:
+            tmpinfo.append(info)
+    # info_fields = tmpinfo
+    tmpinfo.append("GeneticModels=mt")
+    return tmpinfo
+
+
+def gnomad_info(csq: dict, parsed_variant: dict) -> list[str]:
+    # GNOMAD
+    # Overall
+    additional_info = list()
+    my_max = csq.get('gnomADg_AF_popmax')
+    if (my_max is not None):
+        additional_info.append(f'GNOMADAF_MAX={my_max}')
+
+    # Population with max
+    # max_pop = parsed_variant_doobi
+    max_pop = csq.get('gnomADg_popmax')
+    if max_pop is not None:
+        additional_info.append(f'GNOMADPOP_MAX={max_pop}')
+
+    # GERP
+    gerp = csq.get('GERP')
+    if gerp is not None:
+        additional_info.append(f'dbNSFP_GERP___RS={gerp}')
+
+    # PHASTCONS
+    pC = csq.get('phastCons')
+    if pC is not None:
+        additional_info.append(
+            f'dbNSFP_phastCons10way_vertebrate={pC}')
+
+    # PHYLOP
+    pP = csq.get('phyloP100way')
+    if pP is not None:
+        additional_info.append(
+            f'dbNSFP_phyloP100way_vertebrate={pP}')
+
+    # CADD
+    cadd = csq.get('CADD_PHRED')
+    if cadd is not None:
+        additional_info.append(f'CADD={cadd}')
+
+    # CLINSIG MODIFY
+    if 'CLNSIG' in parsed_variant['INFO']:
+        clinsig = get_clinsig(parsed_variant)
+        additional_info.append(f'CLNSIG_MOD={clinsig}')
+
+    # MOST SEVERE CONSEQUENCE
+    # if 'Consequence' in parsed_variant['INFO']:
+    most_severe = most_severe_consequence(parsed_variant)
+    additional_info.append(
+        f'most_severe_consequence={most_severe}')
+
+    return additional_info
+
+
+def get_clinsig(parsed_variant: dict) -> str:
+    csM = parsed_variant['INFO']['CLNSIG']
     mods = list()
 
     if csM is not None:
@@ -284,39 +305,24 @@ def get_clinsig(doobi: dict) -> str:
     # add_info_field.push(f'CLNSIG_MOD={joined_mods}')
 
 
-def most_severe_consequence(doobi: dict) -> str:
-    csq_ref = doobi['INFO']['CSQ']
+def most_severe_consequence(parsed_variant: dict) -> str:
+    csq_ref = parsed_variant['INFO']['CSQ']
     m_s_c = CSQ(csq_ref)
     most_severe = '.'
     if m_s_c is not None:
         m_s_c_low = [el.lower() for el in m_s_c]
-        most_severe = sorted(m_s_c_low, key=lambda el: rank[el])[-1]
+        most_severe = sorted(m_s_c_low, key=lambda el: rank[el])[0]
     return most_severe
     # add_info_field.push(f'most_severe_consequence={most_severe}')
 
-# THESE ARE ALL COUNTED AS "other":
 
-#      4 Affects
-#     14 association
-#      2 _association
-#     92 Conflicting_interpretations_of_pathogenicity
-#      3 other
-#      4 _other
-#      6 protective
-#      2 _protective
-#     11 _risk_factor
-#     37 risk_factor
-
-# FIXME: Document purpose
-
-
-def CSQ(csq):
+def CSQ(consequences: dict) -> list[str]:
     all_csq = list()
-    for b in csq:
+    for csq_dict in consequences:
         # If canon pick consensus consequence or if equal most severe
-        tmp = b['Consequence']
-        for conq in tmp:
-            all_csq.append(conq)
+        consequence = csq_dict['Consequence']
+        # for conq in consequence:
+        all_csq.append(consequence)
     return all_csq
 
 
