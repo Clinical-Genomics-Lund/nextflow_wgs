@@ -14,3 +14,4 @@ bin/reference_tools/*.log
 bin/reference_tools/*.bed
 **/__pycache__
 .vscode/
+data/

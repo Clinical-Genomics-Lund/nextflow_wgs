@@ -1,5 +1,35 @@
 import re
 import subprocess
+import gzip
+
+
+class VCF:
+
+    def __init__(self, vcf_fp):
+        self.vcf_fp = vcf_fp
+
+    def open(self):
+
+        fh = None
+        if is_gzipped(self.vcf_fp):
+            fh = gzip.open(self.vcf_fp, 'rt')
+        else:
+            fh = open(self.vcf_fp)
+
+        for line in fh:
+            line = line.rstrip()
+
+            if line == '':
+                continue
+
+            if line.startswith("##"):
+                (annot_type, meta, val) = parse_metainfo(line)
+            elif line.startswith("#"):
+                pass
+            else:
+                pass
+
+        fh.close()
 
 
 def debug(text, debug_info=''):
@@ -29,9 +59,9 @@ def parse_vcf(file_name: str) -> tuple[dict, list, list]:
                 header_lines.append(line)
 
             if (line.startswith('##')):
-                (my_type, meta) = parse_metainfo(line)
-                if (my_type is not None):
-                    vcf_meta[my_type]['ID'] = meta
+                (annot_type, meta, extra) = parse_metainfo(line)
+                if (annot_type is not None):
+                    vcf_meta[annot_type]['ID'] = meta
             elif (line.startswith('##')):
                 line_content = line[1:]
                 header = line_content.split('\t')
@@ -49,25 +79,34 @@ def parse_vcf(file_name: str) -> tuple[dict, list, list]:
     return (vcf_meta, vcf_data, samples)
 
 
+def dummy_fn():
+    return 1
+
 # FIXME
-def parse_metainfo(comment: str) -> tuple[str, dict] | tuple[None, None]:
+
+
+def parse_metainfo(comment: str) -> tuple[str, dict, str] | tuple[None, None, None]:
 
     comment = re.sub('^##', '', comment)
     # debug(f'comment {comment}')
     fields = comment.split('=')
-    line_type = fields[0]
+    annotation_type = fields[0]
     data = '='.join(fields[1:])
     # [line_type, data] = comment.split('=')
     valid_linetypes = ['FORMAT', 'INFO', 'SAMPLE', 'FILTER']
 
     # debug(f'{line_type}, {data}')
 
-    if line_type in valid_linetypes:
+    valid_line_type = annotation_type in valid_linetypes
+
+    if valid_line_type:
         trimmed_data = remove_surrounding(data, '<', '>')
         pairs = keyval(trimmed_data, '=', ',')
-        return (line_type, pairs)
+        return (annotation_type, pairs, '')
+    elif (annotation_type is not None and data is not None):
+        return ("NONE", {"annotation_type": annotation_type}, data)
 
-    return (None, None)
+    return (None, None, None)
 
 
 def parse_variant(var_str: str, head: list[str], meta: dict[str, dict]) -> dict:

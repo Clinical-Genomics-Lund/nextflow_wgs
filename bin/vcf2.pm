@@ -27,30 +27,30 @@ sub _open {
     my $full_header_str;
 
     while( readline($$self{fh}) ) {
-	chomp;
+        chomp;
 
-	# Skip empty lines
-	next if /^\s*$/;
+        # Skip empty lines
+        next if /^\s*$/;
 
-	$full_header_str .= $_."\n" if /^#/;
-	
-	# Header row with meta data.
-	if( /^##/ ) {
-	    my( $type, $meta, $val ) = parse_metainfo( $_ );
-	    if( $type ne "NONE" ) {
-		$$self{meta}->{$type}->{$meta->{ID}} = $meta;
-	    }
-	    else {
-		$$self{meta}->{$meta} = $val;
-	    }
-	}
+        $full_header_str .= $_."\n" if /^#/;
+        
+        # Header row with meta data.
+        if( /^##/ ) {
+            my( $type, $meta, $val ) = parse_metainfo( $_ );
+            if( $type ne "NONE" ) {
+                $$self{meta}->{$type}->{$meta->{ID}} = $meta;
+            }
+            else {
+                $$self{meta}->{$meta} = $val;
+            }
+        }
 
-	# Header with column description.
-	elsif( /^#/ ) {
-	    $_ =~ s/^#//;
-	    @head = split /\t/;
-	    last;
-	}
+        # Header with column description.
+        elsif( /^#/ ) {
+            $_ =~ s/^#//;
+            @head = split /\t/;
+            last;
+        }
     }
 
     @{$$self{head}} = @head;
@@ -135,7 +135,7 @@ sub parse_vcf {
 
 
 
-# Parse VCF meta info line (only FORMAT and INFO)
+# Parse VCF meta info line
 sub parse_metainfo {
     my $comment = shift;
     
@@ -144,12 +144,12 @@ sub parse_metainfo {
 
 
     if( $type eq "FORMAT" or $type eq "INFO" or $type eq "SAMPLE" or $type eq "FILTER" ) {
-	$data = remove_surrounding( $data, '<', '>' );
-	my( $pairs, $order ) = keyval( $data, '=', ',' );
-	return $type, $pairs, 0;
+        $data = remove_surrounding( $data, '<', '>' );
+        my( $pairs, $order ) = keyval( $data, '=', ',' );
+        return $type, $pairs, 0;
     } 
     elsif( $type and $data ) {
-	return "NONE", $type, $data;
+	    return "NONE", $type, $data;
     }
 	
 
