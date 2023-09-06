@@ -24,6 +24,14 @@ class VCF:
 
             if line.startswith("##"):
                 (annot_type, meta, val) = parse_metainfo(line)
+                if annot_type != "NONE":
+                    pass
+                    # Investigate this
+                    # Assign meta -> type -> ID = meta
+                else:
+                    pass
+                    # Investigate this
+                    # Assign meta -> meta = meta
             elif line.startswith("#"):
                 pass
             else:

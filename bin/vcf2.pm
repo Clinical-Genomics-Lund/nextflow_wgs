@@ -89,10 +89,10 @@ sub parse_vcf {
     my $vcf_fh;
     if( is_gzipped($fn) ) {
 #    if( $fn =~ /\.gz/ ) {
-	open( $vcf_fh, "zcat $fn |" );
+	    open( $vcf_fh, "zcat $fn |" );
     }
     else {
-	open( $vcf_fh, $fn );
+	    open( $vcf_fh, $fn );
     }
 	
     while( <$vcf_fh> ) {

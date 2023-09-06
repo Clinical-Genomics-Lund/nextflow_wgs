@@ -22,6 +22,7 @@ maxentscan = {
     'MaxEntScan_ref': 1
 }
 
+
 clinmod = {
     'Pathogenic': '_5_',
     'Likely_pathogenic': '_4_',
