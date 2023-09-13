@@ -680,9 +680,7 @@ process melt {
 	tag "$id"
 	memory '40 GB'
 	time '3h'
-	//scratch true
-	//stageInMode 'copy'
-	//stageOutMode 'copy'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
 
 	input:
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
@@ -691,7 +689,7 @@ process melt {
 		params.onco
 
 	output:
-		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
+		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
 
 	"""
 	java -jar /opt/MELTv2.2.2/MELT.jar Single \\
@@ -706,6 +704,28 @@ process melt {
 		-cov $COV_DEV \\
 		-e $INS_SIZE
 	merge_melt.pl $params.meltheader $id
+	"""
+
+}
+
+process intersect_melt {
+	cpus 2
+	tag "$id"
+	memory '2 GB'
+	time '1h'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
+
+	input:
+		set group, id, file(vcf) from melt_vcf_nonfiltered
+
+	when:
+		params.onco
+
+	output:
+		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
+
+	"""
+	bedtools intersect -a $vcf -b $params.intersect_bed -header > ${id}.melt.merged.intersected.vcf
 	"""
 
 }
