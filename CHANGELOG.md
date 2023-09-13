@@ -1,16 +1,20 @@
 # CHANGELOG
 
+### 3.5.1
+
+* Add REVEL (Rare Exome Variant Ensemble Learner) Scores to VEP annotations (VEP REVEL_rankscore and REVEL_score)
+	
 ### 3.5.0
 
 #### Added
 
 * Two processes for computing mitochondrial seq QC data from mt bam files and saving to JSON:
-* Script `bin/merge_json_files.py` to merge 1 or more JSON files into one JSON.  Used to generate the final {id}.QC from the json output of the processes `sentieon_qc` and `sentieon_mitochondrial_qc`.
+* Script `bin/merge_json_files.py` to merge 1 or more JSON files into one JSON.  Used to generate the final `{id}.QC` from the json output of the processes `sentieon_qc` and `sentieon_mitochondrial_qc`.
 * Script `bin/mito_tsv_to_json.py` to extract and convert mtQC data from `sentieon_mitochondrial_qc` process output to json
 
 #### Changed
 
-* process `sentieon_qc` outputs to intermediate {id}_qc.json file instead of the final {id}.QC
+* process `sentieon_qc` outputs to intermediate `{id}_qc.json` file instead of the final `{id}.QC`
 
 ### 3.4.3
 #### patch genes
