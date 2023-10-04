@@ -697,7 +697,7 @@ process melt {
 		-r 150 \\
 		-h $genome_file \\
 		-n /opt/MELTv2.2.2/add_bed_files/Hg38/Hg38.genes.bed \\
-		-z 50000 \\
+		-z 500000 \\
 		-d 50 -t /opt/mei_list \\
 		-w . \\
 		-c $MEAN_DEPTH \\
