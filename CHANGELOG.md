@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.5.3
+- Hotfix, increase melt sensivity by increasing amount of reads melt are alowed to use in RAM. 
+
 ### 3.5.2
 - MELT is no longer filtered on location based upon regex names INTRONIC/null/PROMOTER, instead added a intersect towards bedfile. This will show splice site variants
 
