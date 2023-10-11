@@ -1605,7 +1605,7 @@ process split_normalize_mito {
 
 		"""
 		grep -vP "^M\\s+955" $ms_vcf > ${ms_vcf}.fix
-		vcfbreakmulti ${ms_vcf}.fix > ${ms_vcf}.breakmulti
+		bcftools norm -m-both -o ${ms_vcf}.breakmulti ${ms_vcf}.fix
 		bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
 		tabix -p vcf ${ms_vcf}.breakmulti.fix
 		bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix
@@ -2005,14 +2005,15 @@ process annotate_vep {
 			--synonyms $params.SYNONYMS \\
 			--fork ${task.cpus} \\
 			--force_overwrite \\
-			--plugin CADD,$params.CADD \\
-			--plugin LoFtool \\
-			--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
 			--fasta $params.VEP_FASTA \\
 			--dir_cache $params.VEP_CACHE \\
 			--dir_plugins $params.VEP_CACHE/Plugins \\
 			--distance 200 \\
 			-cache \\
+			--plugin CADD,$params.CADD \\
+			--plugin LoFtool \\
+			--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
+			--plugin dbNSFP,/fs1/resources/ref/hg38/annotation_dbs/dbnsfp/dbNSFP4.3a_grch38.gz,transcript_match=1,REVEL_score,REVEL_rankscore \\
 			-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
 			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
 			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
@@ -2038,8 +2039,9 @@ process annotate_vep {
 		  container: ${task.container}
 		END_VERSIONS
 		"""
+
 }
-// --plugin dbNSFP,/fs1/resources/ref/hg38/annotation_dbs/dbnsfp/dbNSFP4.3a_grch38.gz,REVEL_score,REVEL_rankscore,BayesDel_addAF_score,BayesDel_addAF_rankscore,BayesDel_addAF_pred,BayesDel_noAF_score,BayesDel_noAF_rankscore,BayesDel_noAF_pred \\
+
 
 // gene, clinvar, loqusdb, enigma(onco)
 process vcfanno {
