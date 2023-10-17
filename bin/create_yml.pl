@@ -90,7 +90,7 @@ my %assays = (
             'institute_owner' => 'myeloid',
         },
     },
-    'mody-ctfr-aatv1-0' => {
+    'mody-cftr-aatv1-0' => {
         'rankm' => 'SNV-RM-v5.0',
         'svrankm' => 'SV-Panel-RM-v1.0',
         'capture_kit' => 'mody-ctfr-aatv1-0',
