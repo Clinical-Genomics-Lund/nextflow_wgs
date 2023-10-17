@@ -349,9 +349,7 @@ process bqsr {
 process sentieon_qc {
 	cpus 52
 	memory '30 GB'
-	publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
 	tag "$id"
-	cache 'deep'
 	time '2h'
 	scratch true
 	stageInMode 'copy'
@@ -362,8 +360,8 @@ process sentieon_qc {
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
 
 	output:
-		set id, file("${id}.QC") into qc_cdm
-		set group, id, file("${id}.QC") into qc_melt
+		set group, id, file("${id}_qc.json") into qc_cdm
+		set group, id, file("${id}_qc.json") into qc_melt
 		file("*.txt")
 
 	script:
@@ -390,38 +388,11 @@ process sentieon_qc {
 		--algo InsertSizeMetricAlgo is_metrics.txt \\
 		--algo $cov
 	$panel
-	qc_sentieon.pl $id $assay > ${id}.QC
+	qc_sentieon.pl $id $assay > ${id}_qc.json
 	"""
 }
 
-
-// Load QC data into CDM (via middleman)
-process qc_to_cdm {
-	cpus 1
-	errorStrategy 'retry'
-	maxErrors 5
-	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
-	tag "$id"
-	time '10m'
-
-	when:
-		!params.noupload
-	
-	input:
-		set id, file(qc), diagnosis, r1, r2 from qc_cdm.join(qc_extra)
-
-	output:
-		file("${id}.cdm") into cdm_done
-
-	script:
-		parts = r1.split('/')
-		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
-		rundir = parts[0..idx].join("/")
-
-	"""
-	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
-	"""
-}
+   
 
 // Calculate coverage for chanjo
 process chanjo_sambamba {
@@ -709,9 +680,7 @@ process melt {
 	tag "$id"
 	memory '40 GB'
 	time '3h'
-	//scratch true
-	//stageInMode 'copy'
-	//stageOutMode 'copy'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
 
 	input:
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
@@ -720,7 +689,7 @@ process melt {
 		params.onco || params.assay == "modycf"
 
 	output:
-		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
+		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
 
 	"""
 	java -jar /opt/MELTv2.2.2/MELT.jar Single \\
@@ -728,13 +697,35 @@ process melt {
 		-r 150 \\
 		-h $genome_file \\
 		-n /opt/MELTv2.2.2/add_bed_files/Hg38/Hg38.genes.bed \\
-		-z 50000 \\
+		-z 500000 \\
 		-d 50 -t /opt/mei_list \\
 		-w . \\
 		-c $MEAN_DEPTH \\
 		-cov $COV_DEV \\
 		-e $INS_SIZE
 	merge_melt.pl $params.meltheader $id
+	"""
+
+}
+
+process intersect_melt {
+	cpus 2
+	tag "$id"
+	memory '2 GB'
+	time '1h'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
+
+	input:
+		set group, id, file(vcf) from melt_vcf_nonfiltered
+
+	when:
+		params.onco
+
+	output:
+		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
+
+	"""
+	bedtools intersect -a $vcf -b $params.intersect_bed -header > ${id}.melt.merged.intersected.vcf
 	"""
 
 }
@@ -928,7 +919,7 @@ process fetch_MTseqs {
         set group, id, file(bam), file(bai) from bam_mito.mix(bam_mito_choice)
 
     output:
-        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam
+        set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam, qc_mito_bam
 		set group, file("${group}_mtbam.INFO") into mtBAM_INFO
 
     """
@@ -939,6 +930,61 @@ process fetch_MTseqs {
 
 }
 
+process sentieon_mitochondrial_qc {
+
+    // Fetch mitochondrial coverage statistics
+    // Calculate mean_coverage and pct_above_500x
+    
+    cpus 52
+    memory '30 GB'
+	tag "$id"
+	time '2h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	container = "/fs1/resources/containers/sentieon_202112.sif"
+
+	when:
+	    params.antype == "wgs"
+    
+	input:
+        set group, id, file(bam), file(bai) from qc_mito_bam
+
+	output:
+    	set group, id, file("${id}_mito_coverage.tsv") into qc_mito
+		
+	"""
+	sentieon driver \\
+		-r $genome_file \\
+		-t ${task.cpus} \\
+		-i $bam \\
+		--algo CoverageMetrics \\
+        --cov_thresh 500 \\
+        mt_cov_metrics.txt
+
+    head -1 mt_cov_metrics.txt.sample_interval_summary > "${id}_mito_coverage.tsv"
+    grep "^M" mt_cov_metrics.txt.sample_interval_summary >> "${id}_mito_coverage.tsv"
+	"""
+}
+
+process build_mitochondrial_qc_json {
+   
+    cpus 4
+    tag "$id"
+    time "10m"
+
+    input:
+        set group, id, file(mito_qc_file) from qc_mito
+
+    output:
+        set group, id, file("${id}_mito_qc.json") into qc_mito_json
+        
+    """
+    mito_tsv_to_json.py ${mito_qc_file} ${id} > "${id}_mito_qc.json"
+    """
+}
+
+    
 // gatk FilterMutectCalls in future if FPs overwhelms tord/sofie/carro
 process run_mutect2 {
     cpus 4
@@ -988,14 +1034,14 @@ process split_normalize_mito {
 		proband_idx = type.findIndexOf{ it == "proband" }
 
     """
-	grep -vP "^M\\s+955" $ms_vcf > ${ms_vcf}.fix
-    vcfbreakmulti ${ms_vcf}.fix > ${ms_vcf}.breakmulti
+    grep -vP "^M\\s+955" $ms_vcf > ${ms_vcf}.fix
+    bcftools norm -m-both -o ${ms_vcf}.breakmulti ${ms_vcf}.fix
     bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
     tabix -p vcf ${ms_vcf}.breakmulti.fix
     bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix
-	bcftools view -i 'FMT/AF[*]>0.05' ${ms_vcf.baseName}.adjusted.vcf -o ${group}.mutect2.breakmulti.filtered5p.vcf
-	bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf
-	filter_mutect2_mito.pl ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf ${id2[proband_idx]} > ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
+    bcftools view -i 'FMT/AF[*]>0.05' ${ms_vcf.baseName}.adjusted.vcf -o ${group}.mutect2.breakmulti.filtered5p.vcf
+    bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf
+    filter_mutect2_mito.pl ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf ${id2[proband_idx]} > ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
     """
 
 }
@@ -1148,6 +1194,59 @@ process split_normalize {
 
 }
 
+/////////////// Collect QC into single file ///////////////
+
+process merge_qc_json {   
+    cpus 1
+    errorStrategy 'retry'
+    maxErrors 5
+    publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
+    tag "$id"
+    time '10m'
+
+    input:
+        set group, id, file(qc) from qc_cdm.mix(qc_mito_json).groupTuple(by: [0,1])
+
+    output:
+        set id, file("${id}.QC") into qc_cdm_merged
+
+    script:
+        qc_json_files = qc.join(' ')
+
+    """
+    merge_json_files.py ${qc_json_files} > ${id}.QC
+    """
+}   
+    
+// Load QC data into CDM (via middleman)
+process qc_to_cdm {
+	cpus 1
+	errorStrategy 'retry'
+	maxErrors 5
+	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
+	tag "$id"
+	time '10m'
+
+	when:
+		!params.noupload
+	
+	input:
+		set id, file(qc), diagnosis, r1, r2 from qc_cdm_merged.join(qc_extra)
+
+	output:
+		file("${id}.cdm") into cdm_done
+
+	script:
+		parts = r1.split('/')
+		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
+		rundir = parts[0..idx].join("/")
+
+	"""
+	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
+	"""
+}
+    
+    
 process annotate_vep {
 	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	cpus 54
@@ -1176,14 +1275,15 @@ process annotate_vep {
 		--synonyms $params.SYNONYMS \\
 		--fork ${task.cpus} \\
 		--force_overwrite \\
-		--plugin CADD,$params.CADD \\
-		--plugin LoFtool \\
-		--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
 		--fasta $params.VEP_FASTA \\
 		--dir_cache $params.VEP_CACHE \\
 		--dir_plugins $params.VEP_CACHE/Plugins \\
 		--distance 200 \\
 		-cache \\
+		--plugin CADD,$params.CADD \\
+		--plugin LoFtool \\
+		--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
+		--plugin dbNSFP,/fs1/resources/ref/hg38/annotation_dbs/dbnsfp/dbNSFP4.3a_grch38.gz,transcript_match=1,REVEL_score,REVEL_rankscore \\
 		-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
 		-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
 		-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
@@ -1191,7 +1291,7 @@ process annotate_vep {
 		-custom $params.PHASTCONS
 	"""
 }
-// --plugin dbNSFP,/fs1/resources/ref/hg38/annotation_dbs/dbnsfp/dbNSFP4.3a_grch38.gz,REVEL_score,REVEL_rankscore,BayesDel_addAF_score,BayesDel_addAF_rankscore,BayesDel_addAF_pred,BayesDel_noAF_score,BayesDel_noAF_rankscore,BayesDel_noAF_pred \\
+
 
 // gene, clinvar, loqusdb, enigma(onco)
 process vcfanno {
