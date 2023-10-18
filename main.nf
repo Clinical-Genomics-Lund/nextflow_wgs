@@ -719,7 +719,7 @@ process intersect_melt {
 		set group, id, file(vcf) from melt_vcf_nonfiltered
 
 	when:
-		params.onco
+		params.onco || params.assay == "modycf"
 
 	output:
 		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
@@ -2257,14 +2257,19 @@ process annotsv {
 	output:
 		set group, file("${group}_annotsv.tsv") into annotsv, annotsv_ma, annotsv_fa
 
-	"""
-	export ANNOTSV="/AnnotSV"
-	/AnnotSV/bin/AnnotSV -SvinputFile $sv \\
-		-typeOfAnnotation full \\
-		-outputDir $group \\
-		-genomeBuild GRCh38
-	mv $group/*.annotated.tsv ${group}_annotsv.tsv
-	"""
+	shell:
+		'''
+		export ANNOTSV="/AnnotSV"
+		/AnnotSV/bin/AnnotSV -SvinputFile !{sv} \\
+			-typeOfAnnotation full \\
+			-outputDir !{group} \\
+			-genomeBuild GRCh38
+		if [-f !{group}/*.annotated.tsv]; then
+			mv !{group}/*.annotated.tsv !{group}_annotsv.tsv
+		else
+		    touch !{group}_annotsv.tsv
+		fi
+		'''
 }
 
 process vep_sv {
@@ -2286,6 +2291,7 @@ process vep_sv {
 		-o ${group}.vep.vcf \\
 		--offline \\
 		--merged \\
+		--format vcf \\
 		--everything \\
 		--synonyms $params.SYNONYMS \\
 		--vcf \\
