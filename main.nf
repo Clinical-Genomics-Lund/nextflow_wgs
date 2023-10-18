@@ -2120,7 +2120,6 @@ process svdb_merge_panel {
 		mv $vcf ${group}.merged.filtered.melt.vcf
 		"""
 	}
-//			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf // need to add melt somewhere!
 }
 
 process tiddit {
@@ -2267,7 +2266,7 @@ process annotsv {
 		if [-f !{group}/*.annotated.tsv]; then
 			mv !{group}/*.annotated.tsv !{group}_annotsv.tsv
 		else
-		    touch !{group}_annotsv.tsv
+		    echo "1\n" > !{group}_annotsv.tsv
 		fi
 		'''
 }
