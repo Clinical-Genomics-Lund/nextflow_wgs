@@ -1046,6 +1046,7 @@ process melt {
 	tag "$id"
 	memory '40 GB'
 	time '3h'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
 
 	input:
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
@@ -1054,17 +1055,19 @@ process melt {
 		params.onco
 
 	output:
-		set group, id, file("${id}.melt.merged.vcf") into melt_vcf
+		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
 		path "*versions.yml"
 
 	script:
 		"""
+		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
+
 		java -jar /opt/MELTv2.2.2/MELT.jar Single \\
 			-bamfile $bam \\
 			-r 150 \\
 			-h $genome_file \\
 			-n /opt/MELTv2.2.2/add_bed_files/Hg38/Hg38.genes.bed \\
-			-z 50000 \\
+			-z 500000 \\
 			-d 50 -t /opt/mei_list \\
 			-w . \\
 			-c $MEAN_DEPTH \\
@@ -1092,6 +1095,28 @@ process melt {
 		  container: ${task.container}
 		END_VERSIONS
 		"""
+}
+
+process intersect_melt {
+	cpus 2
+	tag "$id"
+	memory '2 GB'
+	time '1h'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
+
+	input:
+		set group, id, file(vcf) from melt_vcf_nonfiltered
+
+	when:
+		params.onco
+
+	output:
+		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
+
+	"""
+	bedtools intersect -a $vcf -b $params.intersect_bed -header > ${id}.melt.merged.intersected.vcf
+	"""
+
 }
 
 // When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
