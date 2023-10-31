@@ -1,7 +1,8 @@
 #!/usr/bin/env nextflow
 
 // GENERAL PATHS //
-OUTDIR = params.outdir+'/'+params.subdir
+OUTDIR = "${params.resultsdir}/${params.subdir}"
+// OUTDIR = params.outdir+'/'+params.subdir
 CRONDIR = params.crondir
 
 // SENTIEON CONFIGS //
@@ -52,7 +53,7 @@ workflow.onComplete {
 		.stripIndent()
 
 	base = csv.getBaseName()
-	logFile = file("/fs1/results/cron/logs/" + base + ".complete")
+	logFile = file("${CRONDIR}/outlog.complete")
 	logFile.text = msg
 	logFile.append(error)
 }
@@ -73,6 +74,7 @@ bam_choice = Channel.create()
 fastq_sharded = Channel.create()
 fastq_umi = Channel.create()
 annotate_only = Channel.create()
+
 
 // If input-files has bam files bypass alignment, otherwise go for fastq-channels => three options for fastq, sharded bwa, normal bwa or umi trimming
 input_files.view().choice(bam_choice, fastq, fastq_sharded, fastq_umi, annotate_only ) { it[2] =~ /\.bam/ ? 0 : ( it[2] =~ /\.vcf.gz/ ? 4 : (params.shardbwa ? 2 : (params.umi ? 3 : 1) )) }
@@ -188,12 +190,7 @@ process fastp {
 			-l 30 \\
 			-w ${task.cpus}
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 fastp: 
-		  version: \$(echo \$(fastp -v 2>&1) | cut -f 2 -d " ")
-		  container: ${task.container}
-		END_VERSIONS
+		${fastp_version(task)}
 		"""
 
 	stub:
@@ -201,14 +198,20 @@ process fastp {
 		touch ${id}_R1_a_q_u_trimmed.fq.gz
 		touch ${id}_R2_a_q_u_trimmed.fq.gz
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 fastp: 
-		  version: \$(echo \$(fastp -v 2>&1) | cut -f 2 -d " ")
-		  container: ${task.container}
-		END_VERSIONS
+		${fastp_version(task)}
 		"""
 }
+def fastp_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	fastp: 
+	 version: \$(echo \$(fastp -v 2>&1) | cut -f 2 -d " ")
+	 container: ${task.container}
+	END_VERSIONS
+	"""
+}
+
 
 // Align fractions of fastq files with BWA
 process bwa_align_sharded {
@@ -348,15 +351,7 @@ process bwa_align {
 			-o ${id}_merged.bam \\
 			-t ${task.cpus} --sam2bam -i -
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon UTIL: 
-		  version: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		 Sentieon BWA-MEM: 
-		  version: \$(echo \$(sentieon bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${bwa_align_versions(task)}
 		"""
 
 	stub:
@@ -364,17 +359,24 @@ process bwa_align {
 		touch ${id}_merged.bam
 		touch ${id}_merged.bam.bai
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon UTIL: 
-		  version: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		 Sentieon BWA-MEM: 
-		  version: \$(echo \$(sentieon bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${bwa_align_versions(task)}
 		"""
+
 }
+def bwa_align_versions(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sentieon UTIL: 
+	  version: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	  container: ${task.container}
+	 Sentieon BWA-MEM: 
+	  version: \$(echo \$(sentieon bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
+	  container: ${task.container}
+	END_VERSIONS
+	"""
+}
+
 
 process markdup {
 	cpus 40
@@ -418,12 +420,7 @@ process markdup {
 			--rmdup ${id}_dedup.bam
 		echo "BAM	$id	/access/${params.subdir}/bam/${id}_dedup.bam" > ${group}_bam.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${markdup_versions(task)}
 		"""
 
 	stub:
@@ -433,14 +430,20 @@ process markdup {
 		touch "dedup_metrics.txt"
 		touch "${group}_bam.INFO"
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${markdup_versions(task)}
 		"""
 }
+def markdup_versions(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sentieon DRIVER: 
+	  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	  container: ${task.container}
+	END_VERSIONS
+	"""
+}
+
 
 process bqsr {
 	cpus 40
