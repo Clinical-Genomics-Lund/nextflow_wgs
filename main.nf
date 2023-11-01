@@ -205,7 +205,6 @@ def fastp_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	fastp: 
 	 version: \$(echo \$(fastp -v 2>&1) | cut -f 2 -d " ")
 	 container: ${task.container}
 	END_VERSIONS
@@ -580,7 +579,7 @@ process chanjo_sambamba {
 
 	output:
 		file("${id}.bwa.chanjo.cov") into chanjocov
-		path "*.versions.yml"
+		path "*versions.yml"
 
 	script:
 		"""
@@ -682,15 +681,7 @@ process SMNCopyNumberCaller {
 		mv ${id}.tsv ${group}_SMN.tsv
 		echo "SMN ${params.accessdir}/smn/${group}_SMN.tsv" > ${group}_smn.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		 SMNCopyNumberCaller: 
-		  version: 1.1.2
-		  container: ${task.container}
-		END_VERSIONS
+		${smn_copy_number_caller_version(task)}
 		"""
 
 	stub:
@@ -702,20 +693,26 @@ process SMNCopyNumberCaller {
 		touch ${group}_SMN.tsv
 		touch ${group}_smn.INFO
 	
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		 SMNCopyNumberCaller: 
-		  version: 1.1.2
-		  container: ${task.container}
-		END_VERSIONS
+		${smn_copy_number_caller_version(task)}
 		"""
 }
 // collects each individual's SMNCNC-tsv and creates one tsv-file
 smn_tsv
 	.collectFile(keepHeader: true, storeDir: "${OUTDIR}/smn/")
+def smn_copy_number_caller_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 SAMtools: 
+	  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	  container: ${task.container}
+	 SMNCopyNumberCaller: 
+	  version: 1.1.2
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////// EXPANSION HUNTER ////////////////////////////
@@ -755,15 +752,7 @@ process expansionhunter {
 		samtools sort ${group}.eh_realigned.bam -o ${group}.eh_realigned.sort.bam
 		samtools index ${group}.eh_realigned.sort.bam
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 expansionhunter: 
-		  version: \$(echo \$(ExpansionHunter --version 2>&1) | sed 's/.*ExpansionHunter v// ; s/]//')
-		  container: ${task.container}
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${expansionhunter_version(task)}
 		"""
 
 	stub:
@@ -782,7 +771,22 @@ process expansionhunter {
 		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
 		  container: ${task.container}
 		END_VERSIONS
+
+		${expansionhunter_version(task)}
 		"""
+}
+def expansionhunter_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 expansionhunter: 
+	  version: \$(echo \$(ExpansionHunter --version 2>&1) | sed 's/.*ExpansionHunter v// ; s/]//')
+	  container: ${task.container}
+	 SAMtools: 
+	  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 // annotate expansionhunter vcf
@@ -809,26 +813,27 @@ process stranger {
 		grep ^# ${group}.eh.stranger.vcf > ${group}.fixinfo.eh.stranger.vcf
 		grep -v ^# ${group}.eh.stranger.vcf | sed 's/ /_/g' >> ${group}.fixinfo.eh.stranger.vcf
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 stranger: 
-		  version: \$( stranger --version )
-		  container: ${task.container}
-		END_VERSIONS
+		${stranger_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.fixinfo.eh.stranger.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 stranger: 
-		  version: \$( stranger --version )
-		  container: ${task.container}
-		END_VERSIONS
+		${stranger_version(task)}
 		"""
 }
+def stranger_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 stranger: 
+	  version: \$( stranger --version )
+	  container: ${task.container}
+	END_VERSIONS
+	"""
+}
+
 //for i in $( ls *.svg | cut -f 2 -d "." ); do echo "STR_IMG $i /access/!{params.subdir}/plots/reviewer/!{group}/!{group}.${i}.svg" >> !{group}_rev.INFO; done
 process reviewer {
 	tag "$group"
@@ -861,25 +866,25 @@ process reviewer {
 		--locus $_ \
 		--output-prefix !{id}");'
 
-		cat <<-END_VERSIONS > !{task.process}_versions.yml
-		!{task.process}:
-		 REViewer: 
-		  version: $(echo $(REViewer --version 2>&1) | sed 's/^.*REViewer v//')
-		  container: !{task.container}
-		END_VERSIONS
+		${reviewer_version(task)}
 		'''
 
 	stub:
 		"""
 		touch ${id}.svg
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 REViewer: 
-		  version: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')
-		  container: ${task.container}
-		END_VERSIONS
+		${reviewer_version(task)}
 		"""
+}
+def reviewer_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 REViewer: 
+	  version: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 // split multiallelic sites in expansionhunter vcf
@@ -915,21 +920,7 @@ process vcfbreakmulti_expansionhunter {
 			tabix ${group}.expansionhunter.vcf.gz
 			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 vcflib: 
-			  version: 1.0.9
-			  container: ${task.container}
-			 RenameSampleInVcf: 
-			  version: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf --version 2>&1) | sed 's/-SNAPSHOT//')
-			  container: ${task.container}
-			 tabix: 
-			  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-			  container: ${task.container}
-			 bgzip: 
-			  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-			  container: ${task.container}
-			END_VERSIONS
+			${vcfbreakmulti_expansionhunter_version(task)}
 			"""
 		}
 		else {
@@ -940,21 +931,7 @@ process vcfbreakmulti_expansionhunter {
 			tabix ${group}.expansionhunter.vcf.gz
 			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 vcflib: 
-			  version: 1.0.9
-			  container: ${task.container}
-			 RenameSampleInVcf: 
-			  version: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf --version 2>&1) | sed 's/-SNAPSHOT//')
-			  container: ${task.container}
-			 tabix: 
-			  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-			  container: ${task.container}
-			 bgzip: 
-			  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-			  container: ${task.container}
-			END_VERSIONS
+			${vcfbreakmulti_expansionhunter_version(task)}
 			"""
 		}
 
@@ -963,23 +940,29 @@ process vcfbreakmulti_expansionhunter {
 		touch ${group}.expansionhunter.vcf.gz
 		touch "${group}_str.INFO"
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 vcflib: 
-		  version: 1.0.9
-		  container: ${task.container}
-		 RenameSampleInVcf: 
-		  version: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf --version 2>&1) | sed 's/-SNAPSHOT//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 bgzip: 
-		  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		END_VERSIONS
+		${vcfbreakmulti_expansionhunter_version(task)}
 		"""
 }
+def vcfbreakmulti_expansionhunter_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 vcflib: 
+	  version: 1.0.9
+	  container: ${task.container}
+	 RenameSampleInVcf: 
+	  version: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf --version 2>&1) | sed 's/-SNAPSHOT//')
+	  container: ${task.container}
+	 tabix: 
+	  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	 bgzip: 
+	  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
+}
+
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
@@ -1039,7 +1022,7 @@ process melt {
 	tag "$id"
 	memory '40 GB'
 	time '3h'
-	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
+	publishDir "/${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
 	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
@@ -1054,8 +1037,6 @@ process melt {
 
 	script:
 		"""
-		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
-
 		java -jar /opt/MELTv2.2.2/MELT.jar Single \\
 			-bamfile $bam \\
 			-r 150 \\
@@ -1069,27 +1050,27 @@ process melt {
 			-e $INS_SIZE
 		merge_melt.pl $params.meltheader $id
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 MELT: 
-		  version: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar Single -h | sed "s/.*MELTv// ; s/ -.*//")
-		  container: ${task.container}
-		END_VERSIONS
+		${melt_version(task)}
 		"""
 
 	stub:
 		"""
-		touch ${group}.expansionhunter.vcf.gz
-		touch "${group}_str.INFO"
+		touch ${id}.melt.merged.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 MELT: 
-		  version: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar Single -h | sed "s/.*MELTv// ; s/ -.*//")
-		  container: ${task.container}
-		END_VERSIONS
+		${melt_version(task)}
 		"""
 }
+def melt_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 MELT: 
+	  version: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar Single -h )  | sed "s/.*MELTv// | s/ -.*//" )
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
+}
+
 
 process intersect_melt {
 	cpus 2
@@ -1143,12 +1124,7 @@ process dnascope {
 			-i $bam --shard 1:1-248956422 --shard 2:1-242193529 --shard 3:1-198295559 --shard 4:1-190214555 --shard 5:1-120339935 --shard 5:120339936-181538259 --shard 6:1-170805979 --shard 7:1-159345973 --shard 8:1-145138636 --shard 9:1-138394717 --shard 10:1-133797422 --shard 11:1-135086622 --shard 12:1-56232327 --shard 12:56232328-133275309 --shard 13:1-114364328 --shard 14:1-107043718 --shard 15:1-101991189 --shard 16:1-90338345 --shard 17:1-83257441 --shard 18:1-80373285 --shard 19:1-58617616 --shard 20:1-64444167 --shard 21:1-46709983 --shard 22:1-50818468 --shard X:1-124998478 --shard X:124998479-156040895 --shard Y:1-57227415 --shard M:1-16569 \\
 			--algo DNAscope --emit_mode GVCF ${id}.dnascope.gvcf.gz
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${dnascope_version(task)}
 		"""
 
 	stub:
@@ -1156,13 +1132,18 @@ process dnascope {
 		touch ${id}.dnascope.gvcf.gz
 		touch ${id}.dnascope.gvcf.gz.tbi
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${dnascope_version(task)}
 		"""
+}
+def dnascope_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sentieon DRIVER: 
+	  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process bamtoyaml {
@@ -1213,12 +1194,7 @@ process gvcf_combine {
 			--algo GVCFtyper \\
 			-v $all_gvcfs ${group}.combined.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${gvcf_combine_version(task)}
 		"""
 
 	stub:
@@ -1226,13 +1202,18 @@ process gvcf_combine {
 		touch ${group}.combined.vcf
 		touch ${group}.combined.vcf.idx
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${gvcf_combine_version(task)}
 		"""
+}
+def gvcf_combine_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sentieon DRIVER: 
+	  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 // Create ped from input variables //
@@ -1248,7 +1229,6 @@ process create_ped {
 		set group, type, file("${group}_base.ped") into ped_mad, ped_peddy, ped_inher, ped_scout, ped_loqus, ped_prescore, ped_compound, ped_pod
 		set group, type_ma, file("${group}_ma.ped") optional true into ped_inher_ma, ped_prescore_ma, ped_compound_ma, ped_mad_ma
 		set group, type_fa, file("${group}_fa.ped") optional true into ped_inher_fa, ped_prescore_fa, ped_compound_fa, ped_mad_fa
-
 
 	script:
 		if ( father == "" ) {
@@ -1307,15 +1287,7 @@ process madeline {
 			-x xml
 		echo "MADDE	$type ${params.accessdir}/ped/${ped}.madeline.xml" > ${group}_madde.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 ped_parser: 
-		  version: \$(echo \$(ped_parser --version 2>&1) | sed -e "s/^.*ped_parser version: //")
-		  container: ${task.container}
-		 madeline: 
-		  version: \$(echo \$(madeline --version 2>&1) | grep : | sed -e"s/^.*Madeline //; s/PDE : 1.*//")
-		  container: ${task.container}
-		END_VERSIONS
+		${madeline_version(task)}
 		"""
 
 	stub:
@@ -1324,16 +1296,21 @@ process madeline {
 		touch ${group}_madde.INFO
 		touch ${ped}.madeline.xml
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 ped_parser: 
-		  version: \$(echo \$(ped_parser --version 2>&1) | sed -e "s/^.*ped_parser version: //")
-		  container: ${task.container}
-		 madeline: 
-		  version: \$(echo \$(madeline --version 2>&1) | grep : | sed -e"s/^.*Madeline //; s/PDE : 1.*//")
-		  container: ${task.container}
-		END_VERSIONS
+		${madeline_version(task)}
 		"""
+}
+def madeline_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 ped_parser: 
+	  version: \$(echo \$(ped_parser --version 2>&1) | sed -e "s/^.*ped_parser version: //")
+	  container: ${task.container}
+	 madeline: 
+	  version: \$(echo \$(madeline --version 2>&1) | grep : | sed -e"s/^.*Madeline //; s/PDE : 1.*//")
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process freebayes {
@@ -1367,42 +1344,14 @@ process freebayes {
 			cat ${id}.freebayes.multibreak.norm.anno.path.vcf ${id}.freebayes.multibreak.norm.anno.path.vcf2 > ${id}.freebayes.multibreak.norm.anno.path.vcf3
 			filter_freebayes.pl ${id}.freebayes.multibreak.norm.anno.path.vcf3 > ${id}.pathfreebayes.lines
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 freebayes: 
-			  version: \$(echo \$(freebayes --version 2>&1) | sed 's/version:\s*v//g')
-			  container: ${task.container}
-			 vcflib: 
-			  version: 1.0.9
-			  container: ${task.container}
-			 bcftools: 
-			  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-			  container: ${task.container}
-			 vcfanno: 
-			  version: \$(echo \$(vcfanno_linux64 2>&1) | grep version | cut -f3 -d' ' )
-			  container: ${task.container}
-			END_VERSIONS
+			${freebayes_version(task)}
 			"""
 		}
 		else {
 			"""
 			touch ${id}.pathfreebayes.lines
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 freebayes: 
-			  version: \$(echo \$(freebayes --version 2>&1) | sed 's/version:\s*v//g')
-			  container: ${task.container}
-			 vcflib: 
-			  version: 1.0.9
-			  container: ${task.container}
-			 bcftools: 
-			  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-			  container: ${task.container}
-			 vcfanno: 
-			  version: \$(echo \$(vcfanno_linux64 2>&1) | grep version | cut -f3 -d' ' )
-			  container: ${task.container}
-			END_VERSIONS
+			${freebayes_version(task)}
 			"""
 		}
 
@@ -1410,22 +1359,27 @@ process freebayes {
 		"""
 		touch ${id}.pathfreebayes.lines
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 freebayes: 
-		  version: \$(echo \$(freebayes --version 2>&1) | sed 's/version:\s*v//g')
-		  container: ${task.container}
-		 vcflib: 
-		  version: 1.0.9
-		  container: ${task.container}
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		 vcfanno: 
-		  version: \$(echo \$(vcfanno_linux64 2>&1) | grep version | cut -f3 -d' ' )
-		  container: ${task.container}
-		END_VERSIONS
+		${freebayes_version(task)}
 		"""
+}
+def freebayes_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 freebayes: 
+	  version: \$(echo \$(freebayes --version 2>&1) | sed 's/version:\s*v//g')
+	  container: ${task.container}
+	 vcflib: 
+	  version: 1.0.9
+	  container: ${task.container}
+	 bcftools: 
+	  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	  container: ${task.container}
+	 vcfanno: 
+	  version: \$(echo \$(vcfanno_linux64 2>&1) | grep version | cut -f3 -d' ' )
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 /////////////// MITOCHONDRIA SNV CALLING ///////////////
@@ -1457,15 +1411,7 @@ process fetch_MTseqs {
 		samtools index -b ${id}_mito.bam
 		echo "mtBAM	$id	/access/${params.subdir}/bam/${id}_mito.bam" > ${group}_mtbam.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sambamba: 
-		  version: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
-		  container: ${task.container}
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${fetch_MTseqs_version(task)}
 		"""
 
 	stub:
@@ -1474,17 +1420,23 @@ process fetch_MTseqs {
 		touch ${id}_mito.bam.bai
 		touch ${group}_mtbam.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sambamba: 
-		  version: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
-		  container: ${task.container}
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${fetch_MTseqs_version(task)}
 		"""
 }
+def fetch_MTseqs_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sambamba: 
+	  version: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
+	  container: ${task.container}
+	 SAMtools: 
+	  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
+}
+
 
 process sentieon_mitochondrial_qc {
 
