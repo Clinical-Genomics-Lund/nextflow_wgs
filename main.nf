@@ -2350,7 +2350,7 @@ process upd {
 	memory '1 GB'
 
 	input:
-		set gr, file(vcf) from vcf_upd
+		set group, file(vcf) from vcf_upd
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from meta_upd.filter{ item -> item[7] == 'proband' }
 
 	output:
@@ -2428,10 +2428,10 @@ process roh {
 	memory '1 GB'
 
 	input:
-		set gr, file(vcf) from vcf_roh
+		set group, file(vcf) from vcf_roh
 
 	output:
-		set gr, file("roh.txt") into roh_plot
+		set group, file("roh.txt") into roh_plot
 		set group, file("*versions.yml") into ch_roh_versions
 
 	script:
@@ -2523,7 +2523,7 @@ process overview_plot {
 
 	input:
 		file(upd) from upd_plot
-		set gr, file(roh) from roh_plot
+		set group, file(roh) from roh_plot
 		set group, id, type, sex, file(cov_stand), file(cov_denoised) from cov_plot.groupTuple()
 
 	output:
