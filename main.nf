@@ -160,7 +160,6 @@ if(genome_file ){
 }
 
 process fastp {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 10
 	tag "$id"
 	time '1h'
@@ -168,6 +167,7 @@ process fastp {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		params.umi
@@ -212,14 +212,13 @@ def fastp_version(task) {
 	"""
 }
 
-
 // Align fractions of fastq files with BWA
 process bwa_align_sharded {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 50
 	memory '120 GB'
 	tag "$id $shard"
 	time '5h'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
@@ -242,15 +241,7 @@ process bwa_align_sharded {
 			-o ${id}_${shard}.bwa.sort.bam \\
 			-t ${task.cpus} --sam2bam -i -
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon UTIL: 
-		  version: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		 Sentieon BWA-MEM: 
-		  version: \$(echo \$(sentieon bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${bwa_align_sharded_version(task)}
 		"""
 
 	stub:
@@ -258,25 +249,31 @@ process bwa_align_sharded {
 		touch ${id}_${shard}.bwa.sort.bam
 		touch ${id}_${shard}.bwa.sort.bam.bai
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon UTIL: 
-		  version: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		 Sentieon BWA-MEM: 
-		  version: \$(echo \$(sentieon bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${bwa_align_sharded_version(task)}
 		"""
 }
+def bwa_align_sharded_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sentieon UTIL: 
+	  version: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	  container: ${task.container}
+	 Sentieon BWA-MEM: 
+	  version: \$(echo \$(sentieon bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
+	  container: ${task.container}
+	END_VERSIONS
+	"""
+}
+
 
 // Merge the fractioned bam files
 process bwa_merge_shards {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 50
 	tag "$id"
 	time '1h'
 	memory '120 GB'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
@@ -294,12 +291,7 @@ process bwa_merge_shards {
 		"""
 		sentieon util merge -o ${id}_merged.bam ${bams}
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon UTIL: 
-		  version: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${bwa_merge_shards_version(task)}
 		"""
 
 	stub:
@@ -307,18 +299,22 @@ process bwa_merge_shards {
 		touch ${id}_merged.bam
 		touch ${id}_merged.bam.bai
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon UTIL: 
-		  version: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${bwa_merge_shards_version(task)}
 		"""
+}
+def bwa_merge_shards_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sentieon UTIL: 
+	  version: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 // ALTERNATIVE PATH: Unsharded BWA, utilize local scratch space.
 process bwa_align {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 50
 	memory '80 GB'
 	// 64 GB peak giab //
@@ -327,6 +323,7 @@ process bwa_align {
 	stageOutMode 'copy'
 	tag "$id"
 	container = "/fs1/resources/containers/sentieon_202112.sif"
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
@@ -474,30 +471,29 @@ process bqsr {
 			--algo QualCal ${id}.bqsr.table \\
 			-k $params.KNOWN
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${bqsr_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${id}.bqsr.table
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${bqsr_version(task)}
 		"""
+}
+def bqsr_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sentieon DRIVER: 
+	  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 //Collect various QC data: 
 process sentieon_qc {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 52
 	memory '30 GB'
 	tag "$id"
@@ -506,6 +502,7 @@ process sentieon_qc {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	container = "/fs1/resources/containers/sentieon_202112.sif"
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
@@ -542,40 +539,38 @@ process sentieon_qc {
 		$panel
 		qc_sentieon.pl $id $assay > ${id}_qc.json
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${sentieon_qc_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${id}_qc.json
 		touch ${id}.txt
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sentieon DRIVER: 
-		  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-		  container: ${task.container}
-		END_VERSIONS
+		${sentieon_qc_version(task)}
 		"""
-
+}
+def sentieon_qc_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sentieon DRIVER: 
+	  version: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
    
-
 // Calculate coverage for chanjo
 process chanjo_sambamba {
 	cpus 16
 	memory '10 GB'
-	publishDir "/${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.cov'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$id"
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.cov'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		params.varcall
@@ -585,41 +580,40 @@ process chanjo_sambamba {
 
 	output:
 		file("${id}.bwa.chanjo.cov") into chanjocov
+		path "*.versions.yml"
 
 	script:
 		"""
 		sambamba depth region -t ${task.cpus} -L $params.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}.bwa.chanjo.cov
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sambamba: 
-		  version: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
-		  container: ${task.container}
-		END_VERSIONS
+		${chanjo_sambamba_version(task)}	
 		"""
 
 	stub:
 		"""
 		touch ${id}.bwa.chanjo.cov
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Sambamba: 
-		  version: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
-		  container: ${task.container}
-		END_VERSIONS
+		${chanjo_sambamba_version(task)}	
 		"""
-}																																																								
+}
+def chanjo_sambamba_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Sambamba: 
+	  version: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
+	  container: ${task.container}
+	END_VERSIONS
+	"""
+}
 
 // Calculate coverage for paneldepth
 process depth_onco {
 	cpus 2
 	memory '10 GB'
-	publishDir "/${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
 	tag "$id"
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
 
 	when:
 		params.assay == "swea"
@@ -723,15 +717,12 @@ process SMNCopyNumberCaller {
 smn_tsv
 	.collectFile(keepHeader: true, storeDir: "${OUTDIR}/smn/")
 
-
-
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////// EXPANSION HUNTER ////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
 // call STRs using ExpansionHunter, and plot alignments with GraphAlignmentViewer
 process expansionhunter {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$group"
 	cpus 2
 	time '10h'
@@ -739,7 +730,7 @@ process expansionhunter {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	//publishDir "/${OUTDIR}/plots/GAV/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.png'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		params.str
@@ -796,7 +787,6 @@ process expansionhunter {
 
 // annotate expansionhunter vcf
 process stranger {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$group"
 	memory '1 GB'
 	time '10m'
@@ -804,6 +794,7 @@ process stranger {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	container = "/fs1/resources/containers/stranger_0.8.sif"
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
@@ -894,14 +885,14 @@ process reviewer {
 // split multiallelic sites in expansionhunter vcf
 // FIXME: Use env variable for picard path...
 process vcfbreakmulti_expansionhunter {
-	publishDir "/${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.expansionhunter.vcf.gz'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$group"
 	time '10m'
 	memory '40 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.expansionhunter.vcf.gz'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
@@ -1042,7 +1033,6 @@ process melt_qc_val {
 // it creates a vcf with only header from params.meltheader
 // merge_melt.pl gives output ${id}.melt.merged.vcf
 process melt {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 3
 	errorStrategy 'retry'
 	container = '/fs1/resources/containers/melt_2.2.2.sif'
@@ -1050,6 +1040,7 @@ process melt {
 	memory '40 GB'
 	time '3h'
 	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
@@ -1124,13 +1115,13 @@ process intersect_melt {
 
 // When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
 process dnascope {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 54
 	memory '40 GB'
 	// 12 GB peak giab //
 	time '4h'
 	tag "$id"
 	container = "/fs1/resources/containers/sentieon_202112.sif"
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		params.varcall
@@ -1198,12 +1189,12 @@ process bamtoyaml {
 
 
 process gvcf_combine {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 16
 	tag "$group"
 	memory '5 GB'
 	time '5h'
 	container = "/fs1/resources/containers/sentieon_202112.sif"
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(vcf), file(idx) from complete_vcf_choice.groupTuple()
@@ -1286,11 +1277,11 @@ process create_ped {
 
 //madeline ped, run if family mode
 process madeline {
-	publishDir "/${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.madeline.xml'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	memory '1 GB'
 	time '30m'
 	container '/fs1/resources/containers/madeline.sif'
+	publishDir "/${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.madeline.xml'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, type, file(ped) from ped_mad.mix(ped_mad_ma,ped_mad_fa)
@@ -1346,13 +1337,13 @@ process madeline {
 }
 
 process freebayes {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 1
 	time '2h'
 	container '/fs1/resources/containers/twistmyeloid_2020-06-17.sif'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when: 
 		params.onco || params.assay == "exome"
@@ -1616,10 +1607,10 @@ process run_mutect2 {
 
 // split and left-align variants
 process split_normalize_mito {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 1
 	memory '1GB'
 	time '10m'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(ms_vcf) from ms_vcfs_1
@@ -1678,11 +1669,10 @@ process split_normalize_mito {
 // use python tool HmtNote for annotating vcf
 // future merging with diploid genome does not approve spaces in info-string
 process run_hmtnote {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 1
 	memory '5GB'
 	time '15m'
-
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, file(adj_vcf) from adj_vcfs
@@ -1839,14 +1829,14 @@ process run_eklipse {
 // Splitting & normalizing variants, merging with Freebayes/Mutect2, intersecting against exome/clinvar introns
 process split_normalize {
 	cpus 1
-	publishDir "/${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$group"
 	memory '10 GB'
 	time '1h'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		params.annotate
@@ -1956,9 +1946,9 @@ process merge_qc_json {
     cpus 1
     errorStrategy 'retry'
     maxErrors 5
-    publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
     tag "$id"
     time '10m'
+    publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
 
     input:
         set group, id, file(qc) from qc_cdm.mix(qc_mito_json).groupTuple(by: [0,1])
@@ -1979,9 +1969,9 @@ process qc_to_cdm {
 	cpus 1
 	errorStrategy 'retry'
 	maxErrors 5
-	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
 	time '10m'
+	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 
 	when:
 		!params.noupload
@@ -2004,7 +1994,6 @@ process qc_to_cdm {
     
     
 process annotate_vep {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	cpus 54
 	tag "$group"
@@ -2013,6 +2002,7 @@ process annotate_vep {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(vcf), idx from split_vep.mix(annotate_only_vep)
@@ -2074,12 +2064,12 @@ process annotate_vep {
 
 // gene, clinvar, loqusdb, enigma(onco)
 process vcfanno {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus params.cpu_some
 	memory '32GB'
 	time '20m'
 	errorStrategy 'retry'
 	maxErrors 5
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, file(vcf) from vep
@@ -2206,12 +2196,12 @@ process extract_indels_for_cadd {
 
 // Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
 process indel_vep {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 5
 	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	tag "$group"
 	memory '10 GB'
 	time '3h'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, file(vcf) from indel_cadd_vep
@@ -2262,7 +2252,6 @@ process indel_vep {
 
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 2
 	container = '/fs1/resources/containers/cadd_v1.6.sif'
 	scratch true
@@ -2271,6 +2260,7 @@ process calculate_indel_cadd {
 	tag "$group"
 	memory '15 GB'
 	time '3h'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, file(vcf) from indel_cadd_vcf
@@ -2306,12 +2296,12 @@ process calculate_indel_cadd {
 
 // Add the calculated indel CADDs to the vcf
 process add_cadd_scores_to_vcf {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 4
 	tag "$group"
 	memory '1 GB'
 	time '5m'
 	container = '/fs1/resources/containers/genmod.sif'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input: 
 		set group, file(vcf), file(cadd_scores) from splice_marked.join(indel_cadd)
@@ -2369,7 +2359,6 @@ process add_cadd_scores_to_vcf {
 
 // # Annotating variant inheritance models:
 process inher_models {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 6
 	memory '64 GB'
 	tag "$group"
@@ -2378,6 +2367,7 @@ process inher_models {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	container = '/fs1/resources/containers/genmod.sif'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, file(vcf), type, file(ped) from base_vcf.mix(ma_vcf, fa_vcf).join(ped_inher.mix(ped_inher_ma,ped_inher_fa)).view()
@@ -2416,12 +2406,12 @@ process inher_models {
 // Adjusting compound scores: 
 // Sorting VCF according to score: 
 process genmodscore {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 2
 	tag "$group"
 	memory '10 GB'
 	time '30m'
 	container = '/fs1/resources/containers/genmod.sif'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, type, file(vcf) from inhermod
@@ -2482,10 +2472,10 @@ process genmodscore {
 // Bgzipping and indexing VCF: 
 process vcf_completion {
 	cpus 16
-	publishDir "/${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$group"
 	time '1h'
+	publishDir "/${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, type, file(vcf) from scored_vcf
@@ -2541,13 +2531,13 @@ process vcf_completion {
 
 // Running PEDDY: 
 process peddy {
+	cpus 6
+	tag "$group"
+	time '1h'
 	publishDir "/${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.csv'
 	publishDir "/${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.ped'
 	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	//container = '/fs1/resources/containers/wgs_20200115.sif'
-	cpus 6
-	tag "$group"
-	time '1h'
 
 	when:
 		!params.annotate_only
@@ -2596,9 +2586,9 @@ process fastgnomad {
 	cpus 2
 	memory '32 GB'
 	tag "$group"
+	time '2h'
 	publishDir "/${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
-	time '2h'
 
 	when:
 		!params.onco && !params.exome
@@ -2639,10 +2629,10 @@ process fastgnomad {
 
 // Call UPD regions from SNP vcf
 process upd {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$group"
 	time '10m'
 	memory '1 GB'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set gr, file(vcf) from vcf_upd
@@ -2697,10 +2687,10 @@ process upd {
 
 
 process upd_table {
-	publishDir "/${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	time '10m'
 	memory '1 GB'
+	publishDir "/${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 
 	input:
 		set group, file(upd_sites) from upd_table
@@ -2725,10 +2715,10 @@ process upd_table {
 
 // Call ROH regions from SNP vcf
 process roh {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$group"
 	time '10m'
 	memory '1 GB'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set gr, file(vcf) from vcf_roh
@@ -2764,12 +2754,12 @@ process roh {
 
 // Create coverage profile using GATK
 process gatkcov {
-	publishDir "/${OUTDIR}/cov", mode: 'copy' , overwrite: 'true', pattern: '*.tsv'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$group"
 	cpus 2
 	memory '60 GB'
 	time '5h'
+	publishDir "/${OUTDIR}/cov", mode: 'copy' , overwrite: 'true', pattern: '*.tsv'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set id, group, file(bam), file(bai), gr, sex, type from cov_bam.mix(cov_bam_choice).join(meta_gatkcov, by:1)
@@ -2826,10 +2816,10 @@ process gatkcov {
 
 // Plot ROH, UPD and coverage in a genomic overview plot
 process overview_plot {
-	publishDir "/${OUTDIR}/plots", mode: 'copy' , overwrite: 'true', pattern: "*.png"
 	tag "$group"
 	time '20m'
 	memory '5 GB'
+	publishDir "/${OUTDIR}/plots", mode: 'copy' , overwrite: 'true', pattern: "*.png"
 
 	input:
 		file(upd) from upd_plot
@@ -2864,12 +2854,12 @@ process overview_plot {
 }
 
 process generate_gens_data {
-	publishDir "/${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true', pattern: "*.gz*"
-	publishDir "${CRONDIR}/gens", mode: 'copy', overwrite: 'true', pattern: "*.gens"
 	tag "$group"
 	cpus 1
 	time '3h'
 	memory '5 GB'
+	publishDir "/${OUTDIR}/plot_data", mode: 'copy' , overwrite: 'true', pattern: "*.gz*"
+	publishDir "${CRONDIR}/gens", mode: 'copy', overwrite: 'true', pattern: "*.gens"
 
 	when:
 		!params.onco && !params.exome
@@ -2903,7 +2893,6 @@ process generate_gens_data {
 // GATK panel+wgs //
 
 process gatk_coverage {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 10
 	memory '50GB'
 	time '2h'
@@ -2912,6 +2901,7 @@ process gatk_coverage {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"   
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		params.sv && params.gatkcnv
@@ -2964,7 +2954,6 @@ process gatk_coverage {
 }
 
 process gatk_call_ploidy {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 10
 	memory '40GB'
 	time '2h'
@@ -2973,6 +2962,7 @@ process gatk_call_ploidy {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(tsv) from call_ploidy
@@ -3022,7 +3012,6 @@ process gatk_call_ploidy {
 }
 
 process gatk_call_cnv {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 8
 	memory '45GB'
 	time '3h'
@@ -3031,6 +3020,7 @@ process gatk_call_cnv {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(tsv), file(ploidy), i, refpart \
@@ -3088,15 +3078,11 @@ process gatk_call_cnv {
 }
 
 process postprocessgatk {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 8
 	memory '40GB'
 	time '3h'
-	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
-	
-	//scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
+	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'	
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
 
@@ -3192,7 +3178,6 @@ process filter_merge_gatk {
 		mergeGATK.pl ${id}.gatk.filtered.vcf > ${id}.gatk.filtered.merged.vcf
 		"""
 
-	
 	stub:
 		"""
 		touch ${id}.gatk.filtered.merged.vcf
@@ -3253,14 +3238,14 @@ process manta {
 
 process manta_panel {
 	cpus = 56
-	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$id"
 	time '1h'
 	memory '150 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		params.sv && params.onco
@@ -3271,7 +3256,6 @@ process manta_panel {
 	output:
 		set group, id, file("${id}.manta.vcf.gz") into called_manta_panel
 		path "*versions.yml"
-
 
 	script:
 		"""
@@ -3303,8 +3287,6 @@ process manta_panel {
 
 process delly_panel {
 	cpus = 5
-	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$id"
 	time '3h'
 	memory '10 GB'
@@ -3312,6 +3294,8 @@ process delly_panel {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	cache 'deep'
+	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	
 	when:
 		params.sv && params.onco && params.delly
@@ -3354,15 +3338,15 @@ process delly_panel {
 process cnvkit_panel {
 	cpus = 5
 	container = '/fs1/resources/containers/twistmyeloid_active.sif'
-	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-	publishDir "/${OUTDIR}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	tag "$id"
 	time '20m'
 	memory '20 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	publishDir "/${OUTDIR}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		params.sv && params.onco
@@ -3416,13 +3400,13 @@ process svdb_merge_panel {
 	cpus 1
 	cache 'deep'
 	tag "$group"
-	publishDir "/${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	time '10m'
 	memory '1 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		//set group, id, file(mantaV), file(dellyV), file(melt), file(cnvkitV) \
@@ -3496,7 +3480,6 @@ process svdb_merge_panel {
 			END_VERSIONS
 			"""
 		}
-//			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf // need to add melt somewhere!
 	
 	stub:
 		"""
@@ -3516,14 +3499,14 @@ process svdb_merge_panel {
 
 process tiddit {
 	cpus = 2
-	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	time '10h'
 	tag "$id"
 	memory '10 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		params.sv && !params.onco &&  !params.exome
@@ -3565,13 +3548,13 @@ process tiddit {
 process svdb_merge {
 	cpus 1
 	tag "$group"
-	publishDir "/${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	time '2h'
 	memory '1 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(mantaV) from called_manta.groupTuple()
@@ -3662,10 +3645,10 @@ process svdb_merge {
 
 process add_to_loqusdb {
 	cpus 1
-	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	memory '1 MB'
 	time '5m'
+	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
 
 	when:
 		!params.noupload
@@ -3699,10 +3682,10 @@ process annotsv {
 	container = '/fs1/resources/containers/annotsv.v2.3.sif'
 	cpus 2
 	tag "$group"
-	publishDir "/${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true', pattern: '*.tsv'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	time '5h'
 	memory '20 GB'
+	publishDir "/${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true', pattern: '*.tsv'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(sv) from annotsv_vcf.mix(annotsv_panel)
@@ -3743,12 +3726,12 @@ process annotsv {
 }
 
 process vep_sv {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 56
 	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
 	tag "$group"
 	memory '150 GB'
 	time '1h'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	
 	input:
 		set group, id, file(vcf) from vcf_vep.mix(vep_sv_panel)
@@ -3799,9 +3782,9 @@ process vep_sv {
 }
 
 process postprocess_vep {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus = 1
 	tag "$group"
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, id, file(vcf) from vep_vcf
@@ -3847,7 +3830,6 @@ process postprocess_vep {
 
 // Query artefact db
 process artefact {
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	cpus 1
 	tag "$group"
 	time '10h'
@@ -3855,6 +3837,7 @@ process artefact {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, file(sv) from artefact_vcf
@@ -3948,11 +3931,11 @@ process prescore {
 process score_sv {
 	cpus 5
 	tag "$group $mode"
-	publishDir "/${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	memory '10 GB'
 	time '2h'
 	container = '/fs1/resources/containers/genmod.sif'
+	publishDir "/${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	input:
 		set group, type, file(vcf) from annotatedSV
@@ -4057,10 +4040,10 @@ process score_sv {
 process compound_finder {
 	cpus 5
 	tag "$group $mode"
-	publishDir "/${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
-	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 	memory '10 GB'
 	time '2h'
+	publishDir "/${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	publishDir "/${OUTDIR}/versions", mode: 'copy' , overwrite: 'true', pattern: '*versions.yml'
 
 	when:
 		mode == "family" && params.assay == "wgs"
@@ -4147,10 +4130,10 @@ process ouput_files {
 
 
 process svvcf_to_bed {
-	publishDir "/${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 	tag "group"
 	memory '1 GB'
 	time '10m'
+	publishDir "/${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 
 	when:
 		!params.onco && !params.exome
@@ -4176,11 +4159,11 @@ process svvcf_to_bed {
 
 process plot_pod {
 	container = '/fs1/resources/containers/POD_2020-05-19.sif'
-	publishDir "/${OUTDIR}/pod", mode: 'copy' , overwrite: 'true', pattern: '*.pdf'
-	publishDir "/${OUTDIR}/pod", mode: 'copy' , overwrite: 'true', pattern: '*.html'
 	tag "$group"
 	time '20m'
 	memory '1 GB'
+	publishDir "/${OUTDIR}/pod", mode: 'copy' , overwrite: 'true', pattern: '*.pdf'
+	publishDir "/${OUTDIR}/pod", mode: 'copy' , overwrite: 'true', pattern: '*.html'
 
 	input:
 		set group, file(snv) from vcf_pod
@@ -4206,14 +4189,14 @@ process plot_pod {
 }
 
 process create_yaml {
-	publishDir "/${OUTDIR}/yaml", mode: 'copy' , overwrite: 'true', pattern: '*.yaml'
-	publishDir "/${OUTDIR}/yaml/alt_affect", mode: 'copy' , overwrite: 'true', pattern: '*.yaml.*a'
-	publishDir "${CRONDIR}/scout", mode: 'copy' , overwrite: 'true', pattern: '*.yaml'
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$group"
 	time '5m'
 	memory '1 GB'
+	publishDir "/${OUTDIR}/yaml", mode: 'copy' , overwrite: 'true', pattern: '*.yaml'
+	publishDir "/${OUTDIR}/yaml/alt_affect", mode: 'copy' , overwrite: 'true', pattern: '*.yaml.*a'
+	publishDir "${CRONDIR}/scout", mode: 'copy' , overwrite: 'true', pattern: '*.yaml'
 
 	input:
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, type, file(ped), file(INFO) from yml_diag.join(ped_scout).join(yaml_INFO)
