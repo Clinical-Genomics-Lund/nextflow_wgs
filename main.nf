@@ -176,8 +176,8 @@ process fastp {
 		set group, val(id), r1, r2 from fastq_umi
 
 	output:
-		set group, val(id), file("${id}_R1_a_q_u_trimmed.fq.gz"),file("${id}_R2_a_q_u_trimmed.fq.gz") into fastq_trimmed
-		path "*versions.yml"
+		set group, val(id), file("${id}_R1_a_q_u_trimmed.fq.gz"), file("${id}_R2_a_q_u_trimmed.fq.gz") into fastq_trimmed
+		set group, file("*versions.yml") into ch_fastp_versions
 
 	script:
 		"""
@@ -322,7 +322,8 @@ process bwa_align {
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_locusc, bam_markdup
 		// set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_dedup remnant of distri
-		path "*versions.yml"
+		// path "*versions.yml" into ch_bwa_align_versions
+		set group, file("*versions.yml") into ch_bwa_align_versions
 
 	when:
 		params.align && !params.shardbwa
@@ -385,7 +386,8 @@ process markdup {
 		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
-		path "*versions.yml"
+		set group, file("markdup_versions.yml") into ch_markdup_versions
+		// path "*versions.yml" into ch_markdup_versions
 
 	script:
 		"""
@@ -1011,7 +1013,7 @@ def melt_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    MELT: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar Single -h )  | sed "s/.*MELTv// | s/ -.*//" )
+	    MELT: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar Single -h ) | sed "s/.*MELTv// | s/ -.*//" )
 	END_VERSIONS	
 	"""
 }
@@ -1616,8 +1618,8 @@ def run_haplogrep_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	 haplogrep: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/htt.*Classify v// ; s/ .*//")
-	 montage: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
+	    haplogrep: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/htt.*Classify v// ; s/ .*//")
+	    montage: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
 	END_VERSIONS	
 	"""
 }
@@ -1670,7 +1672,7 @@ def run_eklipse_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	 eKLIPse: 1-8
+	    eKLIPse: 1-8
 	END_VERSIONS	
 	"""
 }
@@ -1909,7 +1911,7 @@ def vcfanno_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    vcfanno: \$(echo \$(vcfanno 2>&1) | grep version | cut -f3 -d' ' )
+	    vcfanno: \$(echo \$(vcfanno_linux64 2>&1) | grep version | cut -f3 -d' ' )
 	END_VERSIONS	
 	"""
 }
@@ -2432,7 +2434,7 @@ def upd_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    upd: \$(echo \$(upd --version 2>&1)
+	    upd: \$(echo \$(upd --version 2>&1))
 	END_VERSIONS
 	"""
 }
@@ -3719,7 +3721,7 @@ def compound_finder_version(task) {
 }
 
 
-process ouput_files {
+process output_files {
 	cpus 1
 	memory '1MB'
 	time '2m'
@@ -3828,5 +3830,29 @@ process create_yaml {
 	stub:
 		"""
 		touch ${group}.yaml
+		"""
+}
+
+process combine_versions {
+	publishDir "/${OUTDIR}/versions", mode: 'copy', overwrite: 'true', pattern: 'all_versions.yml'
+
+	input:
+		set group, versions_file from ch_bwa_align_versions.mix(ch_markdup_versions).groupTuple()
+	
+	output:
+		file("all_versions.yml")
+	
+	script:
+		versions_files = versions_file.join( ' ' )
+
+		"""
+		cat $versions_files > all_versions.yml
+		"""
+	
+	stub:
+		versions_files = versions_file.join( ' ' )
+
+		"""
+		cat $versions_files > all_versions.yml
 		"""
 }
