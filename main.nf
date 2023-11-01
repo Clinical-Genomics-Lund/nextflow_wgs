@@ -1535,12 +1535,7 @@ process run_mutect2 {
 		-I $bams \
 		-O ${group}.mutect2.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${run_mutect2_version(task)}
 		"""
 
 	stub:
@@ -1548,13 +1543,18 @@ process run_mutect2 {
 		source activate gatk4-env
 		touch ${group}.mutect2.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${run_mutect2_version(task)}
 		"""
+}
+def run_mutect2_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 GATK: 
+	  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 // split and left-align variants
@@ -1585,37 +1585,31 @@ process split_normalize_mito {
 		bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf
 		filter_mutect2_mito.pl ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf ${id2[proband_idx]} > ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 vcflib: 
-		  version: 1.0.9
-		  container: ${task.container}
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		END_VERSIONS
+		${split_normalize_mito_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 vcflib: 
-		  version: 1.0.9
-		  container: ${task.container}
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		END_VERSIONS
+		${split_normalize_mito_version(task)}
 		"""
+}
+def split_normalize_mito_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 vcflib: 
+	  version: 1.0.9
+	  container: ${task.container}
+	 bcftools: 
+	  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	  container: ${task.container}
+	 tabix: 
+	  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 // use python tool HmtNote for annotating vcf
@@ -1640,12 +1634,7 @@ process run_hmtnote {
 		grep ^# ${group}.hmtnote > ${group}.fixinfo.vcf
 		grep -v ^# ${group}.hmtnote | sed 's/ /_/g' >> ${group}.fixinfo.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 hmtnote: 
-		  version: \$(echo \$(hmtnote --version 2>&1) | sed 's/^.*hmtnote, version //; s/Using.*\$//' )
-		  container: ${task.container}
-		END_VERSIONS
+		${run_hmtnote_version(task)}
 		"""
 
 	stub:
@@ -1653,13 +1642,18 @@ process run_hmtnote {
 		source activate tools
 		touch ${group}.fixinfo.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 hmtnote: 
-		  version: \$(echo \$(hmtnote --version 2>&1) | sed 's/^.*hmtnote, version //; s/Using.*\$//' )
-		  container: ${task.container}
-		END_VERSIONS
+		${run_hmtnote_version(task)}
 		"""
+}
+def run_hmtnote_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 hmtnote: 
+	  version: \$(echo \$(hmtnote --version 2>&1) | sed 's/^.*hmtnote, version //; s/Using.*\$//' )
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 // run haplogrep 2 on resulting vcf
@@ -1693,15 +1687,7 @@ process run_haplogrep {
 		montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
 		echo "IMG haplogrep !{params.accessdir}/plots/mito/!{group}.haplogrep.png" > !{group}_haplo.INFO
 		
-		cat <<-END_VERSIONS > !{task.process}_versions.yml
-		!{task.process}:
-		 haplogrep: 
-		  version: $(echo $(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/.*Classify v// ; s/ .*//")
-		  container: !{task.container}
-		 montage: 
-		  version: $(echo $(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
-		  container: !{task.container}
-		END_VERSIONS
+		!{run_haplogrep_version(task)}
 		'''
 
 	stub:
@@ -1709,16 +1695,21 @@ process run_haplogrep {
 		touch ${group}.haplogrep.png
 		touch ${group}_haplo.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 haplogrep: 
-		  version: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/htt.*Classify v// ; s/ .*//")
-		  container: ${task.container}
-		 montage: 
-		  version: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
-		  container: ${task.container}
-		END_VERSIONS
+		${run_haplogrep_version(task)}
 		"""
+}
+def run_haplogrep_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 haplogrep: 
+	  version: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/htt.*Classify v// ; s/ .*//")
+	  container: ${task.container}
+	 montage: 
+	  version: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 // use eKLIPse for detecting mitochondrial deletions
@@ -1752,12 +1743,7 @@ process run_eklipse {
 		mv hetplasmid_frequency.txt ${id}.hetplasmid_frequency.txt
 		echo "IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png" > ${id}_eklipse.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 eKLIPse: 
-		  version: 1-8
-		  container: ${task.container}
-		END_VERSIONS
+		${run_eklipse_version(task)}
 		"""
 
 	stub:
@@ -1767,13 +1753,18 @@ process run_eklipse {
 		touch ${id}_eklipse.INFO
 		touch ${id}.png
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 eKLIPse: 
-		  version: 1-8
-		  container: ${task.container}
-		END_VERSIONS
+		${run_eklipse_version(task)}
 		"""
+}
+def run_eklipse_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 eKLIPse: 
+	  version: 1-8
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 //eklipseM_INFO.collectFile(name: "eklipse.INFO").set{ eklipse_INFO }
@@ -1816,21 +1807,7 @@ process split_normalize {
 			-b $params.intersect_bed \\
 			-u -header > ${group}.intersected.vcf
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 vcflib: 
-		  version: 1.0.9
-		  container: ${task.container}
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		 bedtools: 
-		  version: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
-		  container: ${task.container}
-		 MergeVcfs: 
-		  version: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs --version 2>&1))
-		  container: ${task.container}
-		END_VERSIONS
+		${split_normalize_version(task)}
 		"""
 	}
 
@@ -1849,21 +1826,7 @@ process split_normalize {
 		sed 's/^M/MT/' -i ${group}.intersected.vcf
 		sed 's/ID=M,length/ID=MT,length/' -i ${group}.intersected.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 vcflib: 
-		  version: 1.0.9
-		  container: ${task.container}
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		 bedtools: 
-		  version: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
-		  container: ${task.container}
-		 MergeVcfs: 
-		  version: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs --version 2>&1))
-		  container: ${task.container}
-		END_VERSIONS
+		${split_normalize_version(task)}
 		"""
 	}
 
@@ -1873,23 +1836,27 @@ process split_normalize {
 		touch ${group}.intersected.vcf
 		touch ${group}.multibreak.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 vcflib: 
-		  version: 1.0.9
-		  container: ${task.container}
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		 bedtools: 
-		  version: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
-		  container: ${task.container}
-		 MergeVcfs: 
-		  version: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs --version 2>&1))
-		  container: ${task.container}
-		END_VERSIONS
+		${split_normalize_version(task)}
 		"""
-
+}
+def split_normalize_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 vcflib: 
+	  version: 1.0.9
+	  container: ${task.container}
+	 bcftools: 
+	  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	  container: ${task.container}
+	 bedtools: 
+	  version: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
+	  container: ${task.container}
+	 MergeVcfs: 
+	  version: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs --version 2>&1))
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 /////////////// Collect QC into single file ///////////////
@@ -1991,26 +1958,25 @@ process annotate_vep {
 			-custom $params.PHYLOP \\
 			-custom $params.PHASTCONS
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 VEP: 
-		  version: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${annotate_vep_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.vep.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 VEP: 
-		  version: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${annotate_vep_version(task)}
 		"""
-
+}
+def annotate_vep_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 VEP: 
+	  version: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 
@@ -2034,26 +2000,27 @@ process vcfanno {
 		"""
 		vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno $vcf > ${group}.clinvar.loqusdb.gene.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 vcfanno: 
-		  version: \$(echo \$(vcfanno 2>&1) | grep version | cut -f3 -d' ' )
-		  container: ${task.container}
-		END_VERSIONS
+		${vcfanno_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.clinvar.loqusdb.gene.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 vcfanno: 
-		  version: \$(echo \$(vcfanno 2>&1) | grep version | cut -f3 -d' ' )
-		  container: ${task.container}
-		END_VERSIONS
+		${vcfanno_version(task)}
 		"""
 }
+def vcfanno_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 vcfanno: 
+	  version: \$(echo \$(vcfanno 2>&1) | grep version | cut -f3 -d' ' )
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
+}
+
 
 // Extracting most severe consequence: 
 // Modifying annotations by VEP-plugins, and adding to info-field: 
@@ -2125,25 +2092,25 @@ process extract_indels_for_cadd {
 		"""
 		bcftools view $vcf -V snps -o ${group}.only_indels.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${extract_indels_for_cadd_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.only_indels.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${extract_indels_for_cadd_version(task)}
 		""" 
+}
+def extract_indels_for_cadd_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 bcftools: 
+	  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 // Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
@@ -2181,25 +2148,25 @@ process indel_vep {
 			--fork ${task.cpus}
 		filter_indels.pl ${group}.only_indels.vep.vcf > ${group}.only_indels.vep.filtered.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 VEP: 
-		  version: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${indel_vep_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.only_indels.vep.filtered.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 VEP: 
-		  version: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${indel_vep_version(task)}
 		"""
+}
+def indel_vep_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 VEP: 
+	  version: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 // Calculate CADD scores for all indels
@@ -2225,25 +2192,25 @@ process calculate_indel_cadd {
 		"""
 		/CADD-scripts/CADD.sh -c ${task.cpus} -g GRCh38 -o ${group}.indel_cadd.gz $vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 CADD: 
-		  version: \$(echo \$(/CADD-scripts/CADD.sh -v 2>&1) | sed -e "s/^.*CADD-v// ; s/ (c).*//")
-		  container: ${task.container}
-		END_VERSIONS
+		${calculate_indel_cadd_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.indel_cadd.gz
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 CADD: 
-		  version: \$(echo \$(/CADD-scripts/CADD.sh -v 2>&1) | sed -e "s/^.*CADD-v// ; s/ (c).*//")
-		  container: ${task.container}
-		END_VERSIONS
+		${calculate_indel_cadd_version(task)}
 		"""
+}
+def calculate_indel_cadd_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 CADD: 
+	  version: \$(echo \$(/CADD-scripts/CADD.sh -v 2>&1) | sed -e "s/^.*CADD-v// ; s/ (c).*//")
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 // Add the calculated indel CADDs to the vcf
@@ -2269,43 +2236,35 @@ process add_cadd_scores_to_vcf {
 		tabix -p vcf cadd.gz
 		genmod annotate --cadd-file cadd.gz $vcf > ${group}.cadd.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 gunzip: 
-		  version: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
-		  container: ${task.container}
-		 bgzip: 
-		  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 genmod: 
-		  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-		  container: ${task.container}
-		END_VERSIONS
+		${add_cadd_scores_to_vcf_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.cadd.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 gunzip: 
-		  version: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
-		  container: ${task.container}
-		 bgzip: 
-		  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 genmod: 
-		  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-		  container: ${task.container}
-		END_VERSIONS
+		${add_cadd_scores_to_vcf_version(task)}
 		"""
+}
+def add_cadd_scores_to_vcf_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 gunzip: 
+	  version: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
+	  container: ${task.container}
+	 bgzip: 
+	  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	 tabix: 
+	  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	 genmod: 
+	  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
+	  container: ${task.container}
+	END_VERSIONS
+
+	"""
 }
 
 
@@ -2332,25 +2291,25 @@ process inher_models {
 		"""
 		genmod models $vcf -p ${task.cpus} -f $ped > ${group}.models.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 genmod: 
-		  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-		  container: ${task.container}
-		END_VERSIONS
+		${inher_models_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.models.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 genmod: 
-		  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-		  container: ${task.container}
-		END_VERSIONS
+		${inher_models_version(task)}
 		"""
+}
+def inher_models_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 genmod: 
+	  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 
@@ -2385,12 +2344,7 @@ process genmodscore {
 			sed 's/RankScore=${group}:/RankScore=${group_score}:/g' -i ${group_score}.score2.vcf
 			genmod sort -p -f $group_score ${group_score}.score2.vcf -o ${group_score}.scored.vcf
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 genmod: 
-			  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-			  container: ${task.container}
-			END_VERSIONS
+			${genmodscore_version(task)}
 			"""
 		}
 		else {
@@ -2398,12 +2352,7 @@ process genmodscore {
 			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.score1.vcf
 			genmod sort -p -f $group_score ${group_score}.score1.vcf -o ${group_score}.scored.vcf
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 genmod: 
-			  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-			  container: ${task.container}
-			END_VERSIONS
+			${genmodscore_version(task)}
 			"""
 		}
 
@@ -2411,14 +2360,18 @@ process genmodscore {
 		group_score = group
 		"""
 		touch ${group_score}.scored.vcf
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 genmod: 
-		  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-		  container: ${task.container}
-		END_VERSIONS
+		${genmodscore_version(task)}
 		"""
+}
+def genmodscore_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 genmod: 
+	  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 // Bgzipping and indexing VCF: 
@@ -2450,15 +2403,7 @@ process vcf_completion {
 		tabix ${vcf}.gz -f
 		echo "SNV	$type	${params.accessdir}/vcf/${group_score}.scored.vcf.gz" > ${group}_snv.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 bgzip: 
-		  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		END_VERSIONS
+		${vcf_completion_version(task)}
 		"""
 
 	stub:
@@ -2468,20 +2413,24 @@ process vcf_completion {
 		touch ${group_score}.scored.vcf.gz.tbi
 		touch ${group}_snv.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 bgzip: 
-		  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		END_VERSIONS
+		${vcf_completion_version(task)}
 		"""
+}
+def vcf_completion_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 bgzip: 
+	  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	 tabix: 
+	  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 
-// Running PEDDY: 
 process peddy {
 	cpus 6
 	tag "$group"
@@ -2508,12 +2457,7 @@ process peddy {
 		python -m peddy --sites hg38 -p ${task.cpus} $vcf $ped --prefix $group
 		echo "PEDDY	${params.accessdir}/ped/${group}.ped_check.csv,${params.accessdir}/ped/${group}.peddy.ped,${params.accessdir}/ped/${group}.sex_check.csv" > ${group}_peddy.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 peddy: 
-		  version: \$(echo \$(python -m peddy --version 2>&1) | sed 's/^.*peddy, version //')
-		  container: ${task.container}
-		END_VERSIONS
+		${peddy_version(task)}
 		"""
 
 	stub:
@@ -2524,13 +2468,18 @@ process peddy {
 		touch ${group}.sex_check.csv
 		touch ${group}_peddy.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 peddy: 
-		  version: \$(echo \$(python -m peddy --version 2>&1) | sed 's/^.*peddy, version //')
-		  container: ${task.container}
-		END_VERSIONS
+		${peddy_version(task)}
 		"""
+}
+def peddy_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 peddy: 
+	  version: \$(echo \$(python -m peddy --version 2>&1) | sed 's/^.*peddy, version //')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 // Extract all variants (from whole genome) with a gnomAD af > x%
@@ -2557,25 +2506,25 @@ process fastgnomad {
 		gzip -c $vcf > ${vcf}.gz
 		annotate -g $params.FASTGNOMAD_REF -i ${vcf}.gz > ${group}.SNPs.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 gzip: 
-		  version: \$(echo \$(gzip --version 2>&1) | sed 's/^.*gzip // ; s/Copyright.*//' )
-		  container: ${task.container}
-		END_VERSIONS
+		${fastgnomad_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.SNPs.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 gzip: 
-		  version: \$(echo \$(gzip --version 2>&1) | sed 's/^.*gzip // ; s/Copyright.*//' )
-		  container: ${task.container}
-		END_VERSIONS
+		${fastgnomad_version(task)}
 		"""
+}
+def fastgnomad_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 gzip: 
+	  version: \$(echo \$(gzip --version 2>&1) | sed 's/^.*gzip // ; s/Copyright.*//' )
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 
@@ -2601,12 +2550,7 @@ process upd {
 			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
 			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 upd: 
-			  version: \$(echo \$(upd --version 2>&1)
-			  container: ${task.container}
-			END_VERSIONS
+			${upd_version(task)}
 			"""
 		}
 		else {
@@ -2614,12 +2558,7 @@ process upd {
 			touch upd.bed
 			touch upd.sites.bed
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 upd: 
-			  version: \$(echo \$(upd --version 2>&1)
-			  container: ${task.container}
-			END_VERSIONS
+			${upd_version(task)}
 			"""
 		}
 
@@ -2627,14 +2566,19 @@ process upd {
 		"""
 		touch upd.bed
 		touch upd.sites.bed
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 upd: 
-		  version: \$(echo \$(upd --version 2>&1)
-		  container: ${task.container}
-		END_VERSIONS
+		
+		${upd_version(task)}
 		"""
+}
+def upd_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 upd: 
+	  version: \$(echo \$(upd --version 2>&1)
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 
@@ -2683,25 +2627,25 @@ process roh {
 		"""
 		bcftools roh --rec-rate 1e-9 --AF-tag GNOMADAF ${vcf} -o roh.txt
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${roh_version(task)}
 		"""
 
 	stub:
 		"""
 		touch roh.txt
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${roh_version(task)}
 		"""
+}
+def roh_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 bcftools: 
+	  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 // Create coverage profile using GATK
@@ -2742,12 +2686,7 @@ process gatkcov {
 			--sequence-dictionary $params.GENOMEDICT \\
 			--minimum-contig-length 46709983 --output . --output-prefix $id
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${gatkcov_version(task)}
 		"""
 
 	stub:
@@ -2756,13 +2695,18 @@ process gatkcov {
 		touch ${id}.standardizedCR.tsv
 		touch ${id}.denoisedCR.tsv
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${gatkcov_version(task)}
 		"""
+}
+def gatkcov_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 GATK: 
+	  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 
@@ -2879,12 +2823,7 @@ process gatk_coverage {
 			-I $bam \\
 			--format TSV -O ${id}.tsv
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${gatk_coverage_version(task)}
 		"""
 
 	stub:
@@ -2896,13 +2835,18 @@ process gatk_coverage {
 		source activate gatk
 		touch ${id}.tsv
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${gatk_coverage_version(task)}
 		"""
+}
+def gatk_coverage_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 GATK: 
+	  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process gatk_call_ploidy {
@@ -2937,12 +2881,7 @@ process gatk_call_ploidy {
 			--output-prefix $group
 		tar -cvf ploidy.tar ploidy/
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${gatk_call_ploidy_version(task)}
 		"""
 
 	stub:
@@ -2954,13 +2893,18 @@ process gatk_call_ploidy {
 		source activate gatk
 		touch ploidy.tar
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${gatk_call_ploidy_version(task)}
 		"""
+}
+def gatk_call_ploidy_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 GATK: 
+	  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process gatk_call_cnv {
@@ -3001,12 +2945,7 @@ process gatk_call_cnv {
 			--output-prefix ${group}_${i}
 		tar -cvf ${group}_${i}.tar ${group}_${i}/
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${gatk_call_cnv_version(task)}
 		"""
 
 	stub:
@@ -3020,13 +2959,18 @@ process gatk_call_cnv {
 		source activate gatk
 		touch ${group}_${i}.tar
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${gatk_call_cnv_version(task)}
 		"""
+}
+def gatk_call_cnv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 GATK: 
+	  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process postprocessgatk {
@@ -3082,12 +3026,7 @@ process postprocessgatk {
 			--calls-shard-path !{caseshards} \
 			--model-shard-path !{modelshards}
 
-		cat <<-END_VERSIONS > !{task.process}_versions.yml
-		!{task.process}:
-		 GATK: 
-		  version: $(echo $(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*// ; s/-SNAPSHOT//')
-		  container: !{task.container}
-		END_VERSIONS
+		!{postprocessgatk_version(task)}
 		'''
 
 	stub:
@@ -3102,13 +3041,18 @@ process postprocessgatk {
 		touch genotyped-segments-${group}-vs-cohort30.vcf.gz
 		touch denoised-${group}-vs-cohort30.vcf.gz
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 GATK: 
-		  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-		  container: ${task.container}
-		END_VERSIONS
+		${postprocessgatk_version(task)}
 		"""
+}
+def postprocessgatk_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 GATK: 
+	  version: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process filter_merge_gatk {
@@ -3167,25 +3111,25 @@ process manta {
 		mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
 		mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Manta: 
-		  version: \$( configManta.py --version )
-		  container: ${task.container}
-		END_VERSIONS
+		${manta_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${id}.manta.vcf.gz
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Manta: 
-		  version: \$( configManta.py --version )
-		  container: ${task.container}
-		END_VERSIONS
+		${manta_version(task)}
 		"""
+}
+def manta_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Manta: 
+	  version: \$( configManta.py --version )
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process manta_panel {
@@ -3216,25 +3160,25 @@ process manta_panel {
 		mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
 		mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Manta: 
-		  version: \$( configManta.py --version )
-		  container: ${task.container}
-		END_VERSIONS
+		${manta_panel_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${id}.manta.vcf.gz
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 Manta: 
-		  version: \$( configManta.py --version )
-		  container: ${task.container}
-		END_VERSIONS
+		${manta_panel_version(task)}
 		"""
+}
+def manta_panel_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 Manta: 
+	  version: \$( configManta.py --version )
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 process delly_panel {
@@ -3266,25 +3210,25 @@ process delly_panel {
 		filter_delly.pl --vcf ${id}.vcf --bed $params.intersect_bed > ${id}.delly.vcf
 		bgzip -c ${id}.delly.vcf > ${id}.delly.vcf.gz
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 DELLY: 
-		  version: \$( echo \$(delly --version 2>&1) | sed 's/^.*Delly version: v//; s/ using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${delly_panel_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${id}.delly.vcf.gz
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 DELLY: 
-		  version: \$( echo \$(delly --version 2>&1) | sed 's/^.*Delly version: v//; s/ using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${delly_panel_version(task)}
 		"""
+}
+def delly_panel_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 DELLY: 
+	  version: \$( echo \$(delly --version 2>&1) | sed 's/^.*Delly version: v//; s/ using.*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process cnvkit_panel {
@@ -3324,12 +3268,7 @@ process cnvkit_panel {
 		cnvkit.py scatter -s results/*dedup.cn{s,r} -o ${group}.genomic_overview.png -v $vcf -i $id
 		echo "IMG overviewplot	${params.accessdir}/plots/${group}.genomic_overview.png" > ${group}_oplot.INFO
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 CNVkit: 
-		  version: \$(cnvkit.py version | sed -e 's/cnvkit v//g')
-		  container: ${task.container}
-		END_VERSIONS
+		${cnvkit_panel_version(task)}
 		"""
 
 	stub:
@@ -3339,13 +3278,18 @@ process cnvkit_panel {
 		touch ${group}.genomic_overview.png
 		touch ${group}_oplot.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 CNVkit: 
-		  version: \$(cnvkit.py version | sed -e 's/cnvkit v//g')
-		  container: ${task.container}
-		END_VERSIONS
+		${cnvkit_panel_version(task)}
 		"""
+}
+def cnvkit_panel_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 CNVkit: 
+	  version: \$(cnvkit.py version | sed -e 's/cnvkit v//g')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process svdb_merge_panel {
@@ -3406,47 +3350,34 @@ process svdb_merge_panel {
 			filter_panel_cnv.pl --mergedvcf ${group}.merged.vcf --callers $priority > ${group}.merged.filtered.vcf
 			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
 			
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 SVDB: 
-			  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-			  container: ${task.container}
-			 SAMtools: 
-			  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-			  container: ${task.container}
-			END_VERSIONS
+			${svdb_merge_panel_version(task)}
 			"""
 		}
 		else {
 			"""
 			mv $vcf ${group}.merged.filtered.melt.vcf
-
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 SVDB: 
-			  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-			  container: ${task.container}
-			 SAMtools: 
-			  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-			  container: ${task.container}
-			END_VERSIONS
+			${svdb_merge_panel_version(task)}
 			"""
 		}
 	
 	stub:
 		"""
 		touch ${group}.merged.filtered.melt.vcf
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 SVDB: 
-		  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-		  container: ${task.container}
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${svdb_merge_panel_version(task)}
 		"""
+}
+def svdb_merge_panel_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 SVDB: 
+	  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
+	  container: ${task.container}
+	 SAMtools: 
+	  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 process tiddit {
@@ -3475,26 +3406,24 @@ process tiddit {
 		"""
 		TIDDIT.py --sv -o ${id}.tiddit --bam $bam
 		grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 tiddit: 
-		  version: \$(echo \$(TIDDIT.py 2>&1) | sed 's/^.*TIDDIT-//; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${tiddit_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${id}.tiddit.filtered.vcf
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 tiddit: 
-		  version: \$(echo \$(TIDDIT.py 2>&1) | sed 's/^.*TIDDIT-//; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${tiddit_version(task)}
 		"""
+}
+def tiddit_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 tiddit: 
+	  version: \$(echo \$(TIDDIT.py 2>&1) | sed 's/^.*TIDDIT-//; s/ .*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process svdb_merge {
@@ -3545,15 +3474,7 @@ process svdb_merge {
 			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 			
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 SVDB: 
-			  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-			  container: ${task.container}
-			 SAMtools: 
-			  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-			  container: ${task.container}
-			END_VERSIONS
+			${svdb_merge_version(task)}
 			"""
 		}
 
@@ -3566,15 +3487,7 @@ process svdb_merge {
 			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 			
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 SVDB: 
-			  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-			  container: ${task.container}
-			 SAMtools: 
-			  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-			  container: ${task.container}
-			END_VERSIONS
+			${svdb_merge_version(task)}
 			"""
 		}
 
@@ -3583,16 +3496,21 @@ process svdb_merge {
 		touch ${group}.merged.vcf
 		touch ${group}.merged.bndless.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 SVDB: 
-		  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-		  container: ${task.container}
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${svdb_merge_version(task)}
 		"""
+}
+def svdb_merge_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 SVDB: 
+	  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
+	  container: ${task.container}
+	 SAMtools: 
+	  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process add_to_loqusdb {
@@ -3655,12 +3573,7 @@ process annotsv {
 			-genomeBuild GRCh38
 		mv $group/*.annotated.tsv ${group}_annotsv.tsv
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 AnnotSV: 
-		  version: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )
-		  container: ${task.container}
-		END_VERSIONS
+		${annotsv_version(task)}
 		"""
 
 	stub:
@@ -3668,13 +3581,18 @@ process annotsv {
 		export ANNOTSV="/AnnotSV"
 		touch ${group}_annotsv.tsv
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 AnnotSV: 
-		  version: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )
-		  container: ${task.container}
-		END_VERSIONS
+		${annotsv_version(task)}
 		"""
+}
+def annotsv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 AnnotSV: 
+	  version: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process vep_sv {
@@ -3712,25 +3630,24 @@ process vep_sv {
 			--max_sv_size 50000000 \\
 			--distance 200 -cache
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 VEP: 
-		  version: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${vep_sv_version(task)}
 		"""
 
 	stub:
 		"""
 		touch ${group}.vep.vcf
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 VEP: 
-		  version: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${vep_sv_version(task)}
 		"""
+}
+def vep_sv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 VEP: 
+	  version: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
+	  container: ${task.container}
+	END_VERSIONS
+	"""
 }
 
 process postprocess_vep {
@@ -3753,31 +3670,26 @@ process postprocess_vep {
 		sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
 		add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 SVDB: 
-		  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-		  container: ${task.container}
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${postprocess_vep_version(task)}
 		"""
-
 	stub:
 		"""
 		touch ${group}.vep.clean.merge.omim.vcf
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 SVDB: 
-		  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-		  container: ${task.container}
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${postprocess_vep_version(task)}
 		"""
+}
+def postprocess_vep_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 SVDB: 
+	  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
+	  container: ${task.container}
+	 SAMtools: 
+	  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 // Query artefact db
@@ -3808,15 +3720,7 @@ process artefact {
 			--db $params.svdb \\
 			--query_vcf $sv > ${group}.artefact.vcf
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 SVDB: 
-			  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-			  container: ${task.container}
-			 SAMtools: 
-			  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-			  container: ${task.container}
-			END_VERSIONS
+			${artefact_version(task)}
 			"""
 		}
 		// for oncov1-0 still use svdb database remove in future//
@@ -3827,32 +3731,28 @@ process artefact {
 			--sqdb $params.svdb --query \\
 			--query_vcf $sv --out_occ ACOUNT --out_frq AFRQ > ${group}.artefact.vcf
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 SVDB: 
-			  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-			  container: ${task.container}
-			 SAMtools: 
-			  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-			  container: ${task.container}
-			END_VERSIONS
+			${artefact_version(task)}
 			"""
 		}
 
 	stub:
 		"""
 		touch ${group}.artefact.vcf
-
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 SVDB: 
-		  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-		  container: ${task.container}
-		 SAMtools: 
-		  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${artefact_version(task)}
 		"""
+}
+def artefact_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 SVDB: 
+	  version: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
+	  container: ${task.container}
+	 SAMtools: 
+	  version: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 
@@ -3912,24 +3812,7 @@ process score_sv {
 			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
 			echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 gunzip: 
-			  version: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
-			  container: ${task.container}
-			 bgzip: 
-			  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-			  container: ${task.container}
-			 tabix: 
-			  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-			  container: ${task.container}
-			 genmod: 
-			  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-			  container: ${task.container}
-			 bcftools: 
-			  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-			  container: ${task.container}
-			END_VERSIONS
+			${score_sv_version(task)}
 			"""
 		}
 		else {
@@ -3940,24 +3823,7 @@ process score_sv {
 			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
 			echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 
-			cat <<-END_VERSIONS > ${task.process}_versions.yml
-			${task.process}:
-			 gunzip: 
-			  version: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
-			  container: ${task.container}
-			 bgzip: 
-			  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-			  container: ${task.container}
-			 tabix: 
-			  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-			  container: ${task.container}
-			 genmod: 
-			  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-			  container: ${task.container}
-			 bcftools: 
-			  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-			  container: ${task.container}
-			END_VERSIONS
+			${score_sv_version(task)}
 			"""
 		}
 
@@ -3968,25 +3834,30 @@ process score_sv {
 		touch ${group_score}.sv.scored.sorted.vcf.gz.tbi
 		touch ${group}_sv.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 gunzip: 
-		  version: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
-		  container: ${task.container}
-		 bgzip: 
-		  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 genmod: 
-		  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-		  container: ${task.container}
-		 bcftools: 
-		  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-		  container: ${task.container}
-		END_VERSIONS
+		${score_sv_version(task)}
 		"""
+}
+def score_sv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 gunzip: 
+	  version: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
+	  container: ${task.container}
+	 bgzip: 
+	  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	 tabix: 
+	  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	 genmod: 
+	  version: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
+	  container: ${task.container}
+	 bcftools: 
+	  version: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 process compound_finder {
@@ -4025,15 +3896,7 @@ process compound_finder {
 		tabix ${group_score}.snv.rescored.sorted.vcf.gz -f
 		echo "SVc	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz,${params.accessdir}/vcf/${group_score}.snv.rescored.sorted.vcf.gz" > ${group}_svp.INFO
 		
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 bgzip: 
-		  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		END_VERSIONS
+		${compound_finder_version(task)}
 		"""
 
 	stub:
@@ -4043,16 +3906,21 @@ process compound_finder {
 		touch ${group_score}.snv.rescored.sorted.vcf.gz.tbi
 		touch ${group}_svp.INFO
 
-		cat <<-END_VERSIONS > ${task.process}_versions.yml
-		${task.process}:
-		 bgzip: 
-		  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		 tabix: 
-		  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-		  container: ${task.container}
-		END_VERSIONS
+		${compound_finder_version(task)}
 		"""
+}
+def compound_finder_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	 bgzip: 
+	  version: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	 tabix: 
+	  version: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	  container: ${task.container}
+	END_VERSIONS	
+	"""
 }
 
 
