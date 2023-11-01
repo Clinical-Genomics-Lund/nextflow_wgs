@@ -222,7 +222,7 @@ process bwa_align_sharded {
 
 	output:
 		set val(id), group, file("${id}_${shard}.bwa.sort.bam"), file("${id}_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_bwa_align_shareded_versions
 
 	when:
 		params.align && params.shardbwa
@@ -274,7 +274,7 @@ process bwa_merge_shards {
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_locusc
 		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_dedup
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_bwa_merge_shards_versions
 	when:
 		params.shardbwa
 	
@@ -322,7 +322,6 @@ process bwa_align {
 	output:
 		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_locusc, bam_markdup
 		// set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into bam_dedup remnant of distri
-		// path "*versions.yml" into ch_bwa_align_versions
 		set group, file("*versions.yml") into ch_bwa_align_versions
 
 	when:
@@ -386,8 +385,7 @@ process markdup {
 		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
-		set group, file("markdup_versions.yml") into ch_markdup_versions
-		// path "*versions.yml" into ch_markdup_versions
+		set group, file("*versions.yml") into ch_markdup_versions
 
 	script:
 		"""
@@ -449,7 +447,7 @@ process bqsr {
 
 	output:
 		set group, id, file("${id}.bqsr.table") into dnascope_bqsr
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_bqsr_versions
 
 	script:
 		"""
@@ -495,7 +493,7 @@ process sentieon_qc {
 		set group, id, file("${id}_qc.json") into qc_cdm
 		set group, id, file("${id}_qc.json") into qc_melt
 		file("*.txt")
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_sentieon_qc_versions
 
 	script:
 		target = ""
@@ -562,7 +560,7 @@ process chanjo_sambamba {
 
 	output:
 		file("${id}.bwa.chanjo.cov") into chanjocov
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_chanjo_sambamba_versions
 
 	script:
 		"""
@@ -634,7 +632,7 @@ process SMNCopyNumberCaller {
 		file("*.tsv") into smn_tsv
 		set file("*.pdf"), file("*.json")
 		set group, file("${group}_smn.INFO") into smn_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_smn_copy_number_caller_versions
 
 	script:
 		"""
@@ -716,7 +714,7 @@ process expansionhunter {
 	output:
 		set group, id, file("${group}.eh.vcf") into expansionhunter_vcf
 		set group, id, file("${group}.eh_realigned.sort.bam"), file("${group}.eh_realigned.sort.bam.bai"), file("${group}.eh.vcf") into reviewer
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_expansionhunter_versions
 
 	script:
 		"""
@@ -768,7 +766,7 @@ process stranger {
 
 	output:
 		set group, id, file("${group}.fixinfo.eh.stranger.vcf") into expansionhunter_vcf_anno
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_stranger_versions
 
 	script:
 		"""
@@ -814,7 +812,7 @@ process reviewer {
 	output:
 		file("*svg")
 		//set group, file("${group}_rev.INFO") into reviewer_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_reviewer_versions
 
 	shell:
 		'''
@@ -864,7 +862,7 @@ process vcfbreakmulti_expansionhunter {
 	output:
 		file("${group}.expansionhunter.vcf.gz") into expansionhunter_scout
 		set group, file("${group}_str.INFO") into str_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_vcfbreakmulti_expansionhunter_versions
 
 	script:
 		if (father == "") { father = "null" }
@@ -983,7 +981,7 @@ process melt {
 
 	output:
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_melt_versions
 
 	script:
 		"""
@@ -1060,7 +1058,7 @@ process dnascope {
 	output:
 		set group, id, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
 		set group, id, file("${id}.dnascope.gvcf.gz") into gvcf_gens_choice
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_dnascope_versions
 
 	script:
 		"""
@@ -1127,7 +1125,7 @@ process gvcf_combine {
 
 	output:
 		set group, id, file("${group}.combined.vcf"), file("${group}.combined.vcf.idx") into combined_vcf
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_gvcf_combine_versions
 
 	script:
 		all_gvcfs = vcf.join(' -v ')
@@ -1212,7 +1210,7 @@ process madeline {
 	output:
 		file("${ped}.madeline.xml") into madeline_ped
 		set group, file("${group}_madde.INFO") into madde_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_madeline_versions
 
 	when:
 		mode == "family" && params.assay == "wgs"
@@ -1269,7 +1267,7 @@ process freebayes {
 
 	output:
 		set group, file("${id}.pathfreebayes.lines") into freebayes_concat
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_freebayes_versions
 
 	script:
 		if (params.onco) {
@@ -1334,7 +1332,7 @@ process fetch_MTseqs {
     output:
         set group, id, file ("${id}_mito.bam"), file("${id}_mito.bam.bai") into mutserve_bam, eklipse_bam, qc_mito_bam
 		set group, file("${group}_mtbam.INFO") into mtBAM_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_fetch_mt_seqs_versions
 
 	script:
 		"""
@@ -1448,7 +1446,7 @@ process run_mutect2 {
 
 	output:
 		set group, id, file("${group}.mutect2.vcf") into ms_vcfs_1, ms_vcfs_2
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_run_mutect2_versions
 
 	script:
 		bams = bam.join(' -I ')
@@ -1495,7 +1493,7 @@ process split_normalize_mito {
 
 	output:
 		set group, file("${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf") into adj_vcfs
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_split_normalize_mito_versions
 
 	script:
 		proband_idx = type.findIndexOf{ it == "proband" }
@@ -1543,7 +1541,7 @@ process run_hmtnote {
 
 	output:
 		set group, file("${group}.fixinfo.vcf") into mito_diplod_vep
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_run_hmtnote_versions
 
 	script:
 		"""
@@ -1586,7 +1584,7 @@ process run_haplogrep {
 	output:
 		file("${group}.haplogrep.png")
 		set group, file("${group}_haplo.INFO") into haplogrep_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_run_haplogrep_versions
 
 	shell:
 		'''
@@ -1639,7 +1637,7 @@ process run_eklipse {
 	output:
 		set file("*.png"), file("${id}.hetplasmid_frequency.txt")
 		set group, file("${id}_eklipse.INFO") into eklipse_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_run_eklipse_versions
 
 	script:
 		"""
@@ -1700,7 +1698,7 @@ process split_normalize {
 	output:
 		set group, file("${group}.norm.uniq.DPAF.vcf") into split_norm, vcf_gnomad
 		set group, id, file("${group}.intersected.vcf"), file("${group}.multibreak.vcf") into split_vep, split_cadd, vcf_cnvkit
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_split_normalize_versions
 
 	script:
 	id = id[0]
@@ -1830,7 +1828,7 @@ process annotate_vep {
 
 	output:
 		set group, file("${group}.vep.vcf") into vep
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_annotate_vep_versions
 
 	script:
 		"""
@@ -1893,7 +1891,7 @@ process vcfanno {
 
 	output:
 		set group, file("${group}.clinvar.loqusdb.gene.vcf") into vcfanno_vcf
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_vcfanno_versions
 
 	script:
 		"""
@@ -1981,7 +1979,7 @@ process extract_indels_for_cadd {
 	
 	output:
 		set group, file("${group}.only_indels.vcf") into indel_cadd_vep
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_extract_indels_for_cadd_versions
 
 	script:
 		"""
@@ -2018,7 +2016,7 @@ process indel_vep {
 
 	output:
 		set group, file("${group}.only_indels.vep.filtered.vcf") into indel_cadd_vcf
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_indel_vep_versions
 
 	script:
 		"""
@@ -2073,7 +2071,7 @@ process calculate_indel_cadd {
 
 	output:
 		set group, file("${group}.indel_cadd.gz") into indel_cadd
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_calculate_indel_cadd_versions
 
 	script:
 		"""
@@ -2110,7 +2108,7 @@ process add_cadd_scores_to_vcf {
 
 	output:
 		set group, file("${group}.cadd.vcf") into ma_vcf, fa_vcf, base_vcf
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_add_cadd_scores_to_vcf_versions
 
 	script:
 		"""
@@ -2159,7 +2157,7 @@ process inher_models {
 
 	output:
 		set group, type, file("${group}.models.vcf") into inhermod
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_inher_models_versions
 
 	script:
 		"""
@@ -2199,7 +2197,7 @@ process genmodscore {
 
 	output:
 		set group, type, file("${group_score}.scored.vcf") into scored_vcf
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_genmodscore_versions
 
 	script:
 		group_score = group
@@ -2256,7 +2254,7 @@ process vcf_completion {
 	output:
 		set group, type, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf,snv_sv_vcf_ma,snv_sv_vcf_fa, vcf_loqus
 		set group, file("${group}_snv.INFO") into snv_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_vcf_completion_versions
 
 	script:
 		group_score = group
@@ -2313,7 +2311,7 @@ process peddy {
 	output:
 		set file("${group}.ped_check.csv"),file("${group}.peddy.ped"), file("${group}.sex_check.csv") into peddy_files
 		set group, file("${group}_peddy.INFO") into peddy_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_peddy_versions
 
 	script:
 		"""
@@ -2361,7 +2359,7 @@ process fastgnomad {
 
 	output:
 		set group, file("${group}.SNPs.vcf") into vcf_upd, vcf_roh, vcf_pod
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_fastgnomad_versions
 
 	script:
 		"""
@@ -2402,7 +2400,7 @@ process upd {
 	output:
 		file("upd.bed") into upd_plot
 		set group, file("upd.sites.bed") into upd_table
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_upd_versions
 
 	script:
 		if( mode == "family" && trio == true ) {
@@ -2479,7 +2477,7 @@ process roh {
 
 	output:
 		set gr, file("roh.txt") into roh_plot
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_roh_versions
 
 	script:
 		"""
@@ -2516,7 +2514,7 @@ process gatkcov {
 
 	output:
 		set group, id, type, sex, file("${id}.standardizedCR.tsv"), file("${id}.denoisedCR.tsv") into cov_plot, cov_gens
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_gatkcov_versions
 
 	when:
 		params.gatkcov
@@ -2573,7 +2571,6 @@ process overview_plot {
 		file(upd) from upd_plot
 		set gr, file(roh) from roh_plot
 		set group, id, type, sex, file(cov_stand), file(cov_denoised) from cov_plot.groupTuple()
-
 
 	output:
 		file("${group}.genomic_overview.png")
@@ -2659,7 +2656,7 @@ process gatk_coverage {
 
 	output:
 		set group, id, file("${id}.tsv") into call_ploidy, call_cnv
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_gatk_coverage_versions
 
 	script:
 		"""
@@ -2715,7 +2712,7 @@ process gatk_call_ploidy {
 
 	output:
 		set group, id, file("ploidy.tar") into ploidy_to_cnvcall, ploidy_to_post
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_gatk_call_ploidy_versions
 
 	script:
 		"""
@@ -2772,7 +2769,7 @@ process gatk_call_cnv {
 
 	output:
 		set group, id, i, file("${group}_${i}.tar") into postprocessgatk
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_gatk_call_cnv_versions
 
 	script:
 		"""
@@ -2828,7 +2825,6 @@ process postprocessgatk {
 	publishDir "/${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
 	tag "$id"
 
-
 	input:
 		set group, id, i, file(tar), file(ploidy), shard_no, shard \
 			from postprocessgatk.groupTuple(by: [0,1]).join(ploidy_to_post, by: [0,1]).combine(gatk_postprocess.groupTuple(by: [3]))
@@ -2839,7 +2835,7 @@ process postprocessgatk {
 			file("genotyped-intervals-${group}-vs-cohort30.vcf.gz"), \
 			file("genotyped-segments-${group}-vs-cohort30.vcf.gz"), \
 			file("denoised-${group}-vs-cohort30.vcf.gz") into called_gatk
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_postprocessgatk_versions
 
 	script:
 		modelshards = shard.join(' --model-shard-path ') // join each reference shard
@@ -2924,7 +2920,6 @@ process filter_merge_gatk {
 		"""
 }
 
-
 process manta {
 	cpus = 56
 	tag "$id"
@@ -2944,7 +2939,7 @@ process manta {
 
 	output:
 		set group, id, file("${id}.manta.vcf.gz") into called_manta
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_manta_versions
 
 	script:
 		bams = bam.join('--bam ')
@@ -2992,7 +2987,7 @@ process manta_panel {
 
 	output:
 		set group, id, file("${id}.manta.vcf.gz") into called_manta_panel
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_manta_panel_versions
 
 	script:
 		"""
@@ -3039,7 +3034,7 @@ process delly_panel {
 
 	output:
 		set group, id, file("${id}.delly.vcf.gz") into called_delly_panel
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_delly_panel_versions
 
 	script:
 		"""
@@ -3092,7 +3087,7 @@ process cnvkit_panel {
 		file("${id}.call.cns") into unfiltered_cns
 		file("${group}.genomic_overview.png")
 		set group, file("${group}_oplot.INFO") into cnvkit_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_cnvkit_panel_versions
 
 	script:
 		"""
@@ -3146,7 +3141,7 @@ process svdb_merge_panel {
 		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
 		//set group, id, file("${group}.merged.filtered.vcf") into annotsv_panel
 		set group, file("${group}.merged.filtered.melt.vcf") into loqusdb_sv_panel
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_svdb_merge_panel_versions
 
 	script:
 		//tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' } + cnvkitV.collect {it + ':cnvkit ' }
@@ -3229,7 +3224,7 @@ process tiddit {
 
 	output:
 		set group, id, file("${id}.tiddit.filtered.vcf") into called_tiddit
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_tiddit_versions
 
 	script:
 		"""
@@ -3272,7 +3267,7 @@ process svdb_merge {
 	output:
 		set group, id, file("${group}.merged.bndless.vcf") into vcf_vep, annotsv_vcf
 		set group, file("${group}.merged.vcf") into loqusdb_sv
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_svdb_merge_versions
 
 	script:
 		if (mode == "family") {
@@ -3385,7 +3380,7 @@ process annotsv {
 			
 	output:
 		set group, file("${group}_annotsv.tsv") into annotsv, annotsv_ma, annotsv_fa
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_annotsv_versions
 
 	script:
 		"""
@@ -3429,7 +3424,7 @@ process vep_sv {
 
 	output:
 		set group, id, file("${group}.vep.vcf") into vep_vcf
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_vep_sv_versions
 
 	script:
 		"""
@@ -3479,7 +3474,7 @@ process postprocess_vep {
 
 	output:
 		set group, file("${group}.vep.clean.merge.omim.vcf") into artefact_vcf
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_postprocess_vep_versions
 	
 	script:
 		"""
@@ -3523,7 +3518,7 @@ process artefact {
 
 	output:
 		set group, file("${group}.artefact.vcf") into manip_vcf,manip_vcf_ma,manip_vcf_fa
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_artefact_versions
 
 	script:
 		// use loqusdb dump not svdb database //
@@ -3607,7 +3602,7 @@ process score_sv {
 		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore,sv_rescore_ma,sv_rescore_fa
 		set group, file("${group}_sv.INFO") into sv_INFO
 		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_score_sv_versions
 
 	script:
 		group_score = group
@@ -3679,7 +3674,7 @@ process compound_finder {
 	output:
 		set group, file("${group_score}.snv.rescored.sorted.vcf.gz"), file("${group_score}.snv.rescored.sorted.vcf.gz.tbi") into vcf_yaml
 		set group, file("${group}_svp.INFO") into svcompound_INFO
-		path "*versions.yml"
+		set group, file("*versions.yml") into ch_compound_finder_versions
 
 	script:
 		group_score = group
