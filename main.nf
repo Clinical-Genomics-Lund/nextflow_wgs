@@ -202,7 +202,8 @@ process fastp {
 def fastp_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	    ${task.process}: \$(echo \$(fastp -v 2>&1) | cut -f 2 -d " ")
+	${task.process}:
+	    fastp: \$(echo \$(fastp -v 2>&1) | cut -f 2 -d " ")
 	END_VERSIONS
 	"""
 }
@@ -994,7 +995,7 @@ def melt_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    MELT: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar Single -h ) | sed "s/.*MELTv// | s/ -.*//" )
+	    MELT: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar Single -h ) | grep "^MELTv" | cut -f1 -d" " | sed "s/MELTv//" )
 	END_VERSIONS	
 	"""
 }
@@ -1284,7 +1285,7 @@ def freebayes_version(task) {
 	    freebayes: \$(echo \$(freebayes --version 2>&1) | sed 's/version:\s*v//g')
 	    vcflib: 1.0.9
 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-	    vcfanno: \$(echo \$(vcfanno_linux64 2>&1) | grep version | cut -f3 -d' ' )
+	    vcfanno: \$(echo \$(vcfanno_linux64 2>&1 | grep version | cut -f3 -d' ')  )
 	END_VERSIONS
 	"""
 }
@@ -1877,7 +1878,7 @@ def vcfanno_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    vcfanno: \$(echo \$(vcfanno_linux64 2>&1) | grep version | cut -f3 -d' ' )
+	    vcfanno: \$(echo \$(vcfanno_linux64 2>&1 | grep version | cut -f3 -d' ')  )
 	END_VERSIONS	
 	"""
 }
