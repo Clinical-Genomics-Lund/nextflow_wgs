@@ -3766,81 +3766,81 @@ process create_yaml {
 }
 
 process combine_versions {
-	publishDir "/${OUTDIR}/versions", mode: 'copy', overwrite: 'true', pattern: 'all_versions.yml'
+	publishDir "${OUTDIR}/versions", mode: 'copy', overwrite: 'true', pattern: 'all_versions.yml'
 
 	input:
-		set group, versions_file from ch_fastp_versions.mix(
-			ch_bwa_align_shareded_versions,
-			ch_bwa_merge_shards_versions,
-			ch_bwa_align_versions, 
-			ch_markdup_versions,
-			ch_bqsr_versions,
-			ch_sentieon_qc_versions,
-			ch_chanjo_sambamba_versions,
-			ch_smn_copy_number_caller_versions,
-			ch_expansionhunter_versions,
-			ch_stranger_versions,
-			ch_reviewer_versions,
-			ch_vcfbreakmulti_expansionhunter_versions,
-			ch_melt_versions,
-			ch_dnascope_versions,
-			ch_gvcf_combine_versions,
-			ch_madeline_versions,
-			ch_freebayes_versions,
-			ch_fetch_mt_seqs_versions,
-			ch_run_mutect2_versions,
-			ch_split_normalize_mito_versions,
-			ch_run_hmtnote_versions,
-			ch_run_haplogrep_versions,
-			ch_run_eklipse_versions,
-			ch_split_normalize_versions,
-			ch_annotate_vep_versions,
-			ch_vcfanno_versions,
-			ch_extract_indels_for_cadd_versions,
-			ch_indel_vep_versions,
-			ch_calculate_indel_cadd_versions,
-			ch_add_cadd_scores_to_vcf_versions,
-			ch_inher_models_versions,
-			ch_genmodscore_versions,
-			ch_vcf_completion_versions,
-			ch_peddy_versions,
-			ch_fastgnomad_versions,
-			ch_upd_versions,
-			ch_roh_versions,
-			ch_gatkcov_versions,
-			ch_gatk_coverage_versions,
-			ch_gatk_call_ploidy_versions,
-			ch_gatk_call_cnv_versions,
-			ch_postprocessgatk_versions,
-			ch_manta_versions,
-			ch_manta_panel_versions,
-			ch_delly_panel_versions,
-			ch_cnvkit_panel_versions,
-			ch_svdb_merge_panel_versions,
-			ch_tiddit_versions,
-			ch_svdb_merge_versions,
-			ch_annotsv_versions,
-			ch_vep_sv_versions,
-			ch_postprocess_vep_versions,
-			ch_artefact_versions,
-			ch_score_sv_versions,
-			ch_compound_finder_versions
+		set group, versions from ch_fastp_versions.first().mix(
+			ch_bwa_align_shareded_versions.first(),
+			ch_bwa_merge_shards_versions.first(),
+			ch_bwa_align_versions.first(), 
+			ch_markdup_versions.first(),
+			ch_bqsr_versions.first(),
+			ch_sentieon_qc_versions.first(),
+			ch_chanjo_sambamba_versions.first(),
+			ch_smn_copy_number_caller_versions.first(),
+			ch_expansionhunter_versions.first(),
+			ch_stranger_versions.first(),
+			ch_reviewer_versions.first(),
+			ch_vcfbreakmulti_expansionhunter_versions.first(),
+			ch_melt_versions.first(),
+			ch_dnascope_versions.first(),
+			ch_gvcf_combine_versions.first(),
+			ch_madeline_versions.first(),
+			ch_freebayes_versions.first(),
+			ch_fetch_mt_seqs_versions.first(),
+			ch_run_mutect2_versions.first(),
+			ch_split_normalize_mito_versions.first(),
+			ch_run_hmtnote_versions.first(),
+			ch_run_haplogrep_versions.first(),
+			ch_run_eklipse_versions.first(),
+			ch_split_normalize_versions.first(),
+			ch_annotate_vep_versions.first(),
+			ch_vcfanno_versions.first(),
+			ch_extract_indels_for_cadd_versions.first(),
+			ch_indel_vep_versions.first(),
+			ch_calculate_indel_cadd_versions.first(),
+			ch_add_cadd_scores_to_vcf_versions.first(),
+			ch_inher_models_versions.first(),
+			ch_genmodscore_versions.first(),
+			ch_vcf_completion_versions.first(),
+			ch_peddy_versions.first(),
+			ch_fastgnomad_versions.first(),
+			ch_upd_versions.first(),
+			ch_roh_versions.first(),
+			ch_gatkcov_versions.first(),
+			ch_gatk_coverage_versions.first(),
+			ch_gatk_call_ploidy_versions.first(),
+			ch_gatk_call_cnv_versions.first(),
+			ch_postprocessgatk_versions.first(),
+			ch_manta_versions.first(),
+			ch_manta_panel_versions.first(),
+			ch_delly_panel_versions.first(),
+			ch_cnvkit_panel_versions.first(),
+			ch_svdb_merge_panel_versions.first(),
+			ch_tiddit_versions.first(),
+			ch_svdb_merge_versions.first(),
+			ch_annotsv_versions.first(),
+			ch_vep_sv_versions.first(),
+			ch_postprocess_vep_versions.first(),
+			ch_artefact_versions.first(),
+ 			ch_score_sv_versions.first(),
+			ch_compound_finder_versions.first()
 		).groupTuple()
 	
 	output:
 		file("all_versions.yml")
 	
 	script:
-		versions_files = versions_file.join( ' ' )
-
+		versions_joined = versions.join( ' ' )
 		"""
-		cat $versions_files > all_versions.yml
+		cat $versions_joined > all_versions.yml
 		"""
 	
 	stub:
-		versions_files = versions_file.join( ' ' )
-
+		println(versions)
+		versions_joined = versions.join( ' ' )
+		println(versions_joined)
 		"""
-		cat $versions_files > all_versions.yml
+		cat $versions_joined > all_versions.yml
 		"""
 }
