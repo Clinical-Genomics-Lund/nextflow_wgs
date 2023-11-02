@@ -995,7 +995,7 @@ def melt_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    MELT: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar Single -h ) | grep "^MELTv" | cut -f1 -d" " | sed "s/MELTv//" )
+	    MELT: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar -h ) | grep "^MELTv" | cut -f1 -d" " | sed "s/MELTv//" )
 	END_VERSIONS	
 	"""
 }
