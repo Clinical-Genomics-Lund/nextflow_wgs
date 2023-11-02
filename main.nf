@@ -369,7 +369,7 @@ process markdup {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	container = "/fs1/resources/containers/sentieon_202112.sif"
-	publishDir "/${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
+	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
 	input:
 		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
@@ -432,7 +432,7 @@ process bqsr {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	container = "/fs1/resources/containers/sentieon_202112.sif"
-	publishDir "/${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*table'
+	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*table'
 
 	input:
 		set id, group, file(bam), file(bai) from bam_bqsr.mix(bam_bqsr_choice)
@@ -607,7 +607,7 @@ process SMNCopyNumberCaller {
 	cpus 10
 	memory '25GB'
 	time '2h'
-	publishDir "/${OUTDIR}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
+	publishDir "${OUTDIR}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
 	tag "$id"
 
 	when:
@@ -995,7 +995,7 @@ def melt_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    MELT: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar -h ) | grep "^MELTv" | cut -f1 -d" " | sed "s/MELTv//" )
+	    MELT: \$(echo \$(java -jar /opt/MELTv2.2.2/MELT.jar -h | grep "^MELTv" | cut -f1 -d" " | sed "s/MELTv//" ) )
 	END_VERSIONS	
 	"""
 }
@@ -1142,7 +1142,7 @@ def gvcf_combine_version(task) {
 process create_ped {
 	tag "$group"
 	time '20m'
-	publishDir "/${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'	
+	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'	
 
 	input:
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from ped.filter { item -> item[7] == 'proband' }
