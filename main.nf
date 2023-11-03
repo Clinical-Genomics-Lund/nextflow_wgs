@@ -1,8 +1,7 @@
 #!/usr/bin/env nextflow
 
 // GENERAL PATHS //
-OUTDIR = "${params.resultsdir}/${params.subdir}"
-// OUTDIR = params.outdir+'/'+params.subdir
+OUTDIR = params.outdir+'/'+params.subdir
 CRONDIR = params.crondir
 
 // SENTIEON CONFIGS //
@@ -1016,10 +1015,23 @@ process intersect_melt {
 	output:
 		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
 
-	"""
-	bedtools intersect -a $vcf -b $params.intersect_bed -header > ${id}.melt.merged.intersected.vcf
-	"""
+	script:
+		"""
+		bedtools intersect -a $vcf -b $params.intersect_bed -header > ${id}.melt.merged.intersected.vcf
+		"""
 
+	stub:
+		"""
+		touch "${id}.melt.merged.intersected.vcf"
+		"""
+}
+def intersect_melt_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    bedtools: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
+	END_VERSIONS
+	"""
 }
 
 // When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
@@ -1381,7 +1393,16 @@ process sentieon_mitochondrial_qc {
 	stub:
 		"""
 		touch ${id}_mito_coverage.tsv
+		${sentieon_mitochondrial_qc_version(task)}
 		"""
+}
+def sentieon_mitochondrial_qc_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	END_VERSIONS
+	"""
 }
 
 process build_mitochondrial_qc_json {
@@ -1748,10 +1769,14 @@ process merge_qc_json {
 
     script:
         qc_json_files = qc.join(' ')
-
-    """
-    merge_json_files.py ${qc_json_files} > ${id}.QC
-    """
+		"""
+		merge_json_files.py ${qc_json_files} > ${id}.QC
+		"""
+	
+	stub:
+		"""
+		touch ${id}.QC
+		"""
 }   
     
 // Load QC data into CDM (via middleman)
@@ -1776,10 +1801,9 @@ process qc_to_cdm {
 		parts = r1.split('/')
 		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
 		rundir = parts[0..idx].join("/")
-
-	"""
-	echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
-	"""
+		"""
+		echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${OUTDIR}/qc/${id}.QC" > ${id}.cdm
+		"""
 }
     
     
@@ -2819,7 +2843,6 @@ process postprocessgatk {
 			--calls-shard-path !{caseshards} \
 			--model-shard-path !{modelshards}
 
-		// FIXME: VERIFY THAT THIS WORKS
 		!{postprocessgatk_version(task)}
 		'''
 
