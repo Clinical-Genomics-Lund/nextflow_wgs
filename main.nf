@@ -800,6 +800,7 @@ process reviewer {
 		set group, file("*versions.yml") into ch_reviewer_versions
 
 	shell:
+		version_str = reviewer_version(task)
 		'''
 		grep LocusId !{params.expansionhunter_catalog} | sed 's/[",^ ]//g' | cut -d':' -f2 | perl -na -e 'chomp; \
 		system("REViewer --reads !{bam} \
@@ -809,22 +810,20 @@ process reviewer {
 		--locus $_ \
 		--output-prefix !{id}");'
 
-		${reviewer_version(task)}
+		!{reviewer_version(task)}
 		'''
 
 	stub:
-		"""
-		touch ${id}.svg
-
-		${reviewer_version(task)}
-		"""
+		version_str = reviewer_version(task)
+		'''
+		touch !{id}.svg
+		!{reviewer_version(task)}
+		'''
 }
 def reviewer_version(task) {
 	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    reviewer: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')
-	END_VERSIONS
 	"""
 }
 
@@ -1582,6 +1581,7 @@ process run_haplogrep {
 		set group, file("*versions.yml") into ch_run_haplogrep_versions
 
 	shell:
+		version_str = run_haplogrep_version(task)
 		'''
 		for sample in `bcftools query -l !{ms_vcf}`; do 
 			bcftools view -c1 -Oz -s $sample -o $sample.vcf.gz !{ms_vcf}
@@ -1596,24 +1596,23 @@ process run_haplogrep {
 		montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
 		echo "IMG haplogrep !{params.accessdir}/plots/mito/!{group}.haplogrep.png" > !{group}_haplo.INFO
 		
-		!{run_haplogrep_version(task)}
+		echo !{version_str} > !{task.process}_versions.yml
 		'''
 
 	stub:
-		"""
-		touch ${group}.haplogrep.png
-		touch ${group}_haplo.INFO
+		version_str = run_haplogrep_version(task)
+		'''
+		touch !{group}.haplogrep.png
+		touch !{group}_haplo.INFO
 
-		${run_haplogrep_version(task)}
-		"""
+		echo !{version_str} > !{task.process}_versions.yml
+		'''
 }
 def run_haplogrep_version(task) {
 	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    haplogrep: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/htt.*Classify v// ; s/ .*//")
 	    montage: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
-	END_VERSIONS	
 	"""
 }
 
@@ -2822,6 +2821,7 @@ process postprocessgatk {
 		caseshards = caseshards.join( ' --calls-shard-path ')
  	
 	shell:
+		version_str = postprocessgatk_version(task)
 		'''
 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
 		for model in !{tar}; do
@@ -2843,11 +2843,12 @@ process postprocessgatk {
 			--calls-shard-path !{caseshards} \
 			--model-shard-path !{modelshards}
 
-		!{postprocessgatk_version(task)}
+		echo !{version_str} > !{task.process}_versions.yml
 		'''
 
 	stub:
-		"""
+		version_str = postprocessgatk_version(task)
+		'''
 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
 		set +u
 		source activate gatk
@@ -2858,15 +2859,13 @@ process postprocessgatk {
 		touch genotyped-segments-${group}-vs-cohort30.vcf.gz
 		touch denoised-${group}-vs-cohort30.vcf.gz
 
-		${postprocessgatk_version(task)}
-		"""
+		echo !{version_str} > !{task.process}_versions.yml
+		'''
 }
 def postprocessgatk_version(task) {
 	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-	END_VERSIONS	
 	"""
 }
 
