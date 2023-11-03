@@ -810,21 +810,19 @@ process reviewer {
 		--locus $_ \
 		--output-prefix !{id}");'
 
-		!{reviewer_version(task)}
+		echo "!{version_str}" > "!{task.process}_versions.yml"
 		'''
 
 	stub:
 		version_str = reviewer_version(task)
-		'''
-		touch !{id}.svg
-		!{reviewer_version(task)}
-		'''
+		"""
+		touch ${id}.svg
+		echo ${version_str} > "${task.process}_versions.yml"
+		"""
 }
 def reviewer_version(task) {
-	"""
-	${task.process}:
-	    reviewer: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')
-	"""
+	"""${task.process}:
+	    reviewer: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')"""
 }
 
 // split multiallelic sites in expansionhunter vcf
@@ -1596,24 +1594,22 @@ process run_haplogrep {
 		montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
 		echo "IMG haplogrep !{params.accessdir}/plots/mito/!{group}.haplogrep.png" > !{group}_haplo.INFO
 		
-		echo !{version_str} > !{task.process}_versions.yml
+		echo "!{version_str}" > "!{task.process}_versions.yml"
 		'''
 
 	stub:
 		version_str = run_haplogrep_version(task)
-		'''
-		touch !{group}.haplogrep.png
-		touch !{group}_haplo.INFO
+		"""
+		touch ${group}.haplogrep.png
+		touch ${group}_haplo.INFO
 
-		echo !{version_str} > !{task.process}_versions.yml
-		'''
+		echo "${version_str}" > "${task.process}_versions.yml"
+		"""
 }
 def run_haplogrep_version(task) {
-	"""
-	${task.process}:
+	"""${task.process}:
 	    haplogrep: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/htt.*Classify v// ; s/ .*//")
-	    montage: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )
-	"""
+	    montage: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )"""
 }
 
 // use eKLIPse for detecting mitochondrial deletions
@@ -2843,12 +2839,12 @@ process postprocessgatk {
 			--calls-shard-path !{caseshards} \
 			--model-shard-path !{modelshards}
 
-		echo !{version_str} > !{task.process}_versions.yml
+		echo "!{version_str}" > "!{task.process}_versions.yml"
 		'''
 
 	stub:
 		version_str = postprocessgatk_version(task)
-		'''
+		"""
 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
 		set +u
 		source activate gatk
@@ -2859,14 +2855,12 @@ process postprocessgatk {
 		touch genotyped-segments-${group}-vs-cohort30.vcf.gz
 		touch denoised-${group}-vs-cohort30.vcf.gz
 
-		echo !{version_str} > !{task.process}_versions.yml
-		'''
+		echo "${version_str}" > "${task.process}_versions.yml"
+		"""
 }
 def postprocessgatk_version(task) {
-	"""
-	${task.process}:
-	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-	"""
+	"""${task.process}:
+	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')"""
 }
 
 process filter_merge_gatk {
