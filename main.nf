@@ -3854,9 +3854,7 @@ process combine_versions {
 		"""
 	
 	stub:
-		println(versions)
 		versions_joined = versions.join( ' ' )
-		println(versions_joined)
 		"""
 		cat $versions_joined > all_versions.yml
 		"""
