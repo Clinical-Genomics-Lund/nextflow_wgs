@@ -1234,7 +1234,7 @@ def madeline_version(task) {
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    ped-parser: \$(echo \$(ped_parser --version 2>&1) | sed -e "s/^.*ped_parser version: //")
-	    madeline: \$(echo \$(madeline --version 2>&1) | grep : | sed -e"s/^.*Madeline //; s/PDE : 1.*//")
+	    madeline2: \$(echo \$(madeline --version 2>&1) | grep : | sed -e"s/^.*Madeline //; s/PDE : 1.*//")
 	END_VERSIONS	
 	"""
 }
