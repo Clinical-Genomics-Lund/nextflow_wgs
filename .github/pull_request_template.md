@@ -1,66 +1,68 @@
 <!--
 # clinical-genomics-lund/nextflow_wgs pull request
-
-foo bar
-
 -->
-
 # Description
 
-Add a description of changes here and a description of the expected outcome.
+<!--
+Add a description of changes below and a description of the expected outcome.
+-->
 
-## Is it a major or minor update?
+What is changed? What is the result of the changes?
 
-- [ ] Major change
+<!--
+    Are there any issue or issues that are linked to this PR? 
+    Use Github's syntax for closing keywords: `closes #1` or `fixes #1`
+-->
+
+fixes # (issue)
+
+## Type of change
+
+<!--
+    Major change counts as a change that breaks backward compatilbity
+    Minor change is a substantial change that requires testing before deployment
+    Patch is a minor change like a bug fix, code comment/style fix, etc.
+-->
+
+- [ ] Major change 
 - [ ] Minor change
 - [ ] Patch
 
-## Linked issues:
+# Checklist:
 
-Are there any issues that are linked to this PR? Use Github's syntax for closing keywords: `closes #1` or `fixes #1`
-
-# Pre-review checklist:
-
-- [ ] I have conducted a self-review of my code
-- [ ] The new code adheres to the [CMD nextflow style guide](http://mtlucmds1.lund.skane.se/wiki/doku.php?id=nextflow&s[]=nextflow#code_style_at_cmd)
-- [ ] I have commented/documented my code (If not, write why here: )
+- [ ] My code follows the [style guidelines for NF pipelines at CMD](http://mtlucmds1.lund.skane.se/wiki/doku.php?id=nextflow&s[]=nextflow#code_style_at_cmd)
+- [ ] I have performed a self-review of my code
+- [ ] I have commented my code, particularly in hard-to-understand areas
+- [ ] My changes generate no new warnings (Keep an eye on `.nextflow.log` !)
 - [ ] I have updated the CHANGELOG
 
-# Review checklist:
-
-Choose the section applicable:
-
-### Major change
-
 <!--
-bar baz
+    Select applicable checklist based on selection under # Type of change
+    and delete the sections that do not apply to this PR:
 -->
 
+## Major change
 
-(This update breaks backward compatibility)
-
-- [ ] Stub run completes without issues
-- [ ] `onco` run finishes without issues and the results can be loaded into scout
-- [ ] `wgs` run finishes without issues and the results can be loaded into scout
+- [ ] Stub run completes without errors or new warnings
+- [ ] `onco` run finishes without any new warnings/errors and the results can be loaded into scout
+- [ ] `wgs` trio run finishes without any new warnings/errors  and the results can be loaded into scout
 - [ ] At least one other person has reviewed and approved my code
-- [ ] The pipeline documentation has been updated to reflect the change
+- [ ] I have made corresponding changes to the documentation
 
-### Minor change
+## Minor change
 
-(Substantial change that does  not break backward compatibility)
+- [ ] Stub run completes without errors or new warnings
+- [ ] `onco` run finishes without any new warnings/errors and the results can be loaded into scout
+- [ ] `wgs` trio run finishes without any new warnings/errors  and the results can be loaded into scout
+- [ ] At least one other person has reviewed and approved my code
+- [ ] I have made corresponding changes to the documentation
 
-- [ ] Stub run completes without issues
-- [ ] `onco` run finishes without issues and the results can be loaded into scout
-- [ ] `wgs` run finishes without issues and the results can be loaded into scout
-- [ ] At least one other person has reviewed and approved the code
-- [ ] The pipeline documentation has been updated to reflect the change
+## Patch
 
-### Patch
+- [ ] Stub run completes without errors or new warnings
 
-(Minor fix)
-
-- [ ] Stub run completes without issues
-
-
-
-
+## [Optional] Are there any post-deployment tasks we need to perform?
+ 
+<!--
+Are there any 
+-->
