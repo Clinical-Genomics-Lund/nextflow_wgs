@@ -192,8 +192,8 @@ process fastp {
 
 	stub:
 		"""
-		touch ${id}_R1_a_q_u_trimmed.fq.gz
-		touch ${id}_R2_a_q_u_trimmed.fq.gz
+		touch "${id}_R1_a_q_u_trimmed.fq.gz"
+		touch "${id}_R2_a_q_u_trimmed.fq.gz"
 
 		${fastp_version(task)}
 		"""
@@ -240,8 +240,8 @@ process bwa_align_sharded {
 
 	stub:
 		"""
-		touch ${id}_${shard}.bwa.sort.bam
-		touch ${id}_${shard}.bwa.sort.bam.bai
+		touch "${id}_${shard}.bwa.sort.bam"
+		touch "${id}_${shard}.bwa.sort.bam.bai"
 
 		${bwa_align_sharded_version(task)}
 		"""
@@ -284,8 +284,8 @@ process bwa_merge_shards {
 
 	stub:
 		"""
-		touch ${id}_merged.bam
-		touch ${id}_merged.bam.bai
+		touch "${id}_merged.bam"
+		touch "${id}_merged.bam.bai"
 
 		${bwa_merge_shards_version(task)}
 		"""
@@ -338,8 +338,8 @@ process bwa_align {
 
 	stub:
 		"""
-		touch ${id}_merged.bam
-		touch ${id}_merged.bam.bai
+		touch "${id}_merged.bam"
+		touch "${id}_merged.bam.bai"
 
 		${bwa_align_versions(task)}
 		"""
@@ -402,8 +402,8 @@ process markdup {
 
 	stub:
 		"""
-		touch ${id}_dedup.bam
-		touch ${id}_dedup.bam.bai
+		touch "${id}_dedup.bam"
+		touch "${id}_dedup.bam.bai"
 		touch "dedup_metrics.txt"
 		touch "${group}_bam.INFO"
 
@@ -452,7 +452,7 @@ process bqsr {
 
 	stub:
 		"""
-		touch ${id}.bqsr.table
+		touch "${id}.bqsr.table"
 		${bqsr_version(task)}
 		"""
 }
@@ -516,8 +516,8 @@ process sentieon_qc {
 
 	stub:
 		"""
-		touch ${id}_qc.json
-		touch ${id}.txt
+		touch "${id}_qc.json"
+		touch "${id}.txt"
 		${sentieon_qc_version(task)}
 		"""
 }
@@ -558,7 +558,7 @@ process chanjo_sambamba {
 
 	stub:
 		"""
-		touch ${id}.bwa.chanjo.cov
+		touch "${id}.bwa.chanjo.cov"
 		${chanjo_sambamba_version(task)}	
 		"""
 }
@@ -598,7 +598,7 @@ process depth_onco {
 
 	stub:
 		"""
-		touch ${id}.lowcov.overlapping.bed
+		touch "${id}.lowcov.overlapping.bed"
 		"""
 }
 
@@ -652,12 +652,12 @@ process SMNCopyNumberCaller {
 
 	stub:
 		"""
-		touch ${id}.bam
-		touch ${id}.tsv
-		touch ${id}.pdf
-		touch ${id}.json
-		touch ${group}_SMN.tsv
-		touch ${group}_smn.INFO
+		touch "${id}.bam"
+		touch "${id}.tsv"
+		touch "${id}.pdf"
+		touch "${id}.json"
+		touch "${group}_SMN.tsv"
+		touch "${group}_smn.INFO"
 	
 		${smn_copy_number_caller_version(task)}
 		"""
@@ -719,9 +719,9 @@ process expansionhunter {
 	stub:
 		"""
 		source activate htslib10
-		touch ${group}.eh.vcf
-		touch ${group}.eh_realigned.sort.bam
-		touch ${group}.eh_realigned.sort.bam.bai
+		touch "${group}.eh.vcf"
+		touch "${group}.eh_realigned.sort.bam"
+		touch "${group}.eh_realigned.sort.bam.bai"
 
 		${expansionhunter_version(task)}
 		"""
@@ -764,7 +764,7 @@ process stranger {
 
 	stub:
 		"""
-		touch ${group}.fixinfo.eh.stranger.vcf
+		touch "${group}.fixinfo.eh.stranger.vcf"
 		${stranger_version(task)}
 		"""
 }
@@ -815,7 +815,7 @@ process reviewer {
 	stub:
 		version_str = reviewer_version(task)
 		"""
-		touch ${id}.svg
+		touch "${id}.svg"
 		echo "${version_str}" > "${task.process}_versions.yml"
 		"""
 }
@@ -873,7 +873,7 @@ process vcfbreakmulti_expansionhunter {
 
 	stub:
 		"""
-		touch ${group}.expansionhunter.vcf.gz
+		touch "${group}.expansionhunter.vcf.gz"
 		touch "${group}_str.INFO"
 
 		${vcfbreakmulti_expansionhunter_version(task)}
@@ -982,7 +982,7 @@ process melt {
 
 	stub:
 		"""
-		touch ${id}.melt.merged.vcf
+		touch "${id}.melt.merged.vcf"
 		${melt_version(task)}
 		"""
 }
@@ -1065,8 +1065,8 @@ process dnascope {
 
 	stub:
 		"""
-		touch ${id}.dnascope.gvcf.gz
-		touch ${id}.dnascope.gvcf.gz.tbi
+		touch "${id}.dnascope.gvcf.gz"
+		touch "${id}.dnascope.gvcf.gz.tbi"
 
 		${dnascope_version(task)}
 		"""
@@ -1098,7 +1098,7 @@ process bamtoyaml {
 
 	stub:
 		"""
-		touch ${group}_bamstart.INFO
+		touch "${group}_bamstart.INFO"
 		"""
 }
 
@@ -1132,8 +1132,8 @@ process gvcf_combine {
 
 	stub:
 		"""
-		touch ${group}.combined.vcf
-		touch ${group}.combined.vcf.idx
+		touch "${group}.combined.vcf"
+		touch "${group}.combined.vcf.idx"
 
 		${gvcf_combine_version(task)}
 		"""
@@ -1178,9 +1178,9 @@ process create_ped {
 		type_fa = "fa"
 		type_ma = "ma"
 		"""
-		touch ${group}_base.ped
-		touch ${group}_ma.ped
-		touch ${group}_fa.ped
+		touch "${group}_base.ped"
+		touch "${group}_ma.ped"
+		touch "${group}_fa.ped"
 
         echo $type_fa $type_ma > type.val
 		"""
@@ -1223,8 +1223,8 @@ process madeline {
 	stub:
 		"""
 		source activate tools
-		touch ${group}_madde.INFO
-		touch ${ped}.madeline.xml
+		touch "${group}_madde.INFO"
+		touch "${ped}.madeline.xml"
 
 		${madeline_version(task)}
 		"""
@@ -1274,7 +1274,7 @@ process freebayes {
 		}
 		else {
 			"""
-			touch ${id}.pathfreebayes.lines
+			touch "${id}.pathfreebayes.lines"
 
 			${freebayes_version(task)}
 			"""
@@ -1282,7 +1282,7 @@ process freebayes {
 
 	stub:
 		"""
-		touch ${id}.pathfreebayes.lines
+		touch "${id}.pathfreebayes.lines"
 
 		${freebayes_version(task)}
 		"""
@@ -1332,9 +1332,9 @@ process fetch_MTseqs {
 
 	stub:
 		"""
-		touch ${id}_mito.bam
-		touch ${id}_mito.bam.bai
-		touch ${group}_mtbam.INFO
+		touch "${id}_mito.bam"
+		touch "${id}_mito.bam.bai"
+		touch "${group}_mtbam.INFO"
 
 		${fetch_MTseqs_version(task)}
 		"""
@@ -1390,7 +1390,7 @@ process sentieon_mitochondrial_qc {
 
 	stub:
 		"""
-		touch ${id}_mito_coverage.tsv
+		touch "${id}_mito_coverage.tsv"
 		${sentieon_mitochondrial_qc_version(task)}
 		"""
 }
@@ -1421,7 +1421,7 @@ process build_mitochondrial_qc_json {
 		"""
 	stub:
 		"""
-		touch ${id}_mito_qc.json
+		touch "${id}_mito_qc.json"
 		"""
 }
 
@@ -1462,7 +1462,7 @@ process run_mutect2 {
 	stub:
 		"""
 		source activate gatk4-env
-		touch ${group}.mutect2.vcf
+		touch "${group}.mutect2.vcf"
 
 		${run_mutect2_version(task)}
 		"""
@@ -1508,7 +1508,7 @@ process split_normalize_mito {
 
 	stub:
 		"""
-		touch ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
+		touch "${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf"
 		${split_normalize_mito_version(task)}
 		"""
 }
@@ -1550,7 +1550,7 @@ process run_hmtnote {
 	stub:
 		"""
 		source activate tools
-		touch ${group}.fixinfo.vcf
+		touch "${group}.fixinfo.vcf"
 
 		${run_hmtnote_version(task)}
 		"""
@@ -1601,8 +1601,8 @@ process run_haplogrep {
 	stub:
 		version_str = run_haplogrep_version(task)
 		"""
-		touch ${group}.haplogrep.png
-		touch ${group}_haplo.INFO
+		touch "${group}.haplogrep.png"
+		touch "${group}_haplo.INFO"
 
 		echo "${version_str}" > "${task.process}_versions.yml"
 		"""
@@ -1648,9 +1648,9 @@ process run_eklipse {
 	stub:
 		"""
 		source activate htslib10
-		touch ${id}.hetplasmid_frequency.txt
-		touch ${id}_eklipse.INFO
-		touch ${id}.png
+		touch "${id}.hetplasmid_frequency.txt"
+		touch "${id}_eklipse.INFO"
+		touch "${id}.png"
 
 		${run_eklipse_version(task)}
 		"""
@@ -1728,9 +1728,9 @@ process split_normalize {
 
 	stub:
 		"""
-		touch ${group}.norm.uniq.DPAF.vcf
-		touch ${group}.intersected.vcf
-		touch ${group}.multibreak.vcf
+		touch "${group}.norm.uniq.DPAF.vcf"
+		touch "${group}.intersected.vcf"
+		touch "${group}.multibreak.vcf"
 
 		${split_normalize_version(task)}
 		"""
@@ -1771,7 +1771,7 @@ process merge_qc_json {
 	
 	stub:
 		"""
-		touch ${id}.QC
+		touch "${id}.QC"
 		"""
 }   
     
@@ -1853,7 +1853,7 @@ process annotate_vep {
 
 	stub:
 		"""
-		touch ${group}.vep.vcf
+		touch "${group}.vep.vcf"
 		${annotate_vep_version(task)}
 		"""
 }
@@ -1890,7 +1890,7 @@ process vcfanno {
 
 	stub:
 		"""
-		touch ${group}.clinvar.loqusdb.gene.vcf
+		touch "${group}.clinvar.loqusdb.gene.vcf"
 		${vcfanno_version(task)}
 		"""
 }
@@ -1926,7 +1926,7 @@ process modify_vcf {
 
 	stub:
 		"""
-		touch ${group}.mod.vcf
+		touch "${group}.mod.vcf"
 		"""
 } 
 
@@ -1951,7 +1951,7 @@ process mark_splice {
 
 	stub:
 		"""
-		touch ${group}.marksplice.vcf
+		touch "${group}.marksplice.vcf"
 		"""
 }
 
@@ -1977,7 +1977,7 @@ process extract_indels_for_cadd {
 
 	stub:
 		"""
-		touch ${group}.only_indels.vcf
+		touch "${group}.only_indels.vcf"
 		${extract_indels_for_cadd_version(task)}
 		""" 
 }
@@ -2028,7 +2028,7 @@ process indel_vep {
 
 	stub:
 		"""
-		touch ${group}.only_indels.vep.filtered.vcf
+		touch "${group}.only_indels.vep.filtered.vcf"
 		${indel_vep_version(task)}
 		"""
 }
@@ -2067,7 +2067,7 @@ process calculate_indel_cadd {
 
 	stub:
 		"""
-		touch ${group}.indel_cadd.gz
+		touch "${group}.indel_cadd.gz"
 		${calculate_indel_cadd_version(task)}
 		"""
 }
@@ -2107,7 +2107,7 @@ process add_cadd_scores_to_vcf {
 
 	stub:
 		"""
-		touch ${group}.cadd.vcf
+		touch "${group}.cadd.vcf"
 		${add_cadd_scores_to_vcf_version(task)}
 		"""
 }
@@ -2151,7 +2151,7 @@ process inher_models {
 
 	stub:
 		"""
-		touch ${group}.models.vcf
+		touch "${group}.models.vcf"
 		${inher_models_version(task)}
 		"""
 }
@@ -2210,7 +2210,7 @@ process genmodscore {
 	stub:
 		group_score = group
 		"""
-		touch ${group_score}.scored.vcf
+		touch "${group_score}.scored.vcf"
 		${genmodscore_version(task)}
 		"""
 }
@@ -2257,9 +2257,9 @@ process vcf_completion {
 	stub:
 		group_score = group
 		"""
-		touch ${group_score}.scored.vcf.gz
-		touch ${group_score}.scored.vcf.gz.tbi
-		touch ${group}_snv.INFO
+		touch "${group_score}.scored.vcf.gz"
+		touch "${group_score}.scored.vcf.gz.tbi"
+		touch "${group}_snv.INFO"
 
 		${vcf_completion_version(task)}
 		"""
@@ -2305,10 +2305,10 @@ process peddy {
 	stub:
 		"""
 		source activate py3-env
-		touch ${group}.ped_check.csv
-		touch ${group}.peddy.ped
-		touch ${group}.sex_check.csv
-		touch ${group}_peddy.INFO
+		touch "${group}.ped_check.csv"
+		touch "${group}.peddy.ped"
+		touch "${group}.sex_check.csv"
+		touch "${group}_peddy.INFO"
 
 		${peddy_version(task)}
 		"""
@@ -2350,7 +2350,7 @@ process fastgnomad {
 
 	stub:
 		"""
-		touch ${group}.SNPs.vcf
+		touch "${group}.SNPs.vcf"
 
 		${fastgnomad_version(task)}
 		"""
@@ -2391,8 +2391,8 @@ process upd {
 		}
 		else {
 			"""
-			touch upd.bed
-			touch upd.sites.bed
+			touch "upd.bed"
+			touch "upd.sites.bed"
 
 			${upd_version(task)}
 			"""
@@ -2400,8 +2400,8 @@ process upd {
 
 	stub:
 		"""
-		touch upd.bed
-		touch upd.sites.bed
+		touch "upd.bed"
+		touch "upd.sites.bed"
 		
 		${upd_version(task)}
 		"""
@@ -2438,7 +2438,7 @@ process upd_table {
 
 	stub:
 		"""
-		touch ${group}.UPDtable.xls
+		touch "${group}.UPDtable.xls"
 		"""
 }
 
@@ -2464,7 +2464,7 @@ process roh {
 
 	stub:
 		"""
-		touch roh.txt
+		touch "roh.txt"
 		${roh_version(task)}
 		"""
 }
@@ -2520,8 +2520,8 @@ process gatkcov {
 	stub:
 		"""
 		source activate gatk4-env
-		touch ${id}.standardizedCR.tsv
-		touch ${id}.denoisedCR.tsv
+		touch "${id}.standardizedCR.tsv"
+		touch "${id}.denoisedCR.tsv"
 
 		${gatkcov_version(task)}
 		"""
@@ -2569,8 +2569,8 @@ process overview_plot {
 
 	stub:
 		"""
-		touch ${group}.genomic_overview.png
-		touch ${group}_oplot.INFO
+		touch "${group}.genomic_overview.png"
+		touch "${group}_oplot.INFO"
 		"""
 }
 
@@ -2600,12 +2600,12 @@ process generate_gens_data {
 
 	stub:
 		"""
-		touch ${id}.cov.bed.gz
-		touch ${id}.baf.bed.gz
-		touch ${id}.cov.bed.gz.tbi
-		touch ${id}.baf.bed.gz.tbi
-		touch ${id}.overview.json.gz
-		touch ${id}.gens
+		touch "${id}.cov.bed.gz"
+		touch "${id}.baf.bed.gz"
+		touch "${id}.cov.bed.gz.tbi"
+		touch "${id}.baf.bed.gz.tbi"
+		touch "${id}.overview.json.gz"
+		touch "${id}.gens"
 		"""
 }
 
@@ -2657,7 +2657,7 @@ process gatk_coverage {
 		export OMP_NUM_THREADS=${task.cpus}
 		set +u
 		source activate gatk
-		touch ${id}.tsv
+		touch "${id}.tsv"
 
 		${gatk_coverage_version(task)}
 		"""
@@ -2712,7 +2712,7 @@ process gatk_call_ploidy {
 		export OMP_NUM_THREADS=${task.cpus}
 		set +u
 		source activate gatk
-		touch ploidy.tar
+		touch "ploidy.tar"
 
 		${gatk_call_ploidy_version(task)}
 		"""
@@ -2775,7 +2775,7 @@ process gatk_call_cnv {
 		export MKL_NUM_THREADS=${task.cpus}
 		export OMP_NUM_THREADS=${task.cpus}
 		source activate gatk
-		touch ${group}_${i}.tar
+		touch "${group}_${i}.tar"
 
 		${gatk_call_cnv_version(task)}
 		"""
@@ -2853,9 +2853,9 @@ process postprocessgatk {
 		export MKL_NUM_THREADS=!{task.cpus}
 		export OMP_NUM_THREADS=!{task.cpus}
 		source activate gatk
-		touch genotyped-intervals-${group}-vs-cohort30.vcf.gz
-		touch genotyped-segments-${group}-vs-cohort30.vcf.gz
-		touch denoised-${group}-vs-cohort30.vcf.gz
+		touch "genotyped-intervals-${group}-vs-cohort30.vcf.gz"
+		touch "genotyped-segments-${group}-vs-cohort30.vcf.gz"
+		touch "denoised-${group}-vs-cohort30.vcf.gz"
 
 		echo "${version_str}" > "${task.process}_versions.yml"
 		"""
@@ -2886,7 +2886,7 @@ process filter_merge_gatk {
 
 	stub:
 		"""
-		touch ${id}.gatk.filtered.merged.vcf
+		touch "${id}.gatk.filtered.merged.vcf"
 		"""
 }
 
@@ -2924,7 +2924,7 @@ process manta {
 
 	stub:
 		"""
-		touch ${id}.manta.vcf.gz
+		touch "${id}.manta.vcf.gz"
 		${manta_version(task)}
 		"""
 }
@@ -2969,7 +2969,7 @@ process manta_panel {
 
 	stub:
 		"""
-		touch ${id}.manta.vcf.gz
+		touch "${id}.manta.vcf.gz"
 		${manta_panel_version(task)}
 		"""
 }
@@ -3015,7 +3015,7 @@ process delly_panel {
 
 	stub:
 		"""
-		touch ${id}.delly.vcf.gz
+		touch "${id}.delly.vcf.gz"
 		${delly_panel_version(task)}
 		"""
 }
@@ -3069,10 +3069,10 @@ process cnvkit_panel {
 
 	stub:
 		"""
-		touch ${id}.cnvkit_filtered.vcf
-		touch ${id}.call.cns
-		touch ${group}.genomic_overview.png
-		touch ${group}_oplot.INFO
+		touch "${id}.cnvkit_filtered.vcf"
+		touch "${id}.call.cns"
+		touch "${group}.genomic_overview.png"
+		touch "${group}_oplot.INFO"
 
 		${cnvkit_panel_version(task)}
 		"""
@@ -3155,7 +3155,7 @@ process svdb_merge_panel {
 	
 	stub:
 		"""
-		touch ${group}.merged.filtered.melt.vcf
+		touch "${group}.merged.filtered.melt.vcf"
 		${svdb_merge_panel_version(task)}
 		"""
 }
@@ -3199,7 +3199,7 @@ process tiddit {
 
 	stub:
 		"""
-		touch ${id}.tiddit.filtered.vcf
+		touch "${id}.tiddit.filtered.vcf"
 		${tiddit_version(task)}
 		"""
 }
@@ -3278,8 +3278,8 @@ process svdb_merge {
 
 	stub:
 		"""
-		touch ${group}.merged.vcf
-		touch ${group}.merged.bndless.vcf
+		touch "${group}.merged.vcf"
+		touch "${group}.merged.bndless.vcf"
 
 		${svdb_merge_version(task)}
 		"""
@@ -3324,7 +3324,7 @@ process add_to_loqusdb {
 
 	stub:
 		"""
-		touch ${group}.loqus
+		touch "${group}.loqus"
 		"""
 }
 
@@ -3359,7 +3359,7 @@ process annotsv {
 	stub:
 		"""
 		export ANNOTSV="/AnnotSV"
-		touch ${group}_annotsv.tsv
+		touch "${group}_annotsv.tsv"
 
 		${annotsv_version(task)}
 		"""
@@ -3412,7 +3412,7 @@ process vep_sv {
 
 	stub:
 		"""
-		touch ${group}.vep.vcf
+		touch "${group}.vep.vcf"
 		${vep_sv_version(task)}
 		"""
 }
@@ -3448,7 +3448,7 @@ process postprocess_vep {
 		"""
 	stub:
 		"""
-		touch ${group}.vep.clean.merge.omim.vcf
+		touch "${group}.vep.clean.merge.omim.vcf"
 		${postprocess_vep_version(task)}
 		"""
 }
@@ -3506,7 +3506,7 @@ process artefact {
 
 	stub:
 		"""
-		touch ${group}.artefact.vcf
+		touch "${group}.artefact.vcf"
 		${artefact_version(task)}
 		"""
 }
@@ -3541,7 +3541,7 @@ process prescore {
 
 	stub:
 		"""
-		touch ${group}.annotatedSV.vcf
+		touch "${group}.annotatedSV.vcf"
 		"""
 }
 
@@ -3594,9 +3594,9 @@ process score_sv {
 	stub:
 		group_score = group
 		"""
-		touch ${group_score}.sv.scored.sorted.vcf.gz
-		touch ${group_score}.sv.scored.sorted.vcf.gz.tbi
-		touch ${group}_sv.INFO
+		touch "${group_score}.sv.scored.sorted.vcf.gz"
+		touch "${group_score}.sv.scored.sorted.vcf.gz.tbi"
+		touch "${group}_sv.INFO"
 
 		${score_sv_version(task)}
 		"""
@@ -3655,9 +3655,9 @@ process compound_finder {
 	stub:
 		group_score = group
 		"""
-		touch ${group_score}.snv.rescored.sorted.vcf.gz
-		touch ${group_score}.snv.rescored.sorted.vcf.gz.tbi
-		touch ${group}_svp.INFO
+		touch "${group_score}.snv.rescored.sorted.vcf.gz"
+		touch "${group_score}.snv.rescored.sorted.vcf.gz.tbi"
+		touch "${group}_svp.INFO"
 
 		${compound_finder_version(task)}
 		"""
@@ -3693,7 +3693,7 @@ process output_files {
 
 	stub:
 		"""
-		touch ${group}.INFO
+		touch "${group}.INFO"
 		"""
 }
 
@@ -3722,7 +3722,7 @@ process svvcf_to_bed {
 
 	stub:
 		"""
-		touch ${group}.sv.bed
+		touch "${group}.sv.bed"
 		"""
 }
 
@@ -3751,8 +3751,8 @@ process plot_pod {
 
 	stub:
 		"""
-		touch ${id}_POD_karyotype.pdf
-		touch ${id}_POD_results.html
+		touch "${id}_POD_karyotype.pdf"
+		touch "${id}_POD_results.html"
 		"""
 }
 
@@ -3780,7 +3780,7 @@ process create_yaml {
 
 	stub:
 		"""
-		touch ${group}.yaml
+		touch "${group}.yaml"
 		"""
 }
 
