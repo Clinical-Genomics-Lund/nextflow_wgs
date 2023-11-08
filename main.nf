@@ -817,7 +817,7 @@ process reviewer {
 		version_str = reviewer_version(task)
 		"""
 		touch ${id}.svg
-		echo ${version_str} > "${task.process}_versions.yml"
+		echo "${version_str}" > "${task.process}_versions.yml"
 		"""
 }
 def reviewer_version(task) {
