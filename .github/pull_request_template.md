@@ -1,5 +1,7 @@
 <!--
 # clinical-genomics-lund/nextflow_wgs pull request
+
+Thanks for contributing to the CMD nextflow_wgs pipeline!
 -->
 # Description
 
@@ -29,6 +31,11 @@ fixes # (issue)
 - [ ] Patch
 
 # Checklist:
+
+<!--
+    The checklist below applies to all types of changes. 
+    Feel free to add your own items to the checklist.
+-->
 
 - [ ] My code follows the [style guidelines for NF pipelines at CMD](http://mtlucmds1.lund.skane.se/wiki/doku.php?id=nextflow&s[]=nextflow#code_style_at_cmd)
 - [ ] I have performed a self-review of my code
@@ -64,5 +71,11 @@ fixes # (issue)
 ## [Optional] Are there any post-deployment tasks we need to perform?
  
 <!--
-Are there any 
+    Some examples of post-deployment tasks are pipeline validation for a major change update
+    or an update to CDM to accomodate new QC data.
 -->
+
+ - [ ] Task/link to issue 1
+ - [ ] Task/link to issue 2
+ - [ ] ...
+ 
