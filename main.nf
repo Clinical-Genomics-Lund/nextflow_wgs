@@ -431,7 +431,7 @@ process bqsr {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	container = "/fs1/resources/containers/sentieon_202112.sif"
-	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*table'
+	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
 
 	input:
 		set id, group, file(bam), file(bai) from bam_bqsr.mix(bam_bqsr_choice)
@@ -534,7 +534,7 @@ def sentieon_qc_version(task) {
 process chanjo_sambamba {
 	cpus 16
 	memory '10 GB'
-	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.cov'
 	tag "$id"
 	scratch true
 	stageInMode 'copy'
@@ -689,7 +689,6 @@ process expansionhunter {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	//publishDir "${OUTDIR}/plots/GAV/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.png'
 
 	when:
 		params.str
@@ -828,7 +827,7 @@ def reviewer_version(task) {
 // split multiallelic sites in expansionhunter vcf
 // FIXME: Use env variable for picard path...
 process vcfbreakmulti_expansionhunter {
-	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$group"
 	time '10m'
 	memory '40 GB'
@@ -951,7 +950,7 @@ process melt {
 	tag "$id"
 	memory '40 GB'
 	time '3h'
-	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf'
 
 	input:
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
@@ -1001,7 +1000,7 @@ process intersect_melt {
 	tag "$id"
 	memory '2 GB'
 	time '1h'
-	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf'
 
 	input:
 		set group, id, file(vcf) from melt_vcf_nonfiltered
@@ -1011,6 +1010,7 @@ process intersect_melt {
 
 	output:
 		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
+		set group, file("*versions.yml") into ch_intersect_melt_versions
 
 	script:
 		"""
@@ -1188,7 +1188,7 @@ process create_ped {
 
 //madeline ped, run if family mode
 process madeline {
-	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.xml'
 	memory '1 GB'
 	time '30m'
 	container '/fs1/resources/containers/madeline.sif'
@@ -1372,6 +1372,7 @@ process sentieon_mitochondrial_qc {
 
 	output:
     	set group, id, file("${id}_mito_coverage.tsv") into qc_mito
+		set group, file("*versions.yml") into ch_sentieon_mitochondrial_qc
 
 	script:	
 		"""
@@ -1431,7 +1432,7 @@ process run_mutect2 {
 	memory '50 GB'
 	time '1h'
 	tag "$group"
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 
 	when:
 		!params.onco
@@ -1568,7 +1569,7 @@ process run_haplogrep {
 	time '10m'
 	memory '30 GB'
 	cpus '2'
-	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
 
 	input:
 		set group, id, file(ms_vcf) from ms_vcfs_2
@@ -1617,7 +1618,7 @@ process run_eklipse {
 	cpus 2
 	memory '10GB'
 	time '60m'
-	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.txt'
 
 	input:
 		set group, id, file(bam), file(bai) from eklipse_bam
@@ -1668,7 +1669,7 @@ def run_eklipse_version(task) {
 // Splitting & normalizing variants, merging with Freebayes/Mutect2, intersecting against exome/clinvar introns
 process split_normalize {
 	cpus 1
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	tag "$group"
 	memory '10 GB'
 	time '1h'
@@ -2274,7 +2275,8 @@ def vcf_completion_version(task) {
 }
 
 process peddy {
-	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.ped'
+	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.csv'
 	//container = '/fs1/resources/containers/wgs_20200115.sif'
 	cpus 6
 	tag "$group"
@@ -2325,7 +2327,7 @@ process fastgnomad {
 	cpus 2
 	memory '32 GB'
 	tag "$group"
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '2h'
 
 	when:
@@ -2477,7 +2479,7 @@ def roh_version(task) {
 
 // Create coverage profile using GATK
 process gatkcov {
-	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true'
+	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true', pattern: '*.tsv'
 	tag "$group"
 	cpus 2
 	memory '60 GB'
@@ -2792,7 +2794,7 @@ process postprocessgatk {
 	memory '40GB'
 	time '3h'
 	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'	
-	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$id"
 
 	input:
@@ -2890,7 +2892,7 @@ process filter_merge_gatk {
 
 process manta {
 	cpus = 56
-	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$id"
 	time '10h'
 	memory '150 GB'
@@ -2937,7 +2939,7 @@ def manta_version(task) {
 
 process manta_panel {
 	cpus = 56
-	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$id"
 	time '1h'
 	memory '150 GB'
@@ -2982,7 +2984,7 @@ def manta_panel_version(task) {
 
 process delly_panel {
 	cpus = 5
-	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$id"
 	time '3h'
 	memory '10 GB'
@@ -3088,7 +3090,7 @@ process svdb_merge_panel {
 	cpus 1
 	cache 'deep'
 	tag "$group"
-	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '10m'
 	memory '1 GB'
 	scratch true
@@ -3169,7 +3171,7 @@ def svdb_merge_panel_version(task) {
 
 process tiddit {
 	cpus = 2
-	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '10h'
 	tag "$id"
 	memory '10 GB'
@@ -3213,7 +3215,7 @@ def tiddit_version(task) {
 process svdb_merge {
 	cpus 1
 	tag "$group"
-	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '2h'
 	memory '1 GB'
 	scratch true
@@ -3331,7 +3333,7 @@ process annotsv {
 	container = '/fs1/resources/containers/annotsv.v2.3.sif'
 	cpus 2
 	tag "$group"
-	publishDir "${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true'
+	publishDir "${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true', pattern: '*.tsv'
 	time '5h'
 	memory '20 GB'
 
@@ -3783,7 +3785,7 @@ process create_yaml {
 }
 
 process combine_versions {
-	publishDir "${OUTDIR}/versions", mode: 'copy', overwrite: 'true', pattern: 'all_versions.yml'
+	publishDir "${OUTDIR}/versions", mode: 'copy', overwrite: 'true', pattern: '*.versions.yml'
 
 	input:
 		set group, versions from ch_fastp_versions.first().mix(
@@ -3800,11 +3802,13 @@ process combine_versions {
 			ch_reviewer_versions.first(),
 			ch_vcfbreakmulti_expansionhunter_versions.first(),
 			ch_melt_versions.first(),
+			ch_intersect_melt_versions.first(),
 			ch_dnascope_versions.first(),
 			ch_gvcf_combine_versions.first(),
 			ch_madeline_versions.first(),
 			ch_freebayes_versions.first(),
 			ch_fetch_mt_seqs_versions.first(),
+			ch_sentieon_mitochondrial_qc(),
 			ch_run_mutect2_versions.first(),
 			ch_split_normalize_mito_versions.first(),
 			ch_run_hmtnote_versions.first(),
@@ -3845,17 +3849,17 @@ process combine_versions {
 		).groupTuple()
 	
 	output:
-		file("all_versions.yml")
+		file("${group}.versions.yml")
 	
 	script:
 		versions_joined = versions.join( ' ' )
 		"""
-		cat $versions_joined > all_versions.yml
+		cat $versions_joined > ${group}.versions.yml
 		"""
 	
 	stub:
 		versions_joined = versions.join( ' ' )
 		"""
-		cat $versions_joined > all_versions.yml
+		cat $versions_joined > ${group}.versions.yml
 		"""
 }
