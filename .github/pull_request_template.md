@@ -52,7 +52,8 @@ fixes # (issue)
 
 - [ ] Stub run completes without errors or new warnings
 - [ ] `onco` run finishes without any new warnings/errors and the results can be loaded into scout
-- [ ] `wgs` trio run finishes without any new warnings/errors  and the results can be loaded into scout
+- [ ] `wgs` single run finishes without any new warnings/errors and the results can be loaded into scout
+- [ ] `wgs` trio run finishes without any new warnings/errors and the results can be loaded into scout
 - [ ] At least one other person has reviewed and approved my code
 - [ ] I have made corresponding changes to the documentation
 
@@ -60,7 +61,8 @@ fixes # (issue)
 
 - [ ] Stub run completes without errors or new warnings
 - [ ] `onco` run finishes without any new warnings/errors and the results can be loaded into scout
-- [ ] `wgs` trio run finishes without any new warnings/errors  and the results can be loaded into scout
+- [ ] `wgs` single run finishes without any new warnings/errors and the results can be loaded into scout
+- [ ] `wgs` trio run finishes without any new warnings/errors and the results can be loaded into scout
 - [ ] At least one other person has reviewed and approved my code
 - [ ] I have made corresponding changes to the documentation
 
