@@ -1017,11 +1017,13 @@ process intersect_melt {
 	script:
 		"""
 		bedtools intersect -a $vcf -b $params.intersect_bed -header > ${id}.melt.merged.intersected.vcf
+		${intersect_melt_version(task)}
 		"""
 
 	stub:
 		"""
 		touch "${id}.melt.merged.intersected.vcf"
+		${intersect_melt_version(task)}
 		"""
 }
 def intersect_melt_version(task) {
