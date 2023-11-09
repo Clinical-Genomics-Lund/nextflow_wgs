@@ -3816,7 +3816,7 @@ process combine_versions {
 			ch_madeline_versions.first(),
 			ch_freebayes_versions.first(),
 			ch_fetch_mt_seqs_versions.first(),
-			ch_sentieon_mitochondrial_qc(),
+			ch_sentieon_mitochondrial_qc.first(),
 			ch_run_mutect2_versions.first(),
 			ch_split_normalize_mito_versions.first(),
 			ch_run_hmtnote_versions.first(),
