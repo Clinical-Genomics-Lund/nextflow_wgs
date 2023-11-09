@@ -123,7 +123,7 @@ fixes # (issue)
     helpful for reviewers, feel free to include them here.
 -->
 
-# Review:
+# Review
 
 <!--
     Use this section to document who has performed the reviews and run the 
@@ -132,8 +132,8 @@ fixes # (issue)
 
 ## Review performed by:
 
-- Reviewer 1: Name1, (\@Github\_handle)  
-- Reviewer 2: Name1,  (\@Github\_handle)
+- Reviewer 1: Name1, (\@Github\_handle1)  
+- Reviewer 2: Name1,  (\@Github\_handle2)
 - ...
     
 ## Testing performed by:
