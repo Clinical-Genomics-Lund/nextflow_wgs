@@ -1390,6 +1390,7 @@ process sentieon_mitochondrial_qc {
 
 		head -1 mt_cov_metrics.txt.sample_interval_summary > "${id}_mito_coverage.tsv"
 		grep "^M" mt_cov_metrics.txt.sample_interval_summary >> "${id}_mito_coverage.tsv"
+		${sentieon_mitochondrial_qc_version(task)}
 		"""
 
 	stub:
