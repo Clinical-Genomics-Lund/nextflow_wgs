@@ -820,6 +820,8 @@ process reviewer {
 		"""
 }
 def reviewer_version(task) {
+	// This docstring looks different from others as it is used within the shell '''
+	// If spaces similarly to the others, this leads to additional whitespace above and below the version text
 	"""${task.process}:
 	    reviewer: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')"""
 }
@@ -1608,6 +1610,8 @@ process run_haplogrep {
 		"""
 }
 def run_haplogrep_version(task) {
+	// This docstring looks different from others as it is used within the shell '''
+	// If spaces similarly to the others, this leads to additional whitespace above and below the version text
 	"""${task.process}:
 	    haplogrep: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/htt.*Classify v// ; s/ .*//")
 	    montage: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )"""
@@ -2861,6 +2865,8 @@ process postprocessgatk {
 		"""
 }
 def postprocessgatk_version(task) {
+	// This docstring looks different from others as it is used within the shell '''
+	// If spaces similarly to the others, this leads to additional whitespace above and below the version text
 	"""${task.process}:
 	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')"""
 }
@@ -3787,6 +3793,8 @@ process create_yaml {
 process combine_versions {
 	publishDir "${OUTDIR}/versions", mode: 'copy', overwrite: 'true', pattern: '*.versions.yml'
 
+	// The point of "first" here is that when a process is present in multiple instances
+	// there is no need to include more than one instance of the versions
 	input:
 		set group, versions from ch_fastp_versions.first().mix(
 			ch_bwa_align_shareded_versions.first(),
