@@ -130,12 +130,14 @@ fixes # (issue)
     tests. 
 -->
 
-Review performed by:
-    - Reviewer 1: Name1, (\@Github\_handle)
-    - Reviewer 2: Name1,  (\@Github\_handle)
-    - ...
+## Review performed by:
+
+- Reviewer 1: Name1, (\@Github\_handle)  
+- Reviewer 2: Name1,  (\@Github\_handle)
+- ...
     
-Testing performed by:
-    - Name, (\@Github\_handle)
-    - ...
+## Testing performed by:
+
+- Name, (\@Github\_handle)
+- ...
 
