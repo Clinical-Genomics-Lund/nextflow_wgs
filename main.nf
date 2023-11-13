@@ -1626,6 +1626,7 @@ process run_eklipse {
 	memory '10GB'
 	time '60m'
 	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.txt'
+	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
 
 	input:
 		set group, id, file(bam), file(bai) from eklipse_bam
