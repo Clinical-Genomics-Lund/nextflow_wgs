@@ -1670,7 +1670,7 @@ def run_eklipse_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    eklipse: 1-8
+	    eklipse: 1.8
 	END_VERSIONS	
 	"""
 }
@@ -1753,7 +1753,7 @@ def split_normalize_version(task) {
 	    vcflib: 1.0.9
 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
 	    bedtools: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
-	    merge-vcfs: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs --version 2>&1))
+	    merge-vcfs: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs --version 2>&1 | sed 's/-SNAPSHOT//'))
 	END_VERSIONS	
 	"""
 }
@@ -2251,7 +2251,7 @@ process vcf_completion {
 
 	script:
 		group_score = group
-		if ( type == "ma" || type == "fa") {
+		if (type == "ma" || type == "fa") {
 			group_score = group + "_" + type
 		}
 
@@ -2267,6 +2267,10 @@ process vcf_completion {
 
 	stub:
 		group_score = group
+		if (type == "ma" || type == "fa") {
+			group_score = group + "_" + type
+		}
+
 		"""
 		touch "${group_score}.scored.vcf.gz"
 		touch "${group_score}.scored.vcf.gz.tbi"
