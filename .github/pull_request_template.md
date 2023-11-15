@@ -1,7 +1,7 @@
 <!--
 # clinical-genomics-lund/nextflow_wgs pull request
 
-Thanks for contributing to the CMD nextflow_wgs pipeline!
+Thanks for contributing to the CMD nextflow_wgs pipeline. 
 -->
 # Description
 
@@ -45,6 +45,8 @@ fixes # (issue)
 - [ ] I have commented my code, particularly in hard-to-understand areas
 - [ ] My changes generate no new warnings (Keep an eye on `.nextflow.log` !)
 - [ ] I have updated the CHANGELOG
+- [ ] The latest commit in the master branch is tagged
+      with the correct version number
 
 <!--
     Select a checklist below  based on selection under # Type of change
@@ -141,3 +143,6 @@ fixes # (issue)
 - Name, (\@Github\_handle)
 - ...
 
+# Post-merge
+
+- [ ] The `master` branch has been tagged with the new version number.
