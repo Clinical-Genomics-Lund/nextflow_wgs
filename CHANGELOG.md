@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.5.4
+
+* Add version outputs from all processes that use external software.
+* Add stubs to processes to allow performing stub runs.
+
 ### 3.5.3
 - Hotfix, increase melt sensivity by increasing amount of reads melt are alowed to use in RAM. 
 
