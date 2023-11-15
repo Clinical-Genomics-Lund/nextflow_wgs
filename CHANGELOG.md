@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.5.5
+
+* Update the cron log directory to use the `params.crondir` folder as base
+
 ### 3.5.4
 
 * Add version outputs from all processes that use external software.
