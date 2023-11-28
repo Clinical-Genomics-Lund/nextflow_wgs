@@ -80,6 +80,13 @@ fixes # (issue)
 ## Patch
 
 - [ ] Stub run completes without errors or new warnings
+<!--
+    Remove the comment markers wrapping the checkbox below if you believe that the patch needs to undergo review. 
+    (If in doubt, then play it safe and request a review).
+-->
+<!--
+- [ ] At least one other person has reviewed and approved my code
+-->
 
 ## [Optional] Are there any post-deployment tasks we need to perform?
  
