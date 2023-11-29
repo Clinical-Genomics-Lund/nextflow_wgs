@@ -4,11 +4,11 @@
 To run pipeline first deploy to hopper using scp.
 
 The most important files to deploy are:
-* main.nf 
-* configs/nextflow.hopper.config (to be named nextflow.config and be located in the same folder as main.nf)
-* shards.csv/shards_38.csv
-* git.hash
-* bin-folder
+* `main.nf`
+* `configs/nextflow.hopper.config` (to be named nextflow.config and be located in the same folder as main.nf)
+* `shards.csv` / `shards_38.csv`
+* `git.hash`
+* `bin-folder`
 
 All these files a deployed through deploy_hopper.sh/deploy_hopper_dev.sh
 
@@ -16,13 +16,16 @@ All these files a deployed through deploy_hopper.sh/deploy_hopper_dev.sh
 ## Executing
 Make sure nextflow, Java and singularity is loaded on hopper
 
+```
 nextflow run main.nf --csv path/to/csv.csv -profile see-below
+```
 
 ## Profiles
-The current pipeline can be run with three different panels. These are chosen by adding -profile to the nextflow run command. These are the three and their corresponding profiles:
-* whole-genome sequencing -profile wgs
-* oncogenetics -profile onco
-* exome -profile exome
+The current pipeline can be run with six different panels. These are chosen by adding -profile to the nextflow run command. These are the three and their corresponding profiles:
+* whole-genome sequencing `-profile wgs`
+* oncogenetics `-profile onco` or `-profile oncov1`
+* exome `-profile exome`
+* other panels `-profile myeloid` or `-profile modycf`
 
 # NextflowWgs
 
@@ -61,14 +64,14 @@ VEP-container is built by
 This container also needs VEP-references.
 
 * VEP cache
-* VEP- fasta
+* VEP-fasta
 * gnomAD (exomes, genomes, mitochondria) VCFs
 * phyloP
 * phastcons
 * CADD
 * maxentscan plugin. 
 
-Required by 3 VEP annotation steps, edit main.nf. use ctrl + f “ensembl-vep_release_103.sif” and replace with your container
+Required by 3 VEP annotation steps, edit main.nf. use ctrl + f `ensembl-vep_release_103.sif` and replace with your container
 
 #### CADD
 
@@ -76,23 +79,23 @@ Required by 3 VEP annotation steps, edit main.nf. use ctrl + f “ensembl-vep_re
 
 Download all references
 
-GRCh38 / hg38 (really big file! 200TB zipped)
+GRCh38 / hg38 (really big file! 200GB zipped)
 
-`wget -c https://krishna.gs.washington.edu/download/CADD/v1.6/GRCh38/annotationsGRCh38_v1.6.tar.gz 
+`wget -c https://krishna.gs.washington.edu/download/CADD/v1.6/GRCh38/annotationsGRCh38_v1.6.tar.gz`
 
-tar -xzvf annotationsGRCh38_v1.6.tar.gz` Make sure to edit the 
+`tar -xzvf annotationsGRCh38_v1.6.tar.gz` 
 
-following lines in the file “Singularity” to match where you saved the annotations-folder 
+Make sure to edit the following lines in the file `Singularity` to match where you saved the annotations-folder 
 
 `ln -sr /fs1/resources/ref/hg38/annotation_dbs/CADD_v1.6/data/annotations/GRCh38_v1.6 GRCh38_v1.6` `sudo -E singularity build cadd_v1.6.sif Singularity` 
 
-Required by CADD indels, edit main.nf. use ctrl + f “cadd_v1.6.sif” and replace with your container 
+Required by CADD indels, edit main.nf. use ctrl + f `cadd_v1.6.sif` and replace with your container 
 
 #### GATK 4.19 
 
 `singularity pull docker://broadinstitute/gatk`
 
-Required by CNV-calling, edit main.nf. use ctrl + f “gatk_4.1.9.0.sif” and replace with your container
+Required by CNV-calling, edit main.nf. use ctrl + f `gatk_4.1.9.0.sif` and replace with your container
 
 
 
