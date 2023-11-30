@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.5.6
+
+* Add Github PR template/test documentation
+
 ### 3.5.5
 
 * Update the cron log directory to use the `params.crondir` folder as base
