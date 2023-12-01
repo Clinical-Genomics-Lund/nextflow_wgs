@@ -14,15 +14,15 @@ FIXME: Can I link to the .doc documentation from here? Is it publicly accessible
 
 Then the table of content:
 
-* [[2. Running the pipeline]]
-* [[3. How to deploy]]
-* [[4. Inputs]]
-    * [[4.1 Inputs]]
-    * [[4.2 Inputs - Annotation files]]
-    * [[4.3 Inputs - Containers]]
-* [[4. Profiles & singles vs trios]]
-* [[5. Outputs]]
-* [[6. List of all used software]]
+* [Running the pipeline](2_running_the_pipeline.md)
+* [How to deploy](3_how_to_deploy.md)
+* [Inputs](4_0_inputs.md)
+    * [Input files](4_1_input_files.md)
+    * [Annotation files](4_2_annotation_files.md)
+    * [Containers](4_3_inputs_containers.md)
+    * [Sentieon license](4_4_inputs_sentieon_license.md)
+* [Outputs](5_outputs.md)
+* [List of used software](6_list_of_all_used_software.md)
 
 Overview of processes and impact of settings and profiles.
 
