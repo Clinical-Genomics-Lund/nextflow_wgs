@@ -26,5 +26,5 @@ Then the table of content:
 
 Overview of processes and impact of settings and profiles.
 
-![overview_img](newdocs/img/wgs_overview_200.drawio.png)
+![overview_img](img/wgs_overview_200.drawio.png)
 
