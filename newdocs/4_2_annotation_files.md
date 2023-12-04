@@ -174,6 +174,7 @@ ops=["concat"]
 ##### Coverage profile using GATK
 
 * `GATK_PON_MALE` and `GATK_PON_FEMALE`: Gender specific panels of normals used in the `DenoiseReadCounts` (FIXME: How are these prepared?)
+
 ##### Short tandem repeats (STR)
 
 These are called using `expansionhunter` and annotated using `stranger`.
