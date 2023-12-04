@@ -34,7 +34,7 @@ gunzip <fasta>.fna.gz
 Remove the `chr` prefix from each FASTA entry.
 
 ```
-`sed 's/^>chr/>/' <fasta>.fna > <fasta>_nochr.fna`
+sed 's/^>chr/>/' <fasta>.fna > <fasta>_nochr.fna
 ```
 
 Generate a `bwa` index.
