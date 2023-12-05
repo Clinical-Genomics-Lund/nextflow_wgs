@@ -7,3 +7,7 @@
 * Update the config
 * Place these files on hopper
 * Files can be deployed by running `deploy_hopper.sh` / `deploy_hopper_dev.sh`
+
+* Running using the Hopper Perl script
+    * Specify "nolog"
+    * Specify output folder
