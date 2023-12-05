@@ -1,43 +1,49 @@
+When running the pipeline, two separate results folders are produced. One is named "OUTDIR", and contains the bulk of the results. The second is named "CRONDIR" and contains specific files that are transferred away from the computational cluster in the Lund setup and used to load the files into Scout. It is called "CRONDIR" as the transfer from the computational cluster is triggered by a cron-job.
+
+Here the output files, their origin and their meaning are very briefly outlined.
+
+For a high-level overview of the processes, see the overview visualizatoin in the [running the pipeline](2_running_the_pipeline.md) section.
+
 ### OUTDIR
 
-Brief overview of the various output files that are produced by the WGS-pipeline.
+| Subfolder      | Function    | Process                | Name                                              | Description                
+|----------------|-------------|------------------------|---------------------------------------------------|----------------------------
+| annotsv        | Annotation  | `annotsv`              | `<group>_annotsv.tsv`                             | Annotation from AnnotSV    
+| bam            | Mapping     | `markdup`              | `<group>_dedup.bam[.bai]`                         | Deduplicated BAM-files     
+| bam            | Mapping     | `fetch_MTseqs`         | `<group>_mito.bam[.bai]`                          | Mapped mitochondrial reads  
+| bed            | SV calling  | `svvcf_to_bed`         | `<group>.sv.bed`                                  | SV ranges                  
+| bqsr           | SNV calling | `bqsr`                 | `<group>.bqsr.table`                              | Base-quality score recalibrations for Sentieon DNAScope
+| cov            | Coverage    | `chanjo_sambamba`      | `<group>.bwa.chanjo.cov`                          | Coverage calculations
+| cov            | Coverage    | `depth_onco`           | `<group>.lowcov.overlapping.bed`                  | Coverage calculations (onco only)
+| cov            | Coverage    | `gatkcov`              | `<group>.denoisedCR.tsv`                          | Coverage calculations (wgs only)
+| cov            | Coverage    | `gatkcov`              | `<group>.standardizedCR.tsv`                      | Coverage calculations (wgs only)
+| ped            | Pedigree    | `create_ped`           | `<group>_[base|ma|fa].ped`                        | Pedigree information
+| ped            | Pedigree    | `peddy`                | `<group>_[base|ma|fa].peddy.ped`                  | Pedigree information (FIXME)
+| ped            | Pedigree    | `madeline`             | `<group>_[base|ma|fa].ped.madeline.xml`           | Pedigree visualization files
+| ped            | Pedigree    | `FIXME`                | `<group>.sex_check.csv`                           | Control of assigned sex
+| plot_data      | Visualize   | `generate_gens_data`   | Various files                                     | Files needed for visualization in Gens
+| plots/SMNcnc   | Visualize   | `SMNCopyNumberCaller`  | `smn_<group>.pdf`                                 | Copy number reports for SMN1 and SMN2
+| plots/reviewer | Visualize   | `reviewer`             | `<group>/<protein_ids>.svg`                       | Visualizations of repeat expansions
+| plots/mito     | Visualize   | `run_haplogrep`        | `<group>.haplogrep.png`                           | Mitochondria haplogroup overview
+| plots/mito     | Visualize   | `run_eklipse`          | `<group>_eklipse.png`                             | Mitochondrial deletions visualized
+| plots          | Visualize   | `upd_table`            | `<group>.UPDTable.xls`                            | Uniparental disomy overview
+| overview_plot  | Visualize   | `overview_plot`        | `<group>.genomic_overview.png`                    | High-level illustration of uniparental disomy and runs of homozygosity
+| qc             | QC          | `merge_qc_json`        | `<group>.QC`                                      | Sample QC information
+| pod            | Visualize   | `plot_pod`             | `<group>_POD_karyotype.pdf`                       | CNV origin illustration (for trio)
+| pod            | Visualize   | `plot_pod`             | `<group>_POD_results.html`                        | CNV origin illustration (for trio)
+| sv_vcf         | SV calling  | `postprocessgatk`      | `denoised-<group>-vs-cohort30.vcf.gz`             |
+| sv_vcf         | SV calling  | `postprocessgatk`      | `genotyped-intervals-<group>-vs-cohort30.vcf.gz`  |
+| sv_vcf         | SV calling  | `postprocessgatk`      | `genotyped-segments-<group>-vs-cohort30.vcf.gz`   |
+| sv_vcf         | SV calling  | `filter_merge_gatk`    | `<group>.gatk.filtered.merged.vcf`                |
+| sv_vcf         | SV calling  | `manta`                | `<group>.manta.vcf.gz`                            |
+| sv_vcf         | SV calling  | `manta_panel`          | `<group>.manta.vcf.gz`                            |
+| sv_vcf         | SV calling  | `delly_panel`          | `<group>.delly.vcf.gz`                            |
+| sv_vcf         | SV calling  | `cnvkit_panel`         | `<group>.cnvkit_filtered.vcf`                     |
+| sv_vcf         | SV calling  | `svdb_merge_panel`     | `merged/<group>.merged.filtered.melt.vcf`         |
+| sv_vcf         | SV calling  | `tiddit`               | `<group>.tiddit.filtered.vcf`                     |
+| sv_vcf         | SV calling  | `svdb_merge`           | `merged/<group>.merged.vcf`                       |
+| sv_vcf         | SV calling  | `svdb_merge`           | `merged/<group>.merged.bndless.vcf`               |
 
-Some outputs are only produced for certain run settings (i.e. profile and trio/single mode).
-
-An overview of the different processes is found in the main page of this README.
-
-* annotsv
-    * annotsv: AnnotSV annotations (.tsv)
-* bam
-    * markdup: Deduplicated BAM files with index (.bam + .bam.bai)
-    * fetch_MTseqs: Mitochondria extracted from bam (.bam + .bam.bai)
-* bed
-    * svvcf_to_bed: BED file with SVs (.bed)
-* bqsr
-    * bqsr: Base quality recalibration scores (.table, text files)
-* cov
-    * chanjo_sambamba: Coverage calculations (.cov, text files)
-    * depth_onco: Onco coverage
-    * gatkcov: Coverage calculations from GATK (.tsv) <- FIXME: What is different with this coverage?
-* madeline
-    * madeline: Pedigree illustration (.xml)
-* ped
-    * create_ped: Pedigree file (.ped)
-    * peddy: Pedigree fiels (.ped, .csv) <- FIXME: Double check
-* plot_data
-    * generate_gens_data: (FIXME: Check)
-* plots
-    * SMNCopyNumberCaller, /SMNcnc: Illustrations of copy numbers for SMN exons (.pdf)
-    * reviewer, /reviewer: Illustrations of repeat expansions
-    * run_haplogrep, /mito: Illustration of subtypes of mitochondria (? FIXME)
-    * run_eklipse, /mito: Illustration of coverage in different parts of mitochondria (.png + .txt)
-    * upd_table: Table with uniparental disomy information (.xls)
-    * overview_plot: High-level overview of chromosome differences - uniparental disomy and homozygotic runs (FIXME: Check)
-    * cnvkit_panel: Visualization of CNVKit calls (FIXME: Check)
-* qc
-    * merge_qc_json: QC information for samples (.json)
-* pod
-    * plot_pod: Parental origin of duplication (.pdf)
 * sv_vcf
     * postprocessgatk: GATK-called CNV segments (.vcf.gz)
     * filter_merge_gatk: Further processed GATK segments, merging adjacent and cleaning up reference segments (.vcf.gz)
