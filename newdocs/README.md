@@ -30,12 +30,12 @@ Illustration of the pipeline, its steps and processes.
 ### Table of content
 
 * [Running the pipeline](running_the_pipeline.md)
-* [Inputs](4_0_inputs.md)
-    * [Input files](4_1_input_files.md)
-    * [Annotation files](4_2_annotation_files.md)
-    * [Containers](4_3_inputs_containers.md)
-    * [Sentieon license](4_4_inputs_sentieon_license.md)
-* [Outputs](5_outputs.md)
-* [How to deploy](3_how_to_deploy.md)
-* [List of used software](6_list_of_all_used_software.md)
+* Inputs
+    * [Input files](input_files.md)
+    * [Annotation files](annotation_files.md)
+    * [Containers](input_containers.md)
+    * [Sentieon license](sentieon_license.md)
+* [Outputs](outputs.md)
+* [How to deploy](how_to_deploy.md)
+* [List of used software](list_of_all_used_software.md)
 
