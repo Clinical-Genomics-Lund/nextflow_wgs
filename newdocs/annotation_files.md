@@ -1,50 +1,60 @@
-These parameters are specified in the `configs/nextflow.hopper.config`. Some of these are specified as shared for all profiles, and some have profile specific settings.
+### Annotation files
 
-Should we keep the profile specific ones out from this?
+To run the pipeline, you need to setup a number of annotation files. Default values are specified in the `configs/nextflow.hopper.config`. 
 
-Further hard-coded annotations within the script?
+<!-- Organize better. For instance, the set of references required to run VEP: -->
 
-Organize better. For instance, the set of references required to run VEP:
-
-- VEP cache
+<!-- - VEP cache
 - VEP-fasta
 - gnomAD (exomes, genomes, mitochondria) VCFs
 - phyloP
 - phastcons
 - CADD
-- maxentscan plugin.
+- maxentscan plugin. -->
 
-##### Reference genome
+| Parameter        | Function             | Format  | Description                                                                                                                                                                                                                                             |
+| ---------------- | -------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `genome_file`    | Reference genome     | `fasta` | The main reference                                                                                                                                                                                                                                      |
+| `GENOMEDICT`     | Reference genome     | `dict`  | Dict file for the FASTA file                                                                                                                                                                                                                            |
+| `rCRS_fasta`     | Reference genome     | `fasta` | Mitochondrial FASTA reference sequence found [here](https://www.ncbi.nlm.nih.gov/nuccore/251831106)                                                                                                                                                     |
+| `bwa_shards`     | Alignment            |         | Number of shards to split the reads into prior to alignment                                                                                                                                                                                             |
+| `shardbwa`       | Alignment            |         | Boolean specifying whether to do alignment in sharded mode                                                                                                                                                                                              |
+| `KNOWN`          | Alignment            |         | Gold-standard indels used in Sentieon's base quality score recalibration (BQSR)                                                                                                                                                                         |
+| `VEP_CACHE`      | Annotation (VEP)     |         | VEP files for offline run. Instructions on how to setup a cache can be found [here](https://www.ensembl.org/info/docs/tools/vep/script/vep_cache.html#cache).                                                                                           |
+| `VEP_FASTA`      | Annotation (VEP)     | `fasta` | Reference sequence used for optimization within the VEP cache                                                                                                                                                                                           |
+| `SYNONYMS`       | Annotation (VEP)     | `tsv`   | Chromosome synonyms used by VEP (for instance to recognize `M` as `MT`)                                                                                                                                                                                 |
+| `CADD`           | Annotation (VEP)     | `tsv`   | Precalculated CADD indices. ([download page](https://cadd.gs.washington.edu/download)) [CADD](https://cadd.gs.washington.edu) is used to score deleteriousness of SNVs and indels in human.                                                             |
+| `GNOMAD_GENOMES` | Annotation (VEP)     | `tsv`   | Allele frequencies for variants ([download page](https://gnomad.broadinstitute.org/downloads))                                                                                                                                                          |
+| `GNOMAD_EXOMES`  | Annotation (VEP)     | `tsv`   | FIXME                                                                                                                                                                                                                                                   |
+| `GNOMAD_MT`      | Annotation (VEP)     | `tsv`   | FIXME                                                                                                                                                                                                                                                   |
+| `MAXENTSCAN`     | Annotation (VEP)     |         | A direct path to the MaxEntScan scripts (FIXME: Cannot this be specified just by )                                                                                                                                                                      |
+| `dbNSFP`         | Annotation (VEP)     | `tsv`   | (FIXME): Path to gzipped tab delimited file containing the dbNSFP annotations.                                                                                                                                                                          |
+| `PHYLOP`         | Annotation (VEP)     | `tsv`   | Measures evolutionary conservation at individual alignment sites. This parameter expects a tab-delimited file with pre-calculated phyloP scores.                                                                                                        |
+| `PHASTCONS`      | Annotation (VEP)     | `tsv`   | Conservation scores. This parameter expects a tab-delimited file with pre-calculated phyloP scores.                                                                                                                                                     |
+| `vcfanno`        | Annotation (VCFAnno) | `toml`  | Config file pointing to which files to retrieve annotation from, which fields that should be extracted and how these should be inserted in the target VCF. This additional annotations are different depending on which profile is used for processing. |
+| `LUA`            | Annotation (VCFAnno) | `lua`   | Custom script for VCFAnno annotations                                                                                                                                                                                                                   |
 
-Related params:
+### Preparing annotation files
 
-* `genome_file`: Path to the `.fna` file (`<fasta>_nochr.fna` below)
-* `GENOMEDICT`: Path to the `.dict` file
-* `rCRS_fasta`: A mitochondria FASTA reference sequence as found here: https://www.ncbi.nlm.nih.gov/nuccore/251831106. Standard sequence to report mitochondria. It is used to normalize positions of mitochondria indels. FIXME: Verify
+Some pointers on how the reference files can be prepared.
 
-The pipeline is running with the hg38 reference genome, but with no `chr` prefix. It can be prepared the following way:
+#### Preparing reference and indexes
 
-Retrieve the genome (FIXME: Where to get the masked genome?)
+The pipeline is running with the hg38 reference genome, but with no `chr` prefix. 
 
-Uncompress.
-
-```
-gunzip <fasta>.fna.gz
-```
-
-Remove the `chr` prefix from each FASTA entry.
+The `chr` prefix from each FASTA entry.
 
 ```
 sed 's/^>chr/>/' <fasta>.fna > <fasta>_nochr.fna
 ```
 
-Generate a `bwa` index.
+Generate a bwa index. This requires that you have [bwa](https://github.com/lh3/bwa) installed.
 
 ```
 bwa index <fasta>_nochr.fna
 ```
 
-Create the sequence dictionary.
+Create the sequence dictionary. This requires [Picard Tools](https://broadinstitute.github.io/picard/).
 
 ```
 java -jar picard.jar CreateSequenceDictionary \
@@ -52,95 +62,18 @@ java -jar picard.jar CreateSequenceDictionary \
     OUTPUT=<fasta>_nochr.dict
 ```
 
-Generate the samtools fasta index.
+Generate the samtools fasta index using [samtools](http://www.htslib.org/).
 
 ```
 samtools faidx <fasta>_nochr.fna
 ```
-##### Alignment and base quality score recalibration
 
-FIXME: Ask about the purpose of the sharding. I guess it is to split the alignment to multiple processes (which could allow using multiple nodes perhaps). But let's verify.
-
-The alignment can optionally be sharded, aligning subsets of the FASTQ reads in different Nextflow processes. 
-
-* `bwa_shards`: The number of shards to split the reads into.
-* `shardbwa`:  A boolean specifying whether to do alignment in sharded mode. 
-* `KNOWN`: Set of gold standard indels to use in Sentieon's base quality score recalibration (BQSR)
-##### VEP
-
-https://www.ensembl.org/info/docs/tools/vep/index.html
-
-VEP is a commonly used software to determine the effect of the variants (Variant Effect Predictor). It can be run as a web service, or offline using a cache. Some of the predicted information includes what genes and transcripts are affected, whether the variants are located in certain features (i.e. in coding sequence, in intron and so on), the consequence on the protein sequence, and changes in the protein sequence.
-
-The results are added to the `CSQ` field in the `INFO` column of the provided VCF. One CSQ entry is added per matching transcript feature, meaning that while for other `INFO` annotations there will be just one value, for the VEP there can be a set of consequence values for instances.
-
-* `VEP_CACHE`: Used for offline run and contains information about transcript locations, gene identifiers, regulatory regions, prediction scores for tools such as SIFT and PolyPhem. (https://www.ensembl.org/info/docs/tools/vep/script/vep_cache.html). This cache can be downloaded from the ENSEMBL web page.
-* `VEP_FASTA`: Used to look up reference sequence (FIXME: Why do we use it? Why not the same FASTA as the actual reference?)
-* `SYNONYMS`: Used to allow VEP to recognize mitochondria `M` chromosomes using the `MT` string (which is currently used within CMD)
-
-**CADD** 
-
-* `CADD` parameter
-
-CADD is a tool for scoring deleteriousness of SNVs and indels in human (https://cadd.gs.washington.edu/). The specified file contains precalculated scores for specific variants at specified locations. It is only valid for SNVs, indels are handled separately.
-
-First lines of the file:
-
-```
-#Chrom  Pos     Ref     Alt     RawScore        PHRED
-1       10001   T       A       0.702541        8.478                                   
-1       10001   T       C       0.750954        8.921                                   
-1       10001   T       G       0.719549        8.634                                   
-1       10002   A       C       0.713993        8.583
-```
-
-This file can be downloaded from the following page: https://cadd.gs.washington.edu/download . It will need to be indexed before use. Verify the md5sum of the retrieved file against the md5sums provided at the same page.
-
-**Gnomad**
-
-Gnomad is a database with allele frequencies for different variants, i.e. how commonly encountered they are in a general population. Variants causing rare diseases are expected to be rare.
-
-The download page for Gnomad is available here: https://gnomad.broadinstitute.org/downloads
-
-For this pipeline we don't need all the Gnomad annotations. Before usage, the VEP information and most of the INFO fields are removed. Retained are `nhomalt`, `AF`, `popomax` and `AF_popmax` (FIXME: Double check).
-
-```
-1       12198   rs62635282      G       C       9876.24 AC0     nhomalt=0               
-1       12237   rs1324090652    G       A       81.96   AC0     nhomalt=0               
-1       12259   rs1330604035    G       C       37.42   AC0     AF=0;nhomalt=0          
-1       12266   rs1442951560    G       A       2721.48 AC0     nhomalt=0               
-1       12272   rs1281272113    G       A       2707.42 AC0     AF=0;nhomalt=0
-1       13499   rs1461668262    C       A       7144.56 PASS    AF=2.19603e-05;nhomalt=0;popmax=eas;AF_popmax=0.00027819
-```
-
-* `GNOMAD_GENOMES`: Gnomad frequencies for the full genome (FIXME)
-* `GNOMAD_EXOMES`: Gnomad frequencies reduced to only show those residing within exons (FIXME)
-* `GNOMAD_MT`: Gnomad frequencies for mitochondria (FIXME)
-
-**MaxEntScan**
-
-MaxEntScan is used to identify splice site predictions.
-
-* `MAXENTSCAN`: A direct path to the MaxEntScan scripts (FIXME: Cannot this be specified just by )
-
-**dbNSFP**
-
-Used to retrieve data for missense variants, with functional predictions.
-
-* `DBNSFP` (FIXME): Path to gzipped tab delimited file containing the dbNSFP annotations.
-
-**Custom annotations**
-
-Custom annotations are directly loaded from tab-delimited files.
-
-* `PHYLOP`: Measures evolutionary conservation at individual alignment sites. This parameter expects a tab-delimited file with pre-calculated phyloP scores.
-* `PHASTCONS`: Conservation scores. This parameter expects a tab-delimited file with pre-calculated phyloP scores.
 ##### VCF anno
 
-VCFanno is a tool used for rapidly load annotations into the `INFO` field of a VCF file. The fields can be directly retrieved from tab-delimited input files, or preprocessed using lua-script.
+<!-- VCFanno is a tool used for rapidly load annotations into the `INFO` field of a VCF file. The fields can be directly retrieved from tab-delimited input files, or preprocessed using lua-script.
 
 * `LUA`: FIXME: Why do we need this one? Should it be a param, or maybe better stored within the repo?
-* `vcfanno`: Config file pointing to which files to retrieve annotation from, which fields that should be extracted and how these should be inserted in the target VCF. This additional annotations are different depending on which profile is used for processing.
+* `vcfanno`: Config file pointing to which files to retrieve annotation from, which fields that should be extracted and how these should be inserted in the target VCF. This additional annotations are different depending on which profile is used for processing. -->
 
 Example `vcf_anno` as used by CMD. Replace `<base_dir>` with the base folder for each file. Here the following information is retrieved:
 
