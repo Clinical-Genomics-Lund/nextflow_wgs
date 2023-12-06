@@ -1,13 +1,16 @@
-* Key files to deploy
-    * `main.nf`
-    * `configs/nextflow.hopper.config` -> `nextflow.config` next to `main.nf`
-    * `shards.csv` / `shards_38.csv`
-    * `git.hash`
-    * `bin`-folder
-* Update the config
-* Place these files on hopper
-* Files can be deployed by running `deploy_hopper.sh` / `deploy_hopper_dev.sh`
+# Deploy
 
-* Running using the Hopper Perl script
-    * Specify "nolog"
-    * Specify output folder
+Only a subset of the repository is needed to deploy.
+
+Key files are:
+
+* `main.nf`: The main Nextflow script
+* `nextflow.config`: Configurations (location of annotations etc.)
+* `git.hash`: Hash for latest commit to display in log file
+* `bin`-folder: Collection of utility scripts
+
+Steps to deploy:
+
+* Prior to deployment, make sure there are no currently running jobs using the workflow
+* Deploy by running the `deploy_hopper_dev.sh` script (check that `DEST_HOST` and `PIPELINE_DEST` are what you would expect)
+* Verify that deployment has been successful by checking that the deployed `git.hash` contains the expected ID

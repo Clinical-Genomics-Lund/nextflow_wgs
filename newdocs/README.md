@@ -11,8 +11,9 @@ A typical workflow consists of the following steps:
 1. Optionally preprocess, align and dedup reads (bwa-mem)
 2. Calculate QC and coverage information 
 3. Perform SNV and SV calling using separate workflows
-4. Generate annotations
-5. Calculate "severity" scores and merge variants
+4. Intersect the calls with genes and regions of special interest (as defined in ClinVar)
+5. Generate annotations for intersect regions
+6. Calculate "severity" scores and merge variants
 
 Additional configurable analyses:
 
