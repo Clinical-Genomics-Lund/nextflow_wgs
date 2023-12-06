@@ -1,3 +1,20 @@
+# README
+
+## Table of content
+
+* [Pipeline overview](#pipeline-overview)
+* [Running the pipeline](running_the_pipeline.md)
+* Inputs
+    * [Input files](input_files.md)
+    * [Annotation files](annotation_files.md)
+    * [Containers](input_containers.md)
+    * [Sentieon license](sentieon_license.md)
+* [Outputs](outputs.md)
+* [How to deploy](how_to_deploy.md)
+* [List of used software](list_of_all_used_software.md)
+
+## Pipeline overview
+
 The constitutional wgs pipeline is a versatile workflow used in both genome sequencing and panels. It is implemented in the [Nextflow](https://www.nextflow.io/) workflow-language and designed to run in a computational cluster environment with Singularity containers to contain software dependencies to individual processes.
 
 The is designed to be immediately importable into the software [Scout](https://github.com/Clinical-Genomics/scout), an open source software for identifying variants with clinical significance. 
@@ -27,16 +44,4 @@ If you run into any issues using this pipeline, [open an issue in the GitHub rep
 Illustration of the pipeline, its steps and processes.
 
 ![overview_img](img/wgs_overview_200.drawio.png)
-
-### Table of content
-
-* [Running the pipeline](running_the_pipeline.md)
-* Inputs
-    * [Input files](input_files.md)
-    * [Annotation files](annotation_files.md)
-    * [Containers](input_containers.md)
-    * [Sentieon license](sentieon_license.md)
-* [Outputs](outputs.md)
-* [How to deploy](how_to_deploy.md)
-* [List of used software](list_of_all_used_software.md)
 
