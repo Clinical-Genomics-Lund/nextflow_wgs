@@ -40,7 +40,10 @@ When running this container, additional reference files needs to be provided. Th
 
 ## CADD
 
-The CADD container is hosted in a separate repository. The repository can be cloned by running:
+The CADD container can be retrieved from the [Galaxy Project](https://depot.galaxyproject.org/singularity/). 
+
+
+Alternatively (if working at CMD in Lund), it can be clone from GitHub as such:
 
 ```
 git clone https://github.com/Clinical-Genomics-Lund/CADD-container/tree/v1.6
@@ -76,7 +79,7 @@ singularity pull docker://broadinstitute/gatk
 
 ## Sentieon
 
-A Sentieon container can be retrieved from the Galaxy Project: https://depot.galaxyproject.org/singularity/
+A Sentieon container can be retrieved from the [Galaxy Project](https://depot.galaxyproject.org/singularity/)
 
 This pipeline currently uses version 202112.
 

@@ -1,4 +1,6 @@
-### Getting the source code
+# Getting started
+
+## Getting the source code
 
 Clone the source code from GitHub.
 
@@ -6,9 +8,9 @@ Clone the source code from GitHub.
 git clone https://github.com/Clinical-Genomics-Lund/nextflow_wgs.git
 ```
 
-### Dependencies
+## Dependencies
 
-#### Nextflow
+### Nextflow
 
 In order to run the pipeline, you will need to have [Nextflow](https://www.nextflow.io/) installed. At the moment, the pipeline is implemented using the DSL1 syntax. This is replaced by DSL2-syntax in recent versions of Nextflow.
 
@@ -18,11 +20,11 @@ To run this pipeline, you thus need to use an older version of Nextflow (latest 
 NXF_VER=20.04.0 nextflow run hello
 ```
 
-#### Singularity
+### Singularity
 
 [Singularity](https://docs.sylabs.io/guides/latest/user-guide/) is used to containerize dependencies for processes. This means that if you have the containers, you can run the workflow on any computer without requiring any further installations.
 
-#### Running on a cluster
+### Running on a cluster
 
 If you are running this on a computational cluster, the required dependencies can be loaded as such (if working on Hopper in Lund, or a computational cluster with nextflow and singularity set up).
 
@@ -32,9 +34,9 @@ module load nextflow
 module load singularity
 ```
 
-### Running the pipeline
+## Running the pipeline
 
-#### Stub-runs
+### Stub-runs
 
 Stub-runs allow you to test-run the pipeline without actually performing the full analysis. This creates dummy files for each processing steps, and normally completes in a matter of minutes on any computer. This is a useful way to test whether you have the pipeline set up correctly.
 
@@ -42,7 +44,7 @@ Stub-runs allow you to test-run the pipeline without actually performing the ful
 nextflow run main.nf -stub-run
 ```
 
-#### Running real data
+### Running real data
 
 The following command can be used to run a full dataset, assuming that the input CSV is properly set up (in this case in the path `/path/to/input.csv`), that the `nextflow.config` file is configured (see more in the [input files section](input_files.md)) and that you are running using the `wgs` profile.
 
@@ -64,8 +66,7 @@ Additional useful arguments:
 Note that if you are running jobs on Hopper in CMD, Lund, then the recommended way to execute jobs is using the `start_nextflow_analysis.pl` script.
 
 Otherwise you will typically execute this using SLURM. A minimal example of a SLURM run script is shown below.
-
-This can be executed by running `sbatch jobfile.run`.
+Assuming it is named `jobfile.run`, then it can be executed by running `sbatch jobfile.run`.
 
 ```
 # SBATCH --job-name=job_name
