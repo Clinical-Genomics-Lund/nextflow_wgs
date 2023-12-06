@@ -38,7 +38,7 @@ If running a single sample, then a single data-row is expected. If running a tri
 * **assay**: What analysis, automated choice through `start_nextflow_analysis.pl -profile wgs` and choses right institute in scout for sample
 * **analysis**: Sub-analysis, i.e. `wgsdev` would put samples in validation institute instead of clinical
 
-\* **read1** and **read2** can also be supplemented `bam` and `bqsr` for samples to bypass alignment. Might also work for vcfs (vcf + idx) for SNV annotation. (FIXME: Is this expected to work now?)
+\* **read1** and **read2** can also be supplemented `bam` and `bqsr` for samples to bypass alignment. Might also work for vcfs (vcf + idx) for SNV annotation.
 
 ## Other useful fields
 

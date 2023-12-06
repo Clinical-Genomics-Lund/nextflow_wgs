@@ -75,11 +75,6 @@ samtools faidx <fasta>_nochr.fna
 
 ### VCF anno
 
-<!-- VCFanno is a tool used for rapidly load annotations into the `INFO` field of a VCF file. The fields can be directly retrieved from tab-delimited input files, or preprocessed using lua-script.
-
-* `LUA`: FIXME: Why do we need this one? Should it be a param, or maybe better stored within the repo?
-* `vcfanno`: Config file pointing to which files to retrieve annotation from, which fields that should be extracted and how these should be inserted in the target VCF. This additional annotations are different depending on which profile is used for processing. -->
-
 Example `vcf_anno` as used by CMD. Replace `<base_dir>` with the base folder for each file. Here the following information is retrieved:
 
 * Frequency information from `loqusdb`

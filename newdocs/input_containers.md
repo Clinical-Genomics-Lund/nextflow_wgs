@@ -113,11 +113,7 @@ sudo singularity build annotsv.v2.3.sif Singularity
 
 ## POD
 
-**FIXME**: Ask Paul where this recipe is
-
-`/fs1/resources/containers/POD_2020-05-19.sif`
-
-Used in `plot_pod` process.
+A POD container can be built using the recipe found [here](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/tree/master/container/pod).
 
 ## Genmod
 
