@@ -1,4 +1,20 @@
-Several containers are used within the wgs pipeline. There is a "default" container used for many processes (defined in `nextflow.config`), and some more narrow containers used for specific pipelines.
+# Containers
+
+Several containers are used within the wgs pipeline. There is a "default" container used for many processes, and some more narrow containers used for specific pipelines. For processes which use other than the default, containers are specified in the processes.
+
+To build a Singularity container, you run the following command.
+
+```
+sudo singularity build name_of_your_container.sif Singularity
+```
+
+To retain the environment variables from the user, add the `-E` flag to the `sudo` command.
+
+```
+sudo -E singularity build name_of_your_container.sif Singularity
+```
+
+## The base container
 
 The base container can be built by navigating into the `container` directory and running the following command:
 
@@ -6,19 +22,13 @@ The base container can be built by navigating into the `container` directory and
 sudo -E singularity build name_of_your_container.sif Singularity
 ```
 
-The `-E` flag means that environment variables will be retained also within the singularity container (FIXME: Why do we want this? Does this assume that certain environment variables are set, which for instance are present on Lennart?)
+The container can be directly downloaded from [here](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/blob/master/container/Singularity).
 
-Beyond the base container, a set of other containers are also used.
+## Madeline2
 
-##### Madeline2
+`madeline2` is installed separately. The Singularity recipe for building it is found [here](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/blob/master/container/Singularity_madeline2).
 
-`madeline2` is installed separately. The Singularity recipe for building the dependencies is also present within the `container` folder in the repository.
-
-```
-sudo -E singularity build madeline2.sif Singularity_madeline2
-```
-
-##### VEP
+## VEP
 
 The VEP container is built from a publicly available docker container. Currently, the pipeline uses version 103.
 
@@ -28,18 +38,27 @@ singularity pull docker://ensemblorg/ensembl-vep:release_103
 
 When running this container, additional reference files needs to be provided. These are outlined in the [[4.2 Inputs - Annotation files]] page.
 
-##### CADD
+## CADD
 
-The CADD container is hosted in a separate repository: `git clone https://github.com/Clinical-Genomics-Lund/CADD-container/tree/v1.6`
+The CADD container is hosted in a separate repository. The repository can be cloned by running:
+
+```
+git clone https://github.com/Clinical-Genomics-Lund/CADD-container/tree/v1.6
+```
 
 In addition, reference files needs to be downloaded. Note that the file is really large - 200GB zipped. Use `wget` with the `-c` flag such to allow continuing the download if it is interrupted.
 
-* `wget -c https://krishna.gs.washington.edu/download/CADD/v1.6/GRCh38/annotationsGRCh38_v1.6.tar.gz`
-* `tar -xzvf annotationsGRCh38_v1.6.tar.gz`
+```
+wget -c https://krishna.gs.washington.edu/download/CADD/v1.6/GRCh38/annotationsGRCh38_v1.6.tar.gz
+```
 
-Make sure that the lines in the `Singularity` recipe matches to where you have saved the annotations folder.
+Make sure that the lines in the `Singularity` recipe matches to where you have saved the annotations folder, i.e. the path in the following line:
 
-`ln -sr /fs1/resources/ref/hg38/annotation_dbs/CADD_v1.6/data/annotations/GRCh38_v1.6 GRCh38_v1.6`
+```
+ln -sr /fs1/resources/ref/hg38/annotation_dbs/CADD_v1.6/data/annotations/GRCh38_v1.6 GRCh38_v1.6
+```
+
+**FIXME:** The container also seems to assume a collection of misc scripts: `ln -sr /fs1/viktor/misc-scripts`
 
 Finally you build the container:
 
@@ -47,32 +66,35 @@ Finally you build the container:
 sudo -E singularity build cadd_v1.6.sif Singularity
 ```
 
-##### GATK
+## GATK
 
-This container is used for CNV-calling. It is retrieved from a Docker container provided by Broad Institute.
+This container is used for CNV-calling. It can retrieved from a Docker container provided by Broad Institute.
 
-`singularity pull docker://broadinstitute/gatk`
+```
+singularity pull docker://broadinstitute/gatk
+```
 
-##### Sentieon
+## Sentieon
 
-The Sentieon container can be retrieved from the Galaxy Project: https://depot.galaxyproject.org/singularity/
+A Sentieon container can be retrieved from the Galaxy Project: https://depot.galaxyproject.org/singularity/
 
 This pipeline currently uses version 202112.
 
-* `sentieon_202112.sif`
-##### Stranger
+The container for the 2023 version seems not to work correctly (i.e. it crashes when running `sentieon driver`). An alternative container can be built from the Docker container found [here](https://github.com/Sentieon/sentieon-docker).
 
-* `stranger_0.8.sif`
+## Stranger
 
-FIXME: Where is this container retrieved from?
+A Singularity recipe for Stranger is found [here](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/blob/master/container/stranger/Singularity). 
 
-##### Twist myeloid
+Alternatively, the Stranger container can be retrieved from the [Galaxy Project](https://depot.galaxyproject.org/singularity/).
 
-* `twistmyeloid_active.sif`
+## Twist myeloid
 
-FIXME: Where is this container retrieved from?
+Different versions of the twist-myeloid container are used for the `cnv-kit` and `freebayes` processes.
 
-##### AnnotSV
+**FIXME**: Further work needed here.
+
+## AnnotSV
 
 A repository containing the recipe to build the AnnotSV container can be retrieved as such:
 
@@ -85,23 +107,23 @@ To build the container, `cd` into the repository and run the following command:
 ```
 sudo singularity build annotsv.v2.3.sif Singularity
 ```
-##### POD
 
-FIXME
+## POD
+
+**FIXME**: Ask Paul where this recipe is
 
 `/fs1/resources/containers/POD_2020-05-19.sif`
 
 Used in `plot_pod` process.
-##### Genmod
 
-`/fs1/resources/containers/genmod.sif`
+## Genmod
 
-##### Reviewer
+A Genmod container can be retrieved from the [Galaxy Project](https://depot.galaxyproject.org/singularity/).
 
-Used in `reviewer` processs
+## REViewer
 
-`/fs1/resources/containers/REViewer_2021-06-07.sif`
+A REViewer container can be built using the recipe found [here](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/tree/master/container/reviewer).
 
-##### Melt
+## Melt
 
-`/fs1/resources/containers/melt_2.2.2.sif`
+A Melt container can be retrieved from the [Galaxy Project](https://depot.galaxyproject.org/singularity/).
