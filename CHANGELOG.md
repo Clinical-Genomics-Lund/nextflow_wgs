@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.5.7
+* Clean out unused files in repo root directory
+
 ### 3.5.6
 
 * Add Github PR template/test documentation
