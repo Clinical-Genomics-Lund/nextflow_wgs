@@ -1,17 +1,9 @@
 # Input files
 
-The main input file is a samplesheet specifying one row per sample, and providing additional information.
-
-The samplesheet is provided through the `--input` argument to the pipeline.
-
-```
-nextflow run main.nf \
-    --input path/to/my.csv
-```
-
+The main input file is a samplesheet specifying one row per sample specifying all needed IDs, paths and meta-data.
 The CSV file expected comma-delimited file containing a fixed set of header fields. These fields can be given in any order.
 
-An [example CSV](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/blob/master/docs/demo/1999-20.csv) is shown below.
+An [example CSV](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/blob/master/docs/demo/1999-20.csv) is shown below:
 
 ![Samplesheet](img/samplesheet.PNG)
 

@@ -1,8 +1,6 @@
 # Outputs
 
-When running the pipeline, two separate results folders are produced. One contains the results and is located in the path specified by the `params.outdir` param. The second is the CRON-dir (`params.crondir`) which by default is located in `outdir/cron`. In the setup run at CMD, Lund, this folder is transferred from the computational cluster (Hopper) to a Region Skåne server (Lennart).
-
-Within the output folder the following outputs may be produced.
+When running the pipeline, two separate results folders are produced. One contains the results and is located in the path specified by the `params.outdir` param. The second is the CRON-dir (`params.crondir`) and by default located in `outdir/cron`. In the setup run at CMD, Lund, this folder is transferred from the computational cluster (Hopper) to a Region Skåne server (Lennart).
 
 ## Cron-folder
 

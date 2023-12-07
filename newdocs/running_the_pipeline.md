@@ -1,32 +1,46 @@
 # Getting started
 
-## Getting the source code
+To run the pipeline you will need:
 
-Clone the source code from GitHub.
+* The source code
+* A `nextflow.config` file
+* An installation of [Nextflow](https://www.nextflow.io)
+* An installation of [Singularity](https://docs.sylabs.io/guides/latest/user-guide)
+* [Annotation files](annotation_files.md)
+
+## Source code
+
+Clone the source code from [GitHub](https://github.com/Clinical-Genomics-Lund/nextflow_wgs).
 
 ```
 git clone https://github.com/Clinical-Genomics-Lund/nextflow_wgs.git
 ```
 
+## The `nextflow.config` file
+
+This file contains various settings and annotation files required to run the pipeline. Template config files (used if running on Hopper or Trannel in Lund) are found in the `configs` folder. Copy the file next to your `main.nf` file and adjust it to your needs. More information on the annotation files are found in the [annotation files section](annotation_files.md).
+
 ## Dependencies
 
 ### Nextflow
 
-In order to run the pipeline, you will need to have [Nextflow](https://www.nextflow.io/) installed. At the moment, the pipeline is implemented using the DSL1 syntax. This is replaced by DSL2-syntax in recent versions of Nextflow.
+[Nextflow](https://www.nextflow.io/) is a programming language designed to build workflows. At the moment, the pipeline is implemented using Nextflow's DSL1 syntax. More recent versions of Nextflow only supports the new DSL2 syntax. Thus an older version of Nextflow (latest 21) is required to run the workflow.
 
-To run this pipeline, you thus need to use an older version of Nextflow (latest version 21). As mentioned on the [Nextflow page](https://www.nextflow.io/docs/latest/getstarted.html), it is possible to run an older version as such:
+As mentioned on the [Nextflow page](https://www.nextflow.io/docs/latest/getstarted.html), it is possible to run an older version as such:
 
 ```
 NXF_VER=20.04.0 nextflow run hello
 ```
 
+To run Nextflow, you will also need to have Java installed.
+
 ### Singularity
 
-[Singularity](https://docs.sylabs.io/guides/latest/user-guide/) is used to containerize dependencies for processes. This means that if you have the containers, you can run the workflow on any computer without requiring any further installations.
+[Singularity](https://docs.sylabs.io/guides/latest/user-guide/) is used to manage dependencies for individual steps of the pipeline, called "processes". This means that you will not need to install the required dependencies on the computer that you will run on - the processes can execute directly inside these containers. These containers are further discussed in the [container section](input_containers.md) of this README.
 
-### Running on a cluster
+### Loading dependencies on a cluster
 
-If you are running this on a computational cluster, the required dependencies can be loaded as such (if working on Hopper in Lund, or a computational cluster with nextflow and singularity set up).
+If you are running this on a computational cluster providing the `module` command, the required dependencies can be loaded as such:
 
 ```
 module load Java
@@ -38,7 +52,7 @@ module load singularity
 
 ### Stub-runs
 
-Stub-runs allow you to test-run the pipeline without actually performing the full analysis. This creates dummy files for each processing steps, and normally completes in a matter of minutes on any computer. This is a useful way to test whether you have the pipeline set up correctly.
+Stub-runs allow you to test-run the pipeline without actually performing the full analysis. The stub rub creates dummy files for each processing steps, and completes in a matter of minutes. This is a useful tool for testing and debugging the pipeline.
 
 ```
 nextflow run main.nf -stub-run
@@ -46,7 +60,7 @@ nextflow run main.nf -stub-run
 
 ### Running real data
 
-The following command can be used to run a full dataset, assuming that the input CSV is properly set up (in this case in the path `/path/to/input.csv`), that the `nextflow.config` file is configured (see more in the [input files section](input_files.md)) and that you are running using the `wgs` profile.
+To run a full dataset, you need to provide a profile (`-profile` argument) and input CSV (`--csv` argument):
 
 ```
 nextflow run main.nf \
@@ -54,19 +68,18 @@ nextflow run main.nf \
     --csv path/to/input.csv
 ```
 
-Note that the difference between single dash arguments (`-profile`) and double dash arguments (`--csv`) is that single-dashed arguments are provided directly to Nextflow while double-dashed arguments are provided as params to the script itself, which overrides any options specified in the `nextflow.config` file.
+Note the difference between single dash arguments (`-profile`) and double dash arguments (`--csv`). Single-dashed arguments are provided directly to Nextflow while double-dashed arguments are provided as params to the workflow itself. These overrides any params specified in the `nextflow.config` file.
 
 Additional useful arguments:
 
 * `-resume` If possible, continue a previous run and only rerun required steps.
-* `-w` To control the location of the work folder (default is the same folder as `main.nf`)
+* `-w` Specify the location of the work folder (default is in the same folder as `main.nf`)
 
 ### Running as a batch script
 
-Note that if you are running jobs on Hopper in CMD, Lund, then the recommended way to execute jobs is using the `start_nextflow_analysis.pl` script.
+Note that if you are running jobs on Hopper in CMD, Lund, production jobs should be started using the `start_nextflow_analysis.pl` script.
 
-Otherwise you will typically execute this using SLURM. A minimal example of a SLURM run script is shown below.
-Assuming it is named `jobfile.run`, then it can be executed by running `sbatch jobfile.run`.
+Otherwise, if working on a computational cluster, the jobs will typically be executed using SLURM. A minimal example of a SLURM run script is shown below. 
 
 ```
 # SBATCH --job-name=job_name
@@ -82,5 +95,11 @@ module load singularity
 nextflow run main.nf \
     -profile wgs \
     --csv path/to/input.csv
+```
+
+Assuming it is named `jobfile.run`, then it can be queued by running:
+
+```
+sbatch jobfile.run
 ```
 
