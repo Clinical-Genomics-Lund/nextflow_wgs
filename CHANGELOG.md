@@ -1,6 +1,11 @@
 # CHANGELOG
 
+### 3.5.8
+
+* Move out resource files from `main.nf` to `nextflow.config`
+
 ### 3.5.7
+
 * Clean out unused files in repo root directory
 
 ### 3.5.6
