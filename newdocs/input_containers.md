@@ -61,7 +61,7 @@ Make sure that the lines in the `Singularity` recipe matches to where you have s
 ln -sr /fs1/resources/ref/hg38/annotation_dbs/CADD_v1.6/data/annotations/GRCh38_v1.6 GRCh38_v1.6
 ```
 
-**FIXME:** The container also seems to assume a collection of misc scripts: `ln -sr /fs1/viktor/misc-scripts`
+Note: At the moment this container assumes that you have access to the `/fs1/viktor/misc-scripts` directory, i.e. you are running at the servers in Lund.
 
 Finally you build the container:
 
@@ -95,7 +95,7 @@ Alternatively, the Stranger container can be retrieved from the [Galaxy Project]
 
 Different versions of the twist-myeloid container are used for the `cnv-kit` and `freebayes` processes.
 
-**FIXME**: Further work needed here.
+**FIXME**: While we still use this container, would we include the recipe?
 
 ## AnnotSV
 
