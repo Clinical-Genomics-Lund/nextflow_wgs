@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.5.9
+
+* Add first iteration of updated documentation
+
 ### 3.5.8
 
 * Move out resource files from `main.nf` to `nextflow.config`
