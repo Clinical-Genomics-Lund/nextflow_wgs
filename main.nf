@@ -1270,7 +1270,7 @@ process freebayes {
 			freebayes -f $genome_file --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 $bam > ${id}.freebayes.vcf
 			vcfbreakmulti ${id}.freebayes.vcf > ${id}.freebayes.multibreak.vcf
 			bcftools norm -m-both -c w -O v -f $genome_file -o ${id}.freebayes.multibreak.norm.vcf ${id}.freebayes.multibreak.vcf
-			vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
+			vcfanno_linux64 -lua $params.VCFANNO_LUA $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
 			grep ^# ${id}.freebayes.multibreak.norm.anno.vcf > ${id}.freebayes.multibreak.norm.anno.path.vcf
 			grep -v ^# ${id}.freebayes.multibreak.norm.anno.vcf | grep -i pathogenic > ${id}.freebayes.multibreak.norm.anno.path.vcf2
 			cat ${id}.freebayes.multibreak.norm.anno.path.vcf ${id}.freebayes.multibreak.norm.anno.path.vcf2 > ${id}.freebayes.multibreak.norm.anno.path.vcf3
@@ -1852,12 +1852,12 @@ process annotate_vep {
 			--plugin CADD,$params.CADD \\
 			--plugin LoFtool \\
 			--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
-			--plugin dbNSFP,/fs1/resources/ref/hg38/annotation_dbs/dbnsfp/dbNSFP4.3a_grch38.gz,transcript_match=1,REVEL_score,REVEL_rankscore \\
+			--plugin dbNSFP,$params.DBNSFP,transcript_match=1,REVEL_score,REVEL_rankscore \\
 			-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
 			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
 			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
-			-custom $params.PHYLOP \\
-			-custom $params.PHASTCONS
+			-custom $params.PHYLOP,phyloP100way,bigwig \\
+			-custom $params.PHASTCONS,phastCons,bigwig
 
 		${annotate_vep_version(task)}
 		"""
@@ -1895,7 +1895,7 @@ process vcfanno {
 
 	script:
 		"""
-		vcfanno_linux64 -lua /fs1/resources/ref/hg19/bed/scout/sv_tracks/silly.lua $params.vcfanno $vcf > ${group}.clinvar.loqusdb.gene.vcf
+		vcfanno_linux64 -lua $params.VCFANNO_LUA $params.vcfanno $vcf > ${group}.clinvar.loqusdb.gene.vcf
 		${vcfanno_version(task)}
 		"""
 
