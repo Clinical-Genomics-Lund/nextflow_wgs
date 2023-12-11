@@ -1,6 +1,12 @@
 # CHANGELOG
 
+### 3.5.8
+
+* Move out resource files from `main.nf` to `nextflow.config`
+* Move the selected fields for PHYLOP and PHASTCONS in vep to be specified in the process, similarly to the other plugins/custom fields
+
 ### 3.5.7
+
 * Clean out unused files in repo root directory
 
 ### 3.5.6
