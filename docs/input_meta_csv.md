@@ -28,4 +28,4 @@
 
 #### Example CSV-file
 
-[demo-csv](demo/1999-20.csv)
+[demo-csv](demo/0003-01.csv)

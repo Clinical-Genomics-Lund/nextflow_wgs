@@ -1,4 +1,0 @@
-clarity_sample_id,id,type,assay,sex,diagnosis,phenotype,group,father,mother,clarity_pool_id,platform,read1,read2,analysis,priority
-1999-20,1999-20,proband,wgs-hg38-valid,M,pediatrics,affected,1999-20,1997-20,1998-20,16,illumina,sample1.1.fastq.gz,sample1.2.fastq.gz,,
-1998-20,1998-20,relative,wgs-hg38-valid,F,pediatrics,unaffected,1999-20,,,16,illumina,sample2.1.fastq.gz,sample2.2.fastq.gz,,
-1997-20,1997-20,relative,wgs-hg38-valid,M,pediatrics,unaffected,1999-20,,,16,illumina,sample3.1.fastq.gz,sample3.2.fastq.gz,,
