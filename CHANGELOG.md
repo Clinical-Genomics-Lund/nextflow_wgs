@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.5.10
+* changed path to normal-pool-refs for gens. Uses masked hg38 references
+
 ### 3.5.9
 
 * Add first iteration of updated documentation
