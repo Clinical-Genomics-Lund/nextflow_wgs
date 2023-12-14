@@ -1,4 +1,6 @@
 # CHANGELOG
+### 3.5.10
+* Add `documentation` to change type category in PR template.
 
 ### 3.5.10
 * changed path to normal-pool-refs for gens. Uses masked hg38 references
