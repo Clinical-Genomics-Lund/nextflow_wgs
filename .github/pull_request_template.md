@@ -31,8 +31,13 @@ fixes # (issue)
 
 # Checklist:
 <!--
-    The checklist below applies to all types of changes. 
-    
+    The checklist below applies to all types of changes, 
+    except documentation updates. 
+
+    In the case of changes that only affect documentation external to 
+    code source files, remove the checkboxes related to code review
+    and testing for no new warnings.
+        
     Do not hesitate to add your own items to the checklist if applicable.
 -->
 - [ ] My code follows the [style guidelines for NF pipelines at CMD](http://mtlucmds1.lund.skane.se/wiki/doku.php?id=nextflow&s[]=nextflow#code_style_at_cmd)
