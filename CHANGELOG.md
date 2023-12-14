@@ -1,5 +1,5 @@
 # CHANGELOG
-### 3.5.10
+### 3.5.11
 * Add `documentation` to change type category in PR template.
 
 ### 3.5.10
