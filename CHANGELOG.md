@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.6.0
+* Changed melt configs, added flags: exome, removed flags: cov (was being used improperly)
+* Added priors to mei_list, and changed mei_list to a new location in config
+* Changes has been verified, report can be found internally
+
 ### 3.5.10
 * changed path to normal-pool-refs for gens. Uses masked hg38 references
 
