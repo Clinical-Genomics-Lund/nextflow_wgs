@@ -975,11 +975,12 @@ process melt {
 			-h $genome_file \\
 			-n /opt/MELTv2.2.2/add_bed_files/Hg38/Hg38.genes.bed \\
 			-z 500000 \\
-			-d 50 -t /opt/mei_list \\
+			-d 50 \\
+			-t $params.mei_list \\
 			-w . \\
 			-c $MEAN_DEPTH \\
-			-cov $COV_DEV \\
-			-e $INS_SIZE
+			-e $INS_SIZE \\
+			-exome
 		merge_melt.pl $params.meltheader $id
 
 		${melt_version(task)}
