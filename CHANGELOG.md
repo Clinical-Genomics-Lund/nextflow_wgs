@@ -1,4 +1,7 @@
 # CHANGELOG
+### 3.6.1
+* Adding a new variant catalogue for expansionhunter/stranger/reviewer
+
 ### 3.5.11
 * Add `documentation` to change type category in PR template.
 
