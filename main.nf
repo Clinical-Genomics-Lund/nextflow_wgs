@@ -1816,7 +1816,7 @@ process qc_to_cdm {
     
     
 process annotate_vep {
-	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
+	container = "${params.container_vep}"
 	cpus 54
 	tag "$group"
 	memory '150 GB'
@@ -2005,7 +2005,7 @@ def extract_indels_for_cadd_version(task) {
 // Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
 process indel_vep {
 	cpus 5
-	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
+	container = "${params.container_vep}"
 	tag "$group"
 	memory '10 GB'
 	time '3h'
@@ -3393,7 +3393,7 @@ def annotsv_version(task) {
 
 process vep_sv {
 	cpus 56
-	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
+	container = "${params.container_vep}"
 	tag "$group"
 	memory '150 GB'
 	time '1h'
