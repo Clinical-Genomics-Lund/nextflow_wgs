@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.6.3
+* Update intersect file to latest used version of ClinVar (20231230)
+
 ### 3.6.2
 * Added changelog reminder to github workflows
 
