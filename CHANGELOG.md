@@ -1,4 +1,8 @@
 # CHANGELOG
+
+### 3.6.2
+* Added changelog reminder to github workflows
+
 ### 3.6.1
 * Adding a new variant catalogue for expansionhunter/stranger/reviewer
 
