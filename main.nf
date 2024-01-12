@@ -216,6 +216,7 @@ process bwa_align_sharded {
 	memory '120 GB'
 	tag "$id $shard"
 	time '5h'
+	container = "${params.sentieon_container}"
 
 	input:
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
@@ -265,6 +266,7 @@ process bwa_merge_shards {
 	tag "$id"
 	time '1h'
 	memory '120 GB'
+	container = "${params.sentieon_container}"
 
 	input:
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
@@ -311,7 +313,7 @@ process bwa_align {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.sentieon_container}"
 
 	input:
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
@@ -370,7 +372,7 @@ process markdup {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.sentieon_container}"
 	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
 	input:
@@ -433,7 +435,7 @@ process bqsr {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.sentieon_container}"
 	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
 
 	input:
@@ -477,7 +479,7 @@ process sentieon_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.sentieon_container}"
 
 	input:
 		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
@@ -1046,7 +1048,7 @@ process dnascope {
 	// 12 GB peak giab //
 	time '4h'
 	tag "$id"
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.sentieon_container}"
 
 	when:
 		params.varcall
@@ -1116,7 +1118,7 @@ process gvcf_combine {
 	tag "$group"
 	memory '5 GB'
 	time '5h'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.sentieon_container}"
 
 	input:
 		set group, id, file(vcf), file(idx) from complete_vcf_choice.groupTuple()
@@ -1370,7 +1372,7 @@ process sentieon_mitochondrial_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.sentieon_container}"
 
 	when:
 	    params.antype == "wgs"
