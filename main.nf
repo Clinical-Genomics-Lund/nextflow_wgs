@@ -1842,13 +1842,13 @@ process annotate_vep {
 			--merged \\
 			--vcf \\
 			--no_stats \\
-			--synonyms $params.SYNONYMS \\
+			--synonyms $params.VEP_SYNONYMS \\
 			--fork ${task.cpus} \\
 			--force_overwrite \\
 			--fasta $params.VEP_FASTA \\
 			--dir_cache $params.VEP_CACHE \\
-			--dir_plugins $params.VEP_CACHE/Plugins \\
-			--distance 200 \\
+			--dir_plugins $params.VEP_PLUGINS \\
+			--distance $VEP_DISTANCE \\
 			-cache \\
 			--plugin CADD,$params.CADD \\
 			--plugin LoFtool \\
@@ -2026,7 +2026,7 @@ process indel_vep {
 			--cache \\
 			--merged \\
 			--vcf \\
-			--synonyms $params.SYNONYMS \\
+			--synonyms $params.VEP_SYNONYMS \\
 			--fasta $params.VEP_FASTA \\
 			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
 			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
@@ -3413,7 +3413,7 @@ process vep_sv {
 			--offline \\
 			--merged \\
 			--everything \\
-			--synonyms $params.SYNONYMS \\
+			--synonyms $params.VEP_SYNONYMS \\
 			--vcf \\
 			--no_stats \\
 			--fork ${task.cpus} \\
@@ -3421,9 +3421,10 @@ process vep_sv {
 			--plugin LoFtool \\
 			--fasta $params.VEP_FASTA \\
 			--dir_cache $params.VEP_CACHE \\
-			--dir_plugins $params.VEP_CACHE/Plugins \\
-			--max_sv_size 50000000 \\
-			--distance 200 -cache
+			--dir_plugins $params.VEP_PLUGINS \\
+			--max_sv_size $params.VEP_MAX_SV_SIZE \\
+			--distance $params.VEP_DISTANCE \\
+			-cache
 
 		${vep_sv_version(task)}
 		"""
