@@ -58,10 +58,19 @@ unless ($SID && $type && $align_metrics_file && $insert_file && $dedup_metrics_f
     die "Usage: $0 --SID <sample_id> --type <panel|wgs> --align_metrics_file <file> --insert_file <file> --dedup_metrics_file <file> --metrics_file <file> --gcsummary_file <file> [--coverage_file file] [--coverage_file_summary file]\n"
 }
 
-if ($type == "panel") {
-    unless ($coverage_file_summary && $coverage_file) {
+unless ($type eq "panel" || $type eq "wgs") { die "--type must be 'panel' or 'wgs'" }
+unless (-f $align_metrics_file) { die "--align_metrics_file does not point to a file" }
+unless (-f $insert_file)        { die "--insert_file does not point to a file" }
+unless (-f $dedup_metrics_file) { die "--dedup_metrics_file does not point to a file" }
+unless (-f $metrics_file)       { die "--metrics_file does not point to a file" }
+unless (-f $gcsummary_file)     { die "--gcsummary_file does not point to a file" }
+
+if ($type eq "panel") {
+    unless ($coverage_file && $coverage_file_summary) {
         die "If running a panel, --coverage_file and --coverage_file_summary must be provided"
     }
+    unless (-f $coverage_file) { die "--coverage_file_summary does not point to a file" }
+    unless (-f $coverage_file_summary) { die "--coverage_file_summary does not point to a file" }
 }
 
 my %pct_above_x;

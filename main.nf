@@ -521,6 +521,7 @@ process sentieon_qc {
 
 	stub:
 		"""
+		touch "assay_metrics.txt"
 		touch "mq_metrics.txt"
 		touch "qd_metrics.txt"
 		touch "gc_summary.txt"
@@ -551,10 +552,9 @@ process sentieon_qc_postprocess {
 	stageOutMode 'copy'
 
 	input:
-		set id, group, file(dedup) from dedupmet_sentieonqc.mix(dedup_dummy)
+		set id, file(dedup) from dedupmet_sentieonqc.mix(dedup_dummy)
 		set id, group, file(mq_metrics), file(qd_metrics), file(gc_summary), file(gc_metrics), file(aln_metrics),
-			file(is_metrics), file(assay_metrics), file(cov_metrics), file(cov_metrics_sample_summary), 
-			file(cov_metrics), file(cov_metrics_sample_summary) from ch_sentieon_qc_metrics
+			file(is_metrics), file(assay_metrics), file(cov_metrics), file(cov_metrics_sample_summary) from ch_sentieon_qc_metrics
 
 	output:
 		set group, id, file("${id}_qc.json") into qc_cdm
@@ -572,8 +572,8 @@ process sentieon_qc_postprocess {
 			--dedup_metrics_file ${dedup} \\
 			--metrics_file ${assay_metrics} \\
 			--gcsummary_file ${gc_summary} \\
-			--coverage_file_summary ${cov_metrics_sample_summary} \\
 			--coverage_file ${cov_metrics} \\
+			--coverage_file_summary ${cov_metrics_sample_summary} \\
 			> ${id}_qc.json
 		
 		"""
