@@ -309,7 +309,8 @@ process bwa_align {
 	cpus 50
 	memory '80 GB'
 	// 64 GB peak giab //
-	scratch true
+	scratch false
+	// scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
@@ -483,32 +484,22 @@ process sentieon_qc {
 
 	input:
 		set id, group, file(bam), file(bai) from qc_bam.mix(bam_qc_choice)
-		// set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
 
 	output:
 		set id, group, file("mq_metrics.txt"), file("qd_metrics.txt"), file("gc_summary.txt"), 
-			file("gc_metrics.txt"), file("aln_metrics.txt"), file("is_metrics.txt"), file("assay_metrics.txt") into ch_sentieon_qc_metrics
-		set id, group, file("cov_metrics.txt").optional(), file("cov_metrics.txt.sample_summary").optional() into ch_sentieon_qc_cov
-		// set id, group, file(panel_metrics)
-		// file("*.txt")
+			file("gc_metrics.txt"), file("aln_metrics.txt"), file("is_metrics.txt"), file("assay_metrics.txt"), 
+			file("cov_metrics.txt"), file("cov_metrics.txt.sample_summary") into ch_sentieon_qc_metrics
+		file("*.txt") // FIXME: Is this needed? If not, remove
 		set group, file("*versions.yml") into ch_sentieon_qc_versions
 
 	script:
 		target = ""
-		panel_command = ""
+		panel_command = "touch cov_metrics.txt cov_metrics.txt.sample_summary"
 		cov = "WgsMetricsAlgo assay_metrics.txt"
-		// panelhs = "PH"
-		// panelhs2 = "PH"
 
-		// assay = "wgs"
 		if (params.onco || params.exome) {
 			target = "--interval $params.intervals"
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
-			// 	assay = "panel"
-			// panelhs = "sentieon driver -r ${params.genome_file} -t ${params.cpu_all} -i ${bam}"
-			// panelhs2 = " --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} hs_metrics.txt"
-			// panel_command = panelhs + "$bam" + panelhs2 
-
 			panel_command = "sentieon driver -r ${params.genome_file} -t ${params.cpu_all} -i ${bam} --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} assay_metrics.txt"
 		}
 		
@@ -527,7 +518,6 @@ process sentieon_qc {
 
 		${sentieon_qc_version(task)}
 		"""
-		// qc_sentieon.pl $id $assay > ${id}_qc.json
 
 	stub:
 		"""
@@ -541,7 +531,6 @@ process sentieon_qc {
 		touch "cov_metrics.txt.sample_summary"
 		${sentieon_qc_version(task)}
 		"""
-		// touch "${id}_qc.json"
 }
 def sentieon_qc_version(task) {
 	"""
@@ -551,10 +540,6 @@ def sentieon_qc_version(task) {
 	END_VERSIONS
 	"""
 }
-
-		// set id, group, file("mq_metrics.txt"), file("qd_metrics.txt"), file("gc_summary.txt"), 
-		// 	file("gc_metrics.txt"), file("aln_metrics.txt"), file("is_metrics.txt") into ch_sentieon_qc_metrics
-
 
 process sentieon_qc_postprocess {
 	cpus 2
@@ -568,8 +553,8 @@ process sentieon_qc_postprocess {
 	input:
 		set id, group, file(dedup) from dedupmet_sentieonqc.mix(dedup_dummy)
 		set id, group, file(mq_metrics), file(qd_metrics), file(gc_summary), file(gc_metrics), file(aln_metrics),
-			file(is_metrics), file(assay_metrics) from ch_sentieon_qc_metrics
-		set id, group, file(cov_metrics).optional(), file(cov_metrics_sample_summary).optional() from ch_sentieon_qc_cov
+			file(is_metrics), file(assay_metrics), file(cov_metrics), file(cov_metrics_sample_summary), 
+			file(cov_metrics), file(cov_metrics_sample_summary) from ch_sentieon_qc_metrics
 
 	output:
 		set group, id, file("${id}_qc.json") into qc_cdm
@@ -577,10 +562,7 @@ process sentieon_qc_postprocess {
 	
 	script:
 
-		assay = "wgs"
-		if (params.onco || params.exome) {
-			assay = "panel"
-		}
+		assay = (params.onco || params.exome) ? "panel" : "wgs"
 		"""
 		qc_sentieon.pl \\
 			--SID ${id} \\
@@ -595,7 +577,6 @@ process sentieon_qc_postprocess {
 			> ${id}_qc.json
 		
 		"""
-		// $id $assay > ${id}_qc.json
 }
 
 // Calculate coverage for chanjo
@@ -3441,9 +3422,9 @@ process annotsv {
 
 	stub:
 		"""
-		export ANNOTSV="/AnnotSV"
 		touch "${group}_annotsv.tsv"
-
+		mkdir -p "group"
+		touch "group/group.merged.bndless.annotated.tsv"
 		${annotsv_version(task)}
 		"""
 }
