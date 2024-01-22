@@ -85,7 +85,6 @@ if ($type eq "panel") {
 my %results;
 
 if ($type eq "wgs") {
-    # $metrics_file = "wgs_metrics.txt";
     my ( $sum, %quartiles, $pct25_obs, $pct50_obs, $pct75_obs );
     open( HS, $metrics_file );
     while( <HS> ) {
@@ -131,7 +130,6 @@ if ($type eq "wgs") {
     close HS;
     $results{'iqr'} = ( $quartiles{ 'R_75' } - $quartiles{ 'R_25' } );
 
-    $gcsummary_file = "gc_summary.txt";
     open( GC, $gcsummary_file );
     while( <GC> ) {
         if( /^\#SentieonCommandLine/ ) {
@@ -146,7 +144,6 @@ if ($type eq "wgs") {
 
 }
 elsif ($type eq "panel") {
-    $metrics_file = "hs_metrics.txt";
     open( HS, $metrics_file );
     while( <HS> ) {
         if( /^\#SentieonCommandLine/ ) {
@@ -226,8 +223,6 @@ close ALIGN;
 
 sub coverage_calc {
 
-    # my $coverage_file_summary = "cov_metrics.txt.sample_summary";
-    # my $coverage_file = "cov_metrics.txt";
     my @cov;
     open( COV, $coverage_file );
     while( <COV> ) {
