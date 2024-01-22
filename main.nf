@@ -482,24 +482,34 @@ process sentieon_qc {
 	container = "${params.sentieon_container}"
 
 	input:
-		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
+		set id, group, file(bam), file(bai) from qc_bam.mix(bam_qc_choice)
+		// set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
 
 	output:
-		set group, id, file("${id}_qc.json") into qc_cdm
-		set group, id, file("${id}_qc.json") into qc_melt
-		file("*.txt")
+		set id, group, file("mq_metrics.txt"), file("qd_metrics.txt"), file("gc_summary.txt"), 
+			file("gc_metrics.txt"), file("aln_metrics.txt"), file("is_metrics.txt"), file("assay_metrics.txt") into ch_sentieon_qc_metrics
+		set id, group, file("cov_metrics.txt").optional(), file("cov_metrics.txt.sample_summary").optional() into ch_sentieon_qc_cov
+		// set id, group, file(panel_metrics)
+		// file("*.txt")
 		set group, file("*versions.yml") into ch_sentieon_qc_versions
 
 	script:
 		target = ""
-		panel = ""
-		cov = "WgsMetricsAlgo wgs_metrics.txt"
-		assay = "wgs"
-		if( params.onco || params.exome) {
+		panel_command = ""
+		cov = "WgsMetricsAlgo assay_metrics.txt"
+		// panelhs = "PH"
+		// panelhs2 = "PH"
+
+		// assay = "wgs"
+		if (params.onco || params.exome) {
 			target = "--interval $params.intervals"
-			panel = params.panelhs + "$bam" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
-			assay = "panel"
+			// 	assay = "panel"
+			// panelhs = "sentieon driver -r ${params.genome_file} -t ${params.cpu_all} -i ${bam}"
+			// panelhs2 = " --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} hs_metrics.txt"
+			// panel_command = panelhs + "$bam" + panelhs2 
+
+			panel_command = "sentieon driver -r ${params.genome_file} -t ${params.cpu_all} -i ${bam} --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} assay_metrics.txt"
 		}
 		
 		"""
@@ -513,18 +523,25 @@ process sentieon_qc {
 			--algo AlignmentStat aln_metrics.txt \\
 			--algo InsertSizeMetricAlgo is_metrics.txt \\
 			--algo $cov
-		$panel
-		qc_sentieon.pl $id $assay > ${id}_qc.json
+		$panel_command
 
 		${sentieon_qc_version(task)}
 		"""
+		// qc_sentieon.pl $id $assay > ${id}_qc.json
 
 	stub:
 		"""
-		touch "${id}_qc.json"
-		touch "${id}.txt"
+		touch "mq_metrics.txt"
+		touch "qd_metrics.txt"
+		touch "gc_summary.txt"
+		touch "gc_metrics.txt"
+		touch "aln_metrics.txt"
+		touch "is_metrics.txt"
+		touch "cov_metrics.txt"
+		touch "cov_metrics.txt.sample_summary"
 		${sentieon_qc_version(task)}
 		"""
+		// touch "${id}_qc.json"
 }
 def sentieon_qc_version(task) {
 	"""
@@ -533,6 +550,52 @@ def sentieon_qc_version(task) {
 	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
 	END_VERSIONS
 	"""
+}
+
+		// set id, group, file("mq_metrics.txt"), file("qd_metrics.txt"), file("gc_summary.txt"), 
+		// 	file("gc_metrics.txt"), file("aln_metrics.txt"), file("is_metrics.txt") into ch_sentieon_qc_metrics
+
+
+process sentieon_qc_postprocess {
+	cpus 2
+	memory '10 GB'
+	tag "$id"
+	time '2h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+
+	input:
+		set id, group, file(dedup) from dedupmet_sentieonqc.mix(dedup_dummy)
+		set id, group, file(mq_metrics), file(qd_metrics), file(gc_summary), file(gc_metrics), file(aln_metrics),
+			file(is_metrics), file(assay_metrics) from ch_sentieon_qc_metrics
+		set id, group, file(cov_metrics).optional(), file(cov_metrics_sample_summary).optional() from ch_sentieon_qc_cov
+
+	output:
+		set group, id, file("${id}_qc.json") into qc_cdm
+		set group, id, file("${id}_qc.json") into qc_melt
+	
+	script:
+
+		assay = "wgs"
+		if (params.onco || params.exome) {
+			assay = "panel"
+		}
+		"""
+		qc_sentieon.pl \\
+			--SID ${id} \\
+			--type ${assay} \\
+			--align_metrics_file ${aln_metrics} \\
+			--insert_file ${is_metrics} \\
+			--dedup_metrics_file ${dedup} \\
+			--metrics_file ${assay_metrics} \\
+			--gcsummary_file ${gc_summary} \\
+			--coverage_file_summary ${cov_metrics_sample_summary} \\
+			--coverage_file ${cov_metrics} \\
+			> ${id}_qc.json
+		
+		"""
+		// $id $assay > ${id}_qc.json
 }
 
 // Calculate coverage for chanjo

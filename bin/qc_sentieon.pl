@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use Data::Dumper;
 use JSON;# qw( encode_json );
+use Getopt::Long;
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # General QC-script for sentieon-data. Takes two arguments: SAMPLE-ID, TYPE(panel or wgs)
@@ -27,8 +28,41 @@ use JSON;# qw( encode_json );
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 
-my $SID = $ARGV[0];
-my $type = $ARGV[1];
+# my $SID = $ARGV[0];
+# my $type = $ARGV[1];
+
+my $SID;
+my $type;
+
+my $align_metrics_file;
+my $insert_file;
+my $dedup_metrics_file;
+my $metrics_file;
+my $gcsummary_file;
+my $coverage_file_summary;
+my $coverage_file;
+
+GetOptions(
+    "SID=s"                   => \$SID,
+    "type=s"                  => \$type,
+    "align_metrics_file=s"    => \$align_metrics_file,
+    "insert_file=s"           => \$insert_file,
+    "dedup_metrics_file=s"    => \$dedup_metrics_file,
+    "metrics_file=s"          => \$metrics_file,
+    "gcsummary_file=s"        => \$gcsummary_file,
+    "coverage_file_summary=s" => \$coverage_file_summary,
+    "coverage_file=s"         => \$coverage_file
+);
+
+unless ($SID && $type && $align_metrics_file && $insert_file && $dedup_metrics_file && $metrics_file && $gcsummary_file) {
+    die "Usage: $0 --SID <sample_id> --type <panel|wgs> --align_metrics_file <file> --insert_file <file> --dedup_metrics_file <file> --metrics_file <file> --gcsummary_file <file> [--coverage_file file] [--coverage_file_summary file]\n"
+}
+
+if ($type == "panel") {
+    unless ($coverage_file_summary && $coverage_file) {
+        die "If running a panel, --coverage_file and --coverage_file_summary must be provided"
+    }
+}
 
 my %pct_above_x;
 my $median;
@@ -39,16 +73,10 @@ if ($type eq "panel") {
     %pct_above_x = %$pct_above_panel;
 }
 
-
-my $align_metrics_file = "aln_metrics.txt";
-my $insert_file = "is_metrics.txt";
-my $dedup_metrics_file = "dedup_metrics.txt";
 my %results;
-my $metrics_file;
-my $gcsummary_file;
 
 if ($type eq "wgs") {
-    $metrics_file = "wgs_metrics.txt";
+    # $metrics_file = "wgs_metrics.txt";
     my ( $sum, %quartiles, $pct25_obs, $pct50_obs, $pct75_obs );
     open( HS, $metrics_file );
     while( <HS> ) {
@@ -189,8 +217,8 @@ close ALIGN;
 
 sub coverage_calc {
 
-    my $coverage_file_summary = "cov_metrics.txt.sample_summary";
-    my $coverage_file = "cov_metrics.txt";
+    # my $coverage_file_summary = "cov_metrics.txt.sample_summary";
+    # my $coverage_file = "cov_metrics.txt";
     my @cov;
     open( COV, $coverage_file );
     while( <COV> ) {
