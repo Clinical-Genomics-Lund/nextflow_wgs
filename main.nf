@@ -658,7 +658,7 @@ process d4_coverage {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/d4tools_0.3.9.sif"
+	container = "/fs1/resources/containers/d4tools_0.3.8.sif"
 
 	input:
 		set group, id, file(bam), file(bai) from d4_bam_intersected_indexed
