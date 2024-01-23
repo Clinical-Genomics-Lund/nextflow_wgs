@@ -154,7 +154,7 @@ Channel
 
 
 // Check whether genome assembly is indexed //
-if(genome_file ){
+if(genome_file){
 	bwaId = Channel
 			.fromPath("${genome_file}.bwt")
 			.ifEmpty { exit 1, "BWA index not found: ${genome_file}.bwt" }
@@ -494,6 +494,7 @@ process sentieon_qc {
 
 	script:
 		target = ""
+		// FIXME: A bit of cheating here - these are really optional arguments
 		panel_command = "touch cov_metrics.txt cov_metrics.txt.sample_summary"
 		cov = "WgsMetricsAlgo assay_metrics.txt"
 
@@ -1098,7 +1099,7 @@ process dnascope {
 		params.varcall
 
 	input:
-		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1] )
+		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1])
 
 	output:
 		set group, id, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
@@ -3423,8 +3424,6 @@ process annotsv {
 	stub:
 		"""
 		touch "${group}_annotsv.tsv"
-		mkdir -p "group"
-		touch "group/group.merged.bndless.annotated.tsv"
 		${annotsv_version(task)}
 		"""
 }
