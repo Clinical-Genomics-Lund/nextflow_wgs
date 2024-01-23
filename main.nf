@@ -89,7 +89,8 @@ bam_choice.into{
 	expansionhunter_bam_choice; 
 	dnascope_bam_choice;
 	bampath_start;
-	chanjo_bam_choice; 
+	chanjo_bam_choice;
+	d4_bam_choice;
 	yaml_bam_choice; 
 	cov_bam_choice; 
 	bam_manta_choice; 
@@ -377,7 +378,7 @@ process markdup {
 		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
 
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
 		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
@@ -574,6 +575,63 @@ def chanjo_sambamba_version(task) {
 	"""
 }
 
+process d4_intersect_bam {
+	cpus 2
+	memory '10 GB'
+	tag "$id"
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	container = "/fs1/resources/containers/bedtools_2.30.0.sif"
+
+	when:
+		params.varcall
+
+	input:
+		set group, id, file(bam), file(bai) from d4_bam.mix(d4_bam_choice)
+	
+	output:
+		set group, id, file("*.bam") to d4_bam_intersected
+
+	script:
+	"""
+	bedtools intersect \\
+		-a "${bam}" \\
+		-b "${params.scoutbed}" \\
+		> "${group}_intersected.bam"
+	
+	"""
+
+	stub:
+	"""
+	touch "${group}_intersected.bam"
+	"""
+}
+
+process d4_intersect_index_bam {
+	cpus 2
+	memory '10 GB'
+	tag "$id"
+	container = "/fs1/resources/containers/samtools_1.17.sif"
+
+	input:
+		set group, id, file(bam) from d4_bam_intersected
+
+	output:
+		set group, id, file(bam), file("*.bai") to d4_bam_intersected_indexed
+	
+	script:
+	// FIXME: Versions
+	"""
+	samtools index "${bam}"
+	"""
+
+	stub:
+	"""
+	touch "${bam}.bai"
+	"""
+}
+
 process d4_coverage {
 	cpus 16
 	memory '10 GB'
@@ -582,13 +640,10 @@ process d4_coverage {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/jakob/containers/d4tools_0.3.9.sif"
-
-	when:
-		params.varcall
+	container = "/fs1/resources/containers/d4tools_0.3.9.sif"
 
 	input:
-		set group, id, file(bam), file(bai) from mosdepth_bam.mix(mosdepth_bam_choice)
+		set group, id, file(bam), file(bai) from d4_bam_intersected_indexed
 
 	script:
 	"""
@@ -596,14 +651,16 @@ process d4_coverage {
 		--threads ${task.cpus} \\
 		"${bam}" \\
 		"${id}_coverage.d4"
+	${d4_coverage_version(task)}
 	"""
 
 	stub:
 	"""
-	touch 
+	touch ${id}_coverage.d4
+	${d4_coverage_version(task)}
 	"""
 }
-def mosdepth_version(task) {
+def d4_coverage_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
