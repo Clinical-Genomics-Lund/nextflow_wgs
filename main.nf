@@ -591,7 +591,7 @@ process d4_intersect_bam {
 		set group, id, file(bam), file(bai) from d4_bam.mix(d4_bam_choice)
 	
 	output:
-		set group, id, file("*.bam") to d4_bam_intersected
+		set group, id, file("*.bam") into d4_bam_intersected
 
 	script:
 	"""
@@ -618,7 +618,7 @@ process d4_intersect_index_bam {
 		set group, id, file(bam) from d4_bam_intersected
 
 	output:
-		set group, id, file(bam), file("*.bai") to d4_bam_intersected_indexed
+		set group, id, file(bam), file("*.bai") into d4_bam_intersected_indexed
 	
 	script:
 	// FIXME: Versions
@@ -627,6 +627,7 @@ process d4_intersect_index_bam {
 	"""
 
 	stub:
+	// FIXME: Versions
 	"""
 	touch "${bam}.bai"
 	"""
