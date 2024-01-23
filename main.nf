@@ -582,7 +582,7 @@ process d4_intersect_bam {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/bedtools_2.30.0.sif"
+	container = "/fs1/resources/containers/bedtools_2.31.1.sif"
 
 	when:
 		params.varcall
@@ -612,7 +612,7 @@ def d4_intersect_bam_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    sambamba: \$(echo \$(bedtools --version) | cut -f2 -d" " )
+	    bedtools: \$(echo \$(bedtools --version) | cut -f2 -d" " )
 	END_VERSIONS
 	"""
 }
@@ -645,7 +645,7 @@ def d4_intersect_index_bam_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    sambamba: \$(echo \$(samtools --version) | head -1 | cut -f2 -d" " )
+	    samtools: \$(echo \$(samtools --version) | head -1 | cut -f2 -d" " )
 	END_VERSIONS
 	"""
 }
@@ -682,7 +682,7 @@ def d4_coverage_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    sambamba: \$(echo \$( mosdepth --version) | cut -f2 -d" " )
+	    d4tools: \$(echo \$( mosdepth --version) | cut -f2 -d" " )
 	END_VERSIONS
 	"""
 }
