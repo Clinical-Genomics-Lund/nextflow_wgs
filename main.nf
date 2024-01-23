@@ -599,12 +599,21 @@ process d4_intersect_bam {
 		-a "${bam}" \\
 		-b "${params.scoutbed}" \\
 		> "${group}_intersected.bam"
-	
+	${d4_intersect_bam_version(task)}
 	"""
 
 	stub:
 	"""
 	touch "${group}_intersected.bam"
+	${d4_intersect_bam_version(task)}
+	"""
+}
+def d4_intersect_bam_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sambamba: \$(echo \$(bedtools --version) | cut -f2 -d" " )
+	END_VERSIONS
 	"""
 }
 
@@ -621,15 +630,23 @@ process d4_intersect_index_bam {
 		set group, id, file(bam), file("*.bai") into d4_bam_intersected_indexed
 	
 	script:
-	// FIXME: Versions
 	"""
 	samtools index "${bam}"
+	${d4_intersect_index_bam_version(task)}
 	"""
 
 	stub:
-	// FIXME: Versions
 	"""
 	touch "${bam}.bai"
+	${d4_intersect_index_bam_version(task)}
+	"""
+}
+def d4_intersect_index_bam_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sambamba: \$(echo \$(samtools --version) | head -1 | cut -f2 -d" " )
+	END_VERSIONS
 	"""
 }
 
