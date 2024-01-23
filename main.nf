@@ -574,6 +574,45 @@ def chanjo_sambamba_version(task) {
 	"""
 }
 
+process d4_coverage {
+	cpus 16
+	memory '10 GB'
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
+	tag "$id"
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	container = "/fs1/jakob/containers/d4tools_0.3.9.sif"
+
+	when:
+		params.varcall
+
+	input:
+		set group, id, file(bam), file(bai) from mosdepth_bam.mix(mosdepth_bam_choice)
+
+	script:
+	"""
+	d4tools create \\
+		--threads ${task.cpus} \\
+		"${bam}" \\
+		"${id}_coverage.d4"
+	"""
+
+	stub:
+	"""
+	touch 
+	"""
+}
+def mosdepth_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sambamba: \$(echo \$( mosdepth --version) | cut -f2 -d" " )
+	END_VERSIONS
+	"""
+}
+
+
 // Calculate coverage for paneldepth
 process depth_onco {
 	cpus 2
