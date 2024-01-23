@@ -582,7 +582,7 @@ process d4_intersect_bam {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/bedtools_2.31.1.sif"
+	container = "/fs1/resources/containers/bedtools_2.31.sif"
 
 	when:
 		params.varcall
