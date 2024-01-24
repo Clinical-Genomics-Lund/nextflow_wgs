@@ -492,7 +492,7 @@ process sentieon_qc {
 
 	script:
 		target = ""
-		// FIXME: A bit of cheating here - these are really optional arguments
+		// A bit of cheating here - these are really optional arguments
 		panel_command = "touch cov_metrics.txt cov_metrics.txt.sample_summary"
 		cov = "WgsMetricsAlgo assay_metrics.txt"
 

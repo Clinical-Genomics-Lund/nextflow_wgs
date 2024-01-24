@@ -28,9 +28,6 @@ use Getopt::Long;
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 
-# my $SID = $ARGV[0];
-# my $type = $ARGV[1];
-
 my $SID;
 my $type;
 
