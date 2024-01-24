@@ -309,8 +309,7 @@ process bwa_align {
 	cpus 50
 	memory '80 GB'
 	// 64 GB peak giab //
-	scratch false
-	// scratch true
+	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
@@ -489,7 +488,6 @@ process sentieon_qc {
 		set id, group, file("mq_metrics.txt"), file("qd_metrics.txt"), file("gc_summary.txt"), 
 			file("gc_metrics.txt"), file("aln_metrics.txt"), file("is_metrics.txt"), file("assay_metrics.txt"), 
 			file("cov_metrics.txt"), file("cov_metrics.txt.sample_summary") into ch_sentieon_qc_metrics
-		file("*.txt") // FIXME: Is this needed? If not, remove
 		set group, file("*versions.yml") into ch_sentieon_qc_versions
 
 	script:
@@ -3423,7 +3421,9 @@ process annotsv {
 
 	stub:
 		"""
+		export ANNOTSV="/AnnotSV"
 		touch "${group}_annotsv.tsv"
+
 		${annotsv_version(task)}
 		"""
 }

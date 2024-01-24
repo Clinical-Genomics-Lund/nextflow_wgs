@@ -192,8 +192,6 @@ if ($opt{assay}) {
 my $gene_panels = get_genelist($institute);
 ####################################################
 
-print("DEBUG: outside \n");
-print("DEBUG: @inher_patterns", @inher_patterns, "\n");
 
 ### PRINT YAML PER INHER_PATTERN ####
 foreach my $ind (@inher_patterns) {
@@ -205,7 +203,6 @@ foreach my $ind (@inher_patterns) {
     }
     
     ### Open out, default $group.yaml, fix for ma and fa! ###
-    print("DEBUG: out ", ${opt{out}}, "\n");
     if ($opt{out}) { 
         $out = $opt{out};
         unless ( $ind eq "proband") {
