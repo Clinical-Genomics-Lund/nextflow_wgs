@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 3.7.0
+* Give the Sentieon container path by a parameter in the config file
+* Update the Sentieon container to 202308 version
+* Split out the `sentieon_qc` post-processing into its own process `sentieon_qc_postprocess`
+* Update the Perl script used in `sentieon_qc_postprocess` to take input parameters as explicit arguments
+
 ### 3.6.3
 * Update intersect file to latest used version of ClinVar (20231230)
 
@@ -21,28 +27,22 @@
 * changed path to normal-pool-refs for gens. Uses masked hg38 references
 
 ### 3.5.9
-
 * Add first iteration of updated documentation
 
 ### 3.5.8
-
 * Move out resource files from `main.nf` to `nextflow.config`
 * Move the selected fields for PHYLOP and PHASTCONS in vep to be specified in the process, similarly to the other plugins/custom fields
 
 ### 3.5.7
-
 * Clean out unused files in repo root directory
 
 ### 3.5.6
-
 * Add Github PR template/test documentation
 
 ### 3.5.5
-
 * Update the cron log directory to use the `params.crondir` folder as base
 
 ### 3.5.4
-
 * Add version outputs from all processes that use external software.
 * Add stubs to processes to allow performing stub runs.
 
@@ -53,7 +53,6 @@
 - MELT is no longer filtered on location based upon regex names INTRONIC/null/PROMOTER, instead added a intersect towards bedfile. This will show splice site variants
 
 ### 3.5.1
-
 * Add REVEL (Rare Exome Variant Ensemble Learner) Scores to VEP annotations (VEP REVEL_rankscore and REVEL_score)
 	
 ### 3.5.0
