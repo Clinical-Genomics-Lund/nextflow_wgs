@@ -1,12 +1,10 @@
 # CHANGELOG
 
-### 3.7.0
+### TBD
 * Give the Sentieon container path by a parameter in the config file
 * Update the Sentieon container to 202308 version
 * Split out the `sentieon_qc` post-processing into its own process `sentieon_qc_postprocess`
 * Update the Perl script used in `sentieon_qc_postprocess` to take input parameters as explicit arguments
-
-### 3.6.3
 * Update intersect file to latest used version of ClinVar (20231230)
 
 ### 3.6.2
