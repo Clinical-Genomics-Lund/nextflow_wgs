@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Unreleased
+
+* Update fastp to 0.23.4 and move to own container to fix reproducibility issue ([#143](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/143))
+	
 ### 3.6.3
 * Update software responsible list in docs
 

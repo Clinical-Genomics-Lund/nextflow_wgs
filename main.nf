@@ -168,6 +168,7 @@ process fastp {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	container = "${params.container_fastp}"
 
 	when:
 		params.umi
