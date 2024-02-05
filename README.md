@@ -42,5 +42,5 @@ If you run into any issues using this pipeline, [open an issue in the GitHub rep
 
 Illustration of the pipeline, its steps and processes.
 
-![overview_img](img/wgs_overview_200.drawio.png)
+![overview_img](docs/img/wgs_overview_200.drawio.png)
 
