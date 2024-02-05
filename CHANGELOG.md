@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.6.3
+* Update software responsible list in docs
+
 ### 3.6.2
 * Added changelog reminder to github workflows
 
