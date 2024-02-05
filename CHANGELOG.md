@@ -6,6 +6,14 @@
 * Split out the `sentieon_qc` post-processing into its own process `sentieon_qc_postprocess`
 * Update the Perl script used in `sentieon_qc_postprocess` to take input parameters as explicit arguments
 * Update intersect file to latest used version of ClinVar (20231230)
+* Update fastp version (0.23.4)
+
+### 3.6.4
+* Use new docs as main entry point in repo
+* Start removing old docs
+
+### 3.6.3
+* Update software responsible list in docs
 
 ### 3.6.2
 * Added changelog reminder to github workflows
