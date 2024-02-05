@@ -3,15 +3,16 @@
 ## Table of content
 
 * [Pipeline overview](#pipeline-overview)
-* [Running the pipeline](running_the_pipeline.md)
+* [Running the pipeline](docs/running_the_pipeline.md)
 * Inputs
-    * [Input files](input_files.md)
-    * [Annotation files](annotation_files.md)
-    * [Containers](input_containers.md)
-    * [Sentieon license](sentieon_license.md)
-* [Outputs](outputs.md)
-* [How to deploy](how_to_deploy.md)
-* [List of used software](list_of_all_used_software.md)
+    * [Input files](docs/input_files.md)
+    * [Annotation files](docs/annotation_files.md)
+    * [Containers](docs/input_containers.md)
+    * [Sentieon license](docs/sentieon_license.md)
+* [Outputs](docs/outputs.md)
+* [How to deploy](docs/how_to_deploy.md)
+* [List of used software](docs/list_of_all_used_software.md)
+* [Misc documents](docs/misc_docs.md)
 
 ## Pipeline overview
 
