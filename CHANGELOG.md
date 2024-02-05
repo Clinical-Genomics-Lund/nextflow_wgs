@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.6.4
+* Use new docs as main entry point in repo
+* Start removing old docs
+
 ### 3.6.3
 * Update software responsible list in docs
 
