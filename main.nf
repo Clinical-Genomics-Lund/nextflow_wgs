@@ -1838,7 +1838,7 @@ process annotate_vep {
 			-i ${vcf} \\
 			-o ${group}.vep.vcf \\
 			--offline \\
-			--everything \\
+			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --af_esp --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
 			--merged \\
 			--vcf \\
 			--no_stats \\
@@ -3412,7 +3412,7 @@ process vep_sv {
 			-o ${group}.vep.vcf \\
 			--offline \\
 			--merged \\
-			--everything \\
+			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --af_esp --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
 			--synonyms $params.VEP_SYNONYMS \\
 			--vcf \\
 			--no_stats \\
