@@ -3211,7 +3211,7 @@ process tiddit {
 
 	script:
 		"""
-		TIDDIT.py --sv -o ${id}.tiddit --bam $bam --ref $params.genome_file --threads 20
+		tiddit --sv -o ${id}.tiddit --bam $bam --ref $params.genome_file --threads 20
 		grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
 		${tiddit_version(task)}
 		"""
