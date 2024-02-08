@@ -3188,8 +3188,7 @@ def svdb_merge_panel_version(task) {
 }
 
 process tiddit {
-	cpus = 20
-	container = '/fs1/resources/containers/annotsv.v2.3.sif'
+	cpus = 2
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '10h'
 	tag "$id"
@@ -3211,7 +3210,7 @@ process tiddit {
 
 	script:
 		"""
-		TIDDIT.py --sv -o ${id}.tiddit --bam $bam --ref $params.genome_file --threads 20
+		TIDDIT.py --sv -o ${id}.tiddit --bam $bam
 		grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
 		${tiddit_version(task)}
 		"""
