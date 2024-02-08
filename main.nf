@@ -1838,7 +1838,7 @@ process annotate_vep {
 			-i ${vcf} \\
 			-o ${group}.vep.vcf \\
 			--offline \\
-			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --af_esp --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
+			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
 			--merged \\
 			--vcf \\
 			--no_stats \\
