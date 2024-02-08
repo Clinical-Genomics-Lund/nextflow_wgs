@@ -1,7 +1,7 @@
 # CHANGELOG
 
 ## TBA
-* Update Gnomad to v4
+* Update Gnomad to v4 
 * Update popmax attribute to grpmax (same attribute renamed in v4: https://gnomad.broadinstitute.org/news/2023-11-genetic-ancestry/)
 
 ### 3.6.4
