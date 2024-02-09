@@ -891,7 +891,6 @@ def vcfbreakmulti_expansionhunter_version(task) {
 	    vcflib: 1.0.9
 	    rename-sample-in-vcf: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf --version 2>&1) | sed 's/-SNAPSHOT//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	END_VERSIONS	
 	"""
 }
@@ -2127,8 +2126,6 @@ def add_cadd_scores_to_vcf_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    gunzip: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
 	END_VERSIONS
@@ -2284,7 +2281,6 @@ def vcf_completion_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	END_VERSIONS	
 	"""
@@ -3623,8 +3619,6 @@ def score_sv_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    gunzip: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
@@ -3684,7 +3678,6 @@ def compound_finder_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	END_VERSIONS	
 	"""
