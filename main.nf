@@ -2350,30 +2350,17 @@ process fastgnomad {
 
 	output:
 		set group, file("${group}.SNPs.vcf") into vcf_upd, vcf_roh, vcf_pod
-		set group, file("*versions.yml") into ch_fastgnomad_versions
 
 	script:
 		"""
 		gzip -c $vcf > ${vcf}.gz
 		annotate -g $params.FASTGNOMAD_REF -i ${vcf}.gz > ${group}.SNPs.vcf
-
-		${fastgnomad_version(task)}
 		"""
 
 	stub:
 		"""
 		touch "${group}.SNPs.vcf"
-
-		${fastgnomad_version(task)}
 		"""
-}
-def fastgnomad_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    gzip: \$(echo \$(gzip --version 2>&1) | sed 's/^.*gzip // ; s/Copyright.*//' )
-	END_VERSIONS	
-	"""
 }
 
 
@@ -3838,7 +3825,6 @@ process combine_versions {
 			ch_genmodscore_versions.first(),
 			ch_vcf_completion_versions.first(),
 			ch_peddy_versions.first(),
-			ch_fastgnomad_versions.first(),
 			ch_upd_versions.first(),
 			ch_roh_versions.first(),
 			ch_gatkcov_versions.first(),
