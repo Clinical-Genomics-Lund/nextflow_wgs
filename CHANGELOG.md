@@ -10,6 +10,8 @@
 * Update intersect file to latest used version of ClinVar (20231230)
 * Update fastp version (0.23.4)
 * Update fastp to 0.23.4 and move to own container to fix reproducibility issue ([#143](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/143))
+* Update CADD to v1.7
+
 
 ### 3.6.4
 * Use new docs as main entry point in repo
