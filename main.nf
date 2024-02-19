@@ -328,6 +328,7 @@ process bwa_align {
 		"""
 		sentieon bwa mem \\
 			-M \\
+			-K $K_size \\
 			-R '@RG\\tID:${id}\\tSM:${id}\\tPL:illumina' \\
 			-t ${task.cpus} \\
 			$genome_file $r1 $r2 \\
