@@ -3,7 +3,6 @@
 ## TBA
 * Update Gnomad to v4 
 * Update popmax attribute to grpmax (same attribute renamed in v4: https://gnomad.broadinstitute.org/news/2023-11-genetic-ancestry/)
-* Extend inher models time to prevent timeout in trios
 
 ### 3.6.4
 * Use new docs as main entry point in repo

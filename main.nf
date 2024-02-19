@@ -2142,7 +2142,7 @@ process inher_models {
 	cpus 6
 	memory '64 GB'
 	tag "$group"
-	time '1h'
+	time '10m'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
