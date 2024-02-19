@@ -3189,7 +3189,7 @@ def svdb_merge_panel_version(task) {
 
 process tiddit {
 	cpus = 20
-	container = '/fs1/resources/containers/tiddit_3.6.1.sif'
+	container = "${params.container_tiddit}"
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '10h'
 	tag "$id"
