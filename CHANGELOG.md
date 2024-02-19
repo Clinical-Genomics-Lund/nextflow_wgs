@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.6.5
+* Use -K flag in bwa-mem for consistent results
+
 ### 3.6.4
 * Use new docs as main entry point in repo
 * Start removing old docs
