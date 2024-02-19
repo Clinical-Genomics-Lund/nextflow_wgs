@@ -3191,7 +3191,7 @@ process tiddit {
 	cpus = 20
 	container = "${params.container_tiddit}"
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-	time '10h'
+	time '24h'
 	tag "$id"
 	memory '10 GB'
 	scratch true
