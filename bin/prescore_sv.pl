@@ -257,7 +257,7 @@ sub annotsv {
 			push @descriptions, "##INFO=<ID=IMH_AF,Number=1,Type=Float,Description=\"Ira M. Hall’s Allele frequency of matched CNV type\">\n";
 			push @descriptions, "##INFO=<ID=dbVar_status,Number=1,Type=String,Description=\"dbVar_status pathogenesis\">\n";
 			push @descriptions, "##INFO=<ID=AnnotSVrank,Number=1,Type=Integer,Description=\"AnnotSV ranking 1-5\">\n";
-			push @descriptions, "##INFO=<ID=gnomad_svAF,Number=1,Type=Float,Description=\"gnomad grpmax AF\">\n";
+			push @descriptions, "##INFO=<ID=gnomad_svAF,Number=1,Type=Float,Description=\"gnomad popmax AF\">\n";
 			
 		}
 		
