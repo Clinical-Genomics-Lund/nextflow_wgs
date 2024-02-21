@@ -2055,7 +2055,7 @@ def indel_vep_version(task) {
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
 	cpus 2
-	container = '/fs1/resources/containers/cadd_v1.7.sif'
+	container = "${params.cadd_container}"
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
