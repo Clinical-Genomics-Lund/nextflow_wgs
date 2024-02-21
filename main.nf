@@ -1900,8 +1900,8 @@ process annotate_vep {
 			--plugin LoFtool \\
 			--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
 			--plugin dbNSFP,$params.DBNSFP,transcript_match=1,REVEL_score,REVEL_rankscore \\
-			-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
-			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
+			-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_grpmax,AF,grpmax \\
+			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_grpmax,AF,grpmax \\
 			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
 			-custom $params.PHYLOP,phyloP100way,bigwig \\
 			-custom $params.PHASTCONS,phastCons,bigwig
@@ -2188,7 +2188,7 @@ process inher_models {
 	cpus 6
 	memory '64 GB'
 	tag "$group"
-	time '10m'
+	time '30m'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
