@@ -3193,7 +3193,7 @@ process tiddit {
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '10h'
 	tag "$id"
-	memory '30 GB'
+	memory '50 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
