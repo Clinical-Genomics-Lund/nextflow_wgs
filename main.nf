@@ -3171,11 +3171,12 @@ def svdb_merge_panel_version(task) {
 }
 
 process tiddit {
-	cpus = 2
+	cpus = 20
+	container = "${params.container_tiddit}"
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '10h'
 	tag "$id"
-	memory '10 GB'
+	memory '50 GB'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
@@ -3193,7 +3194,7 @@ process tiddit {
 
 	script:
 		"""
-		TIDDIT.py --sv -o ${id}.tiddit --bam $bam
+		tiddit --sv -o ${id}.tiddit --bam $bam --ref $params.genome_file --threads 20
 		grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
 		${tiddit_version(task)}
 		"""
