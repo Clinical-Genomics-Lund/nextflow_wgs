@@ -1,5 +1,7 @@
 # CHANGELOG
 
+* Update CADD indel from 1.6 to 1.7
+
 ### 3.6.5
 * Remove bgzip and gunzip from versions
 * Some cleanup in version documentation and code
