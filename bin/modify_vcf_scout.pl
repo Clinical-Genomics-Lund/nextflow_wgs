@@ -58,7 +58,7 @@ my %rank = (
     'intron_variant' => 28,
     '3_prime_utr_variant' => 29,
     'feature_truncation' => 30,
-    'coding_transcript_variant' => 31
+    'coding_transcript_variant' => 31,
     'tf_binding_site_variant' => 32,
     'start_retained_variant' => 33,
     'stop_retained_variant' => 34,
@@ -71,6 +71,7 @@ my %rank = (
     'intergenic_variant' => 41,
     'sequence_variant' => 42
     );
+
 my $vep_csq;
 
 while( <VEP>) {
