@@ -225,7 +225,7 @@ while( <VEP>) {
             }
             push @add_info_field, "CLNSIG_MOD=".join('|',@mods);
         }
-        ## MOST SEVERE CONEQUENCE
+        ## MOST SEVERE CONSEQUENCE
         my $csq_ref = $doobi->{INFO}->{CSQ};
         my $m_s_c = CSQ($csq_ref);
         my $most_severe = ".";
