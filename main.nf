@@ -1848,7 +1848,7 @@ process annotate_vep {
 			--fasta $params.VEP_FASTA \\
 			--dir_cache $params.VEP_CACHE \\
 			--dir_plugins $params.VEP_PLUGINS \\
-			--distance $params.VEP_DISTANCE \\
+			--distance $params.VEP_TRANSCRIPT_DISTANCE \\
 			-cache \\
 			--plugin CADD,$params.CADD \\
 			--plugin LoFtool \\
@@ -3423,7 +3423,7 @@ process vep_sv {
 			--dir_cache $params.VEP_CACHE \\
 			--dir_plugins $params.VEP_PLUGINS \\
 			--max_sv_size $params.VEP_MAX_SV_SIZE \\
-			--distance $params.VEP_DISTANCE \\
+			--distance $params.VEP_TRANSCRIPT_DISTANCE \\
 			-cache
 
 		${vep_sv_version(task)}
