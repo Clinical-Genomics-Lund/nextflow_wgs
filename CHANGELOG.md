@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [Unreleased]
+
+* Updated VEP from 103.0 to 111.0
+* Updated VEP fasta from 98.0 to 111.0
+* Updated VEP cache from 103.0 to 111.0
+* Moved VEP parameters from processes to config
+* Disabled vep `--everything` to disable VEP annotation w/ GNOMAD
+* Removed deprecated `--af_esp` from `--everything`
+* Tentative update of scout ranking.  
+
 ### 3.6.2
 * Added changelog reminder to github workflows
 
