@@ -1,5 +1,59 @@
 # CHANGELOG
 
+### 3.6.5
+* Remove bgzip and gunzip from versions
+* Some cleanup in version documentation and code
+
+### 3.6.4
+* Use new docs as main entry point in repo
+* Start removing old docs
+
+### 3.6.3
+* Update software responsible list in docs
+
+### 3.6.2
+* Added changelog reminder to github workflows
+
+### 3.6.1
+* Adding a new variant catalogue for expansionhunter/stranger/reviewer
+
+### 3.5.11
+* Add `documentation` to change type category in PR template.
+
+### 3.6.0
+* Changed melt configs, added flags: exome, removed flags: cov (was being used improperly)
+* Added priors to mei_list, and changed mei_list to a new location in config
+* Changes has been verified, report can be found internally
+
+### 3.5.10
+* changed path to normal-pool-refs for gens. Uses masked hg38 references
+
+### 3.5.9
+
+* Add first iteration of updated documentation
+
+### 3.5.8
+
+* Move out resource files from `main.nf` to `nextflow.config`
+* Move the selected fields for PHYLOP and PHASTCONS in vep to be specified in the process, similarly to the other plugins/custom fields
+
+### 3.5.7
+
+* Clean out unused files in repo root directory
+
+### 3.5.6
+
+* Add Github PR template/test documentation
+
+### 3.5.5
+
+* Update the cron log directory to use the `params.crondir` folder as base
+
+### 3.5.4
+
+* Add version outputs from all processes that use external software.
+* Add stubs to processes to allow performing stub runs.
+
 ### 3.5.3
 - Hotfix, increase melt sensivity by increasing amount of reads melt are alowed to use in RAM. 
 
