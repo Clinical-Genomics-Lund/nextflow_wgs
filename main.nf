@@ -1442,19 +1442,11 @@ process run_mutect2 {
 	tag "$group"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 
-	// when:
-// <<<<<<< HEAD
-// 		params.antype != "panel"
-    
-//     input:
-//         set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
-// =======
 	when:
 		!params.onco
 	
 	input:
 		set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
-// >>>>>>> master
 
 	output:
 		set group, id, file("${group}.mutect2.vcf") into ms_vcfs_1, ms_vcfs_2
