@@ -1,5 +1,16 @@
 # CHANGELOG
 
+### 3.6.5
+* Remove bgzip and gunzip from versions
+* Some cleanup in version documentation and code
+
+### 3.6.4
+* Use new docs as main entry point in repo
+* Start removing old docs
+
+### 3.6.3
+* Update software responsible list in docs
+
 ### 3.6.2
 * Added changelog reminder to github workflows
 
