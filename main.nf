@@ -656,8 +656,8 @@ process d4_coverage {
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
 	tag "$id"
 	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	container = "/fs1/resources/containers/d4tools_0.3.8.sif"
 
 	input:
@@ -682,7 +682,7 @@ def d4_coverage_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    d4tools: \$(echo \$( d4tools ) 2>&1 | head -1 | sed "s/.*version: //" | sed "s/)//" )
+	    d4tools: \$(echo \$( d4tools 2>&1 ) | head -1 | sed "s/.*version: //" | sed "s/)//" )
 	END_VERSIONS
 	"""
 }
