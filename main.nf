@@ -682,7 +682,7 @@ def d4_coverage_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    d4tools: \$(echo \$( mosdepth --version) | cut -f2 -d" " )
+	    d4tools: \$(echo \$( d4tools ) 2>&1 | head -1 | sed "s/.*version: //" | sed "s/)//" )
 	END_VERSIONS
 	"""
 }
