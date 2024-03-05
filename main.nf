@@ -655,7 +655,7 @@ process d4_coverage {
 	memory '10 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
 	tag "$id"
-	scratch true
+	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
 	container = "/fs1/resources/containers/d4tools_0.3.8.sif"
