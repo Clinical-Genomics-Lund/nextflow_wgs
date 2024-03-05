@@ -663,6 +663,9 @@ process d4_coverage {
 	input:
 		set group, id, file(bam), file(bai) from d4_bam_intersected_indexed
 
+	output:
+		file("${id}_coverage.d4")
+
 	script:
 	"""
 	d4tools create \\
@@ -674,7 +677,7 @@ process d4_coverage {
 
 	stub:
 	"""
-	touch ${id}_coverage.d4
+	touch "${id}_coverage.d4"
 	${d4_coverage_version(task)}
 	"""
 }
@@ -682,7 +685,7 @@ def d4_coverage_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    d4tools: \$(echo \$( d4tools 2>&1 ) | head -1 | sed "s/.*version: //" | sed "s/)//" )
+	    d4tools: \$(echo \$( d4tools 2>&1 | head -1 ) | sed "s/.*version: //" | sed "s/)//" )
 	END_VERSIONS
 	"""
 }
