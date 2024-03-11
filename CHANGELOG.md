@@ -9,6 +9,7 @@
 * Disabled vep `--everything` to disable VEP annotation w/ GNOMAD
 * Removed deprecated `--af_esp` from `--everything`
 * Tentative update of scout ranking.  
+* cleanVCF.py now removes records missing CSQ-field.
 
 ### 3.6.2
 * Added changelog reminder to github workflows
