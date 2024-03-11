@@ -10,6 +10,7 @@
 * Removed deprecated `--af_esp` from `--everything`
 * Tentative update of scout ranking.  
 * cleanVCF.py now removes records missing CSQ-field.
+* Add `SVTYPE` VEP 111 bug workaround in `vep_sv` process. (See  [Ensembl/ensembl-vep#1631](https://github.com/Ensembl/ensembl-vep/issues/1631#issuecomment-1985973568))
 
 ### 3.6.2
 * Added changelog reminder to github workflows
