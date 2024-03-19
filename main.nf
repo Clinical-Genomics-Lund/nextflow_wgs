@@ -1862,7 +1862,7 @@ process qc_to_cdm {
     
     
 process annotate_vep {
-	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
+	container = "${params.container_vep}"
 	cpus 54
 	tag "$group"
 	memory '150 GB'
@@ -1884,17 +1884,17 @@ process annotate_vep {
 			-i ${vcf} \\
 			-o ${group}.vep.vcf \\
 			--offline \\
-			--everything \\
+			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
 			--merged \\
 			--vcf \\
 			--no_stats \\
-			--synonyms $params.SYNONYMS \\
+			--synonyms $params.VEP_SYNONYMS \\
 			--fork ${task.cpus} \\
 			--force_overwrite \\
 			--fasta $params.VEP_FASTA \\
 			--dir_cache $params.VEP_CACHE \\
-			--dir_plugins $params.VEP_CACHE/Plugins \\
-			--distance 200 \\
+			--dir_plugins $params.VEP_PLUGINS \\
+			--distance $params.VEP_TRANSCRIPT_DISTANCE \\
 			-cache \\
 			--plugin CADD,$params.CADD \\
 			--plugin LoFtool \\
@@ -2051,7 +2051,7 @@ def extract_indels_for_cadd_version(task) {
 // Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
 process indel_vep {
 	cpus 5
-	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
+	container = "${params.container_vep}"
 	tag "$group"
 	memory '10 GB'
 	time '3h'
@@ -2072,7 +2072,7 @@ process indel_vep {
 			--cache \\
 			--merged \\
 			--vcf \\
-			--synonyms $params.SYNONYMS \\
+			--synonyms $params.VEP_SYNONYMS \\
 			--fasta $params.VEP_FASTA \\
 			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
 			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
@@ -3439,7 +3439,7 @@ def annotsv_version(task) {
 
 process vep_sv {
 	cpus 56
-	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
+	container = "${params.container_vep}"
 	tag "$group"
 	memory '150 GB'
 	time '1h'
@@ -3453,13 +3453,19 @@ process vep_sv {
 
 	script:
 		"""
+
+		# Temporary fix for VEP 111.0 annotation bug, where certain MANTA indels are being skipped by VEP
+		# See: https://github.com/Ensembl/ensembl-vep/issues/1631#issuecomment-1985973568
+
+		sed 's/SVTYPE=/BAZBAZ=/' $vcf > ${group}.vep111-workaround.vcf
+
 		vep \\
-			-i $vcf \\
+			-i ${group}.vep111-workaround.vcf \\
 			-o ${group}.vep.vcf \\
 			--offline \\
 			--merged \\
-			--everything \\
-			--synonyms $params.SYNONYMS \\
+			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
+			--synonyms $params.VEP_SYNONYMS \\
 			--vcf \\
 			--no_stats \\
 			--fork ${task.cpus} \\
@@ -3467,10 +3473,13 @@ process vep_sv {
 			--plugin LoFtool \\
 			--fasta $params.VEP_FASTA \\
 			--dir_cache $params.VEP_CACHE \\
-			--dir_plugins $params.VEP_CACHE/Plugins \\
-			--max_sv_size 50000000 \\
-			--distance 200 -cache
+			--dir_plugins $params.VEP_PLUGINS \\
+			--max_sv_size $params.VEP_MAX_SV_SIZE \\
+			--distance $params.VEP_TRANSCRIPT_DISTANCE \\
+			-cache
 
+		# Re-enable SVTYPE:
+		sed -i 's/BAZBAZ=/SVTYPE=/' ${group}.vep.vcf
 		${vep_sv_version(task)}
 		"""
 

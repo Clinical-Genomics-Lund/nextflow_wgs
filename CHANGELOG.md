@@ -1,8 +1,6 @@
 # CHANGELOG
 
-## Unreleased
-	
-### TBD
+### [Unreleased]
 * Give the Sentieon container path by a parameter in the config file
 * Update the Sentieon container to 202308 version
 * Split out the `sentieon_qc` post-processing into its own process `sentieon_qc_postprocess`
@@ -14,6 +12,15 @@
 * Update Gnomad to v4 
 * Update popmax attribute to grpmax (same attribute renamed in v4: https://gnomad.broadinstitute.org/news/2023-11-genetic-ancestry/)
 * Increase `inher_models` processing time
+* Updated VEP from 103.0 to 111.0
+* Updated VEP fasta from 98.0 to 111.0
+* Updated VEP cache from 103.0 to 111.0
+* Moved VEP parameters from processes to config
+* Disabled vep `--everything` to disable VEP annotation w/ GNOMAD
+* Removed deprecated `--af_esp` from `--everything`
+* Tentative update of scout ranking.  
+* cleanVCF.py now removes records missing CSQ-field.
+* Add `SVTYPE` VEP 111 bug workaround in `vep_sv` process. (See  [Ensembl/ensembl-vep#1631](https://github.com/Ensembl/ensembl-vep/issues/1631#issuecomment-1985973568))
 
 ### 3.6.4
 * Use new docs as main entry point in repo
@@ -33,7 +40,7 @@
 
 ### 3.6.0
 * Changed melt configs, added flags: exome, removed flags: cov (was being used improperly)
-* Added priors to mei_list, and changed mei_list to a new location in config
+* Added priors to `mei_list`, and changed `mei_list` to a new location in config
 * Changes has been verified, report can be found internally
 
 ### 3.5.10
@@ -66,7 +73,7 @@
 - MELT is no longer filtered on location based upon regex names INTRONIC/null/PROMOTER, instead added a intersect towards bedfile. This will show splice site variants
 
 ### 3.5.1
-* Add REVEL (Rare Exome Variant Ensemble Learner) Scores to VEP annotations (VEP REVEL_rankscore and REVEL_score)
+* Add REVEL (Rare Exome Variant Ensemble Learner) Scores to VEP annotations (VEP `REVEL_rankscore` and `REVEL_score`)
 	
 ### 3.5.0
 
@@ -198,7 +205,7 @@
 
 ### 3.0.5
 #### new funcion
-- GENS middleman command added to generate_gens_data. Needed for loading of data into GENS thorugh cron and middleman
+- GENS middleman command added to `generate_gens_data`. Needed for loading of data into GENS thorugh cron and middleman
 #### bug fixees
 - REViewer now loops through a perl shell script instead of bash. Low covered loci error no longer crash all other svg-image generation
 - fixed a typo which named all svgs as 7156, a validation and verification sample
@@ -230,7 +237,7 @@ new functions
   - haplogrep
   - eklipse
   - modifications to filter_indels (new VEP fields)
-  - modifications to modify_vcf_scout.pl, ignore maxentscan for M
+  - modifications to `modify_vcf_scout.pl`, ignore maxentscan for M
 - added SMNCopyNumberCalling
 - New VEP container and version (103)
 - gatk cnv calling
@@ -269,7 +276,7 @@ new functions
 - rescore.nf had wrongly named variable in output for bamfiles 
 
 ### 2.1.8
-- create_yml.pl now recieved gene_panel content from hopper-json. no longer require scout-vm connectivity
+- create\_yml.pl now recieved gene_panel content from hopper-json. no longer require scout-vm connectivity
 
 ### 2.1.7
 - clincalwes now has correct loqusdb not piggybacking of onco
@@ -279,7 +286,7 @@ new functions
 
 ### 2.1.5
 
-- create_yml.pl added ahus analysis for wgs_hg38 assay. Stinking mess initiated, please correct
+- create\_yml.pl added ahus analysis for wgs_hg38 assay. Stinking mess initiated, please correct
 
 ### 2.1.4
 
@@ -315,7 +322,7 @@ new functions
 #### Features
 - added specific delly filtering script
   - now correctly filters breakpoints outside panel
-- filter_panel_cnv.pl now only annotates for scout
+- `filter_panel_cnv.pl` now only annotates for scout
   - delly precise/imprecise annotation
 - new artifact database for SV-calling for WGS and oncogenetics
 
