@@ -2,6 +2,9 @@
 import argparse
 import logging
 
+FILTER_COL_IDX = 6
+INFO_COL_IDX = 7
+
 parser = argparse.ArgumentParser(
     """
     Removes the following records from VCF:
@@ -44,12 +47,12 @@ with open(args.vcf) as vcf:
         content = line.split("\t")
         curr_var = " ".join(content[0:2] + content[5:7])
 
-        if not filter_pass(content[6]):
+        if not filter_pass(content[FILTER_COL_IDX]):
             logging.warning("%s: FILTER not marked PASS/. Skipping!", curr_var)
             nbr_filtered += 1
             continue
 
-        if csq_missing(content[7]):
+        if csq_missing(content[INFO_COL_IDX]):
             logging.warning("%s: CSQ field missing. Skipping!", curr_var)
             nbr_filtered += 1
             continue
