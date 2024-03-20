@@ -592,6 +592,7 @@ process d4_intersect_bam {
 	
 	output:
 		set group, id, file("*.bam") into d4_bam_intersected
+		set group, file("*versions.yml") into ch_d4_intersect_bam_versions
 
 	script:
 	"""
@@ -628,6 +629,7 @@ process d4_intersect_index_bam {
 
 	output:
 		set group, id, file(bam), file("*.bai") into d4_bam_intersected_indexed
+		set group, file("*versions.yml") into ch_d4_intersect_index_bam_versions
 	
 	script:
 	"""
@@ -662,6 +664,7 @@ process d4_coverage {
 
 	output:
 		file("${id}_coverage.d4")
+		set group, file("*versions.yml") into ch_d4_coverage_versions
 
 	script:
 	"""
@@ -3910,6 +3913,9 @@ process combine_versions {
 			ch_bqsr_versions.first(),
 			ch_sentieon_qc_versions.first(),
 			ch_chanjo_sambamba_versions.first(),
+			ch_d4_intersect_bam_versions,
+			ch_d4_intersect_index_bam_versions,
+			ch_d4_coverage_versions,
 			ch_smn_copy_number_caller_versions.first(),
 			ch_expansionhunter_versions.first(),
 			ch_stranger_versions.first(),
