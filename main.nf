@@ -621,7 +621,7 @@ process d4_intersect_index_bam {
 	cpus 2
 	memory '10 GB'
 	tag "$id"
-	container = "/fs1/resources/containers/samtools_1.17.sif"
+	container = "${params.samtools_container}"
 
 	input:
 		set group, id, file(bam) from d4_bam_intersected
@@ -655,7 +655,7 @@ process d4_coverage {
 	memory '10 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
 	tag "$id"
-	container = "${d4tools_container}"
+	container = "${params.d4tools_container}"
 
 	input:
 		set group, id, file(bam), file(bai) from d4_bam_intersected_indexed
