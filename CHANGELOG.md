@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### TBA
+* Add d4 coverage calculations to the workflow
+
 ### 3.6.5
 * Remove bgzip and gunzip from versions
 * Some cleanup in version documentation and code
@@ -26,7 +29,7 @@
 * Changes has been verified, report can be found internally
 
 ### 3.5.10
-* changed path to normal-pool-refs for gens. Uses masked hg38 references
+* Changed path to normal-pool-refs for gens. Uses masked hg38 references
 
 ### 3.5.9
 

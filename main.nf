@@ -582,7 +582,7 @@ process d4_intersect_bam {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/bedtools_2.31.1.sif"
+	container = "${params.bedtools_container}"
 
 	when:
 		params.varcall
@@ -655,10 +655,7 @@ process d4_coverage {
 	memory '10 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
 	tag "$id"
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
-	container = "/fs1/resources/containers/d4tools_0.3.8.sif"
+	container = "${d4tools_container}"
 
 	input:
 		set group, id, file(bam), file(bai) from d4_bam_intersected_indexed
