@@ -1,20 +1,18 @@
 <!--
-# clinical-genomics-lund/nextflow_wgs pull request
+Thanks for contributing to the CMD nextflow_wgs pipeline!
 
-Thanks for contributing to the CMD nextflow_wgs pipeline.
+Please use the checklists below to document changes and performed tests.
+
+Remember that this template doubles as our test/review documentation. 
 -->
 # Description
-<!--
-Add a description of changes below and a description of the expected outcome.
--->
 
-What is changed? What is the result of the changes?
-<!--
-    Are there any issue or issues that are linked to this PR? 
-    Use Github's syntax for closing keywords: `closes #1` or `fixes #1`
--->
+What is changed? What is the result of the changes? 
+How does this update improve the pipeline?
 
-fixes # (issue)
+## Risk assessment
+
+What are the possible challenges and issues that might result from this update? How likely and severe are they? 
 
 ## Type of change
 <!--
@@ -24,10 +22,10 @@ fixes # (issue)
     
     Choose one and delete the remaining fields.
 -->
-- [ ] Major change 
-- [ ] Minor change
-- [ ] Patch
 - [ ] Documentation
+- [ ] Patch
+- [ ] Minor change
+- [ ] Major change 
 
 # Checklist:
 <!--
@@ -77,74 +75,40 @@ fixes # (issue)
 ## Patch
 - [ ] Stub run completes without errors or new warnings
 <!--
-    Remove the comment markers wrapping the checkbox below if you believe that 
-    the patch needs to undergo review. 
-    
-    (If in doubt, then play it safe and request a review).
--->
-<!--
 - [ ] At least one other person has reviewed and approved my code
 -->
 
 <!--
-    Remove the comment markers wrapping the sectopm below if you believe that 
-    the updated documentation needs to undergo review.
--->
-<!--
-## Documentation
-- [ ] At least one other person has reviewed my changes
--->
-
 ## [Optional] Are there any post-deployment tasks we need to perform?
-<!--
-    Some examples of post-deployment tasks are pipeline validation for a major 
-    change  update or an update to CDM to accomodate new QC data.
--->
+
  - [ ] Task/link to issue 1
  - [ ] Task/link to issue 2
  - [ ] ...
- 
-# Instructions for the reviewers
-<!--
-    Use this section to guide the reviewer in how to 
-    test your proposed 
 -->
+
+# Instructions for the reviewers
+
 ## How to test the changes
 <!--
-    Provide clear and concise steps for reviewers to test your changes. 
-    Include any specific commands, inputs, or conditions they should be aware 
-    of.
+    Provide clear, concise and specific steps for reviewers to test your changes.    
 -->
 1. Step 1
 2. Step 2
 
-## Expected outcome
-<!--
-    Describe what the expected outcome should be after your changes are 
-    implemented. This helps reviewers understand the goal and verify if 
-    everything is working as intended.
--->
-
-## [Optional] Additional information
-<!--
-    If there's any extra information, context,  or considerations that would be
-    helpful for reviewers, feel free to include them here.
--->
-
-# Review
-<!--
-    Use this section to document who has performed the reviews and run the 
-    tests. 
--->
+# Test/review documentation
 
 ## Review performed by:
-- Reviewer 1: Name1, (\@Github\_handle1)  
-- Reviewer 2: Name1,  (\@Github\_handle2)
-- ...
+
+- [ ] Alexander
+- [ ] Jakob
+- [ ] Paul
+- [ ] Ryan
+- [ ] Viktor
     
 ## Testing performed by:
-- Name, (\@Github\_handle)
-- ...
 
-# Post-merge
-- [ ] The `master` branch has been tagged with the new version number.
+- [ ] Alexander
+- [ ] Jakob
+- [ ] Paul
+- [ ] Ryan
+- [ ] Viktor
