@@ -582,7 +582,6 @@ process d4_intersect_bam {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.bedtools_container}"
 
 	when:
 		params.varcall
@@ -613,7 +612,7 @@ def d4_intersect_bam_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    bedtools: \$(echo \$(bedtools --version) | cut -f2 -d" " )
+	    bedtools: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
 	END_VERSIONS
 	"""
 }
@@ -622,7 +621,6 @@ process d4_intersect_index_bam {
 	cpus 2
 	memory '10 GB'
 	tag "$id"
-	container = "${params.samtools_container}"
 
 	input:
 		set group, id, file(bam) from d4_bam_intersected
