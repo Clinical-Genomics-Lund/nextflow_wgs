@@ -217,7 +217,7 @@ process bwa_align_sharded {
 	memory '120 GB'
 	tag "$id $shard"
 	time '5h'
-	container = "${params.sentieon_container}"
+	container = "${params.container_sentieon}"
 
 	input:
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
@@ -267,7 +267,7 @@ process bwa_merge_shards {
 	tag "$id"
 	time '1h'
 	memory '120 GB'
-	container = "${params.sentieon_container}"
+	container = "${params.container_sentieon}"
 
 	input:
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
@@ -314,7 +314,7 @@ process bwa_align {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
-	container = "${params.sentieon_container}"
+	container = "${params.container_sentieon}"
 
 	input:
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
@@ -373,7 +373,7 @@ process markdup {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.sentieon_container}"
+	container = "${params.container_sentieon}"
 	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
 	input:
@@ -436,7 +436,7 @@ process bqsr {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.sentieon_container}"
+	container = "${params.container_sentieon}"
 	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
 
 	input:
@@ -480,7 +480,7 @@ process sentieon_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.sentieon_container}"
+	container = "${params.container_sentieon}"
 
 	input:
 		set id, group, file(bam), file(bai) from qc_bam.mix(bam_qc_choice)
@@ -1091,7 +1091,7 @@ process dnascope {
 	// 12 GB peak giab //
 	time '4h'
 	tag "$id"
-	container = "${params.sentieon_container}"
+	container = "${params.container_sentieon}"
 
 	when:
 		params.varcall
@@ -1161,7 +1161,7 @@ process gvcf_combine {
 	tag "$group"
 	memory '5 GB'
 	time '5h'
-	container = "${params.sentieon_container}"
+	container = "${params.container_sentieon}"
 
 	input:
 		set group, id, file(vcf), file(idx) from complete_vcf_choice.groupTuple()
@@ -1415,7 +1415,7 @@ process sentieon_mitochondrial_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.sentieon_container}"
+	container = "${params.container_sentieon}"
 
 	when:
 	    params.antype == "wgs"
@@ -1899,8 +1899,8 @@ process annotate_vep {
 			--plugin LoFtool \\
 			--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
 			--plugin dbNSFP,$params.DBNSFP,transcript_match=1,REVEL_score,REVEL_rankscore \\
-			-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_grpmax,AF,grpmax \\
-			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_grpmax,AF,grpmax \\
+			-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
+			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
 			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
 			-custom $params.PHYLOP,phyloP100way,bigwig \\
 			-custom $params.PHASTCONS,phastCons,bigwig
