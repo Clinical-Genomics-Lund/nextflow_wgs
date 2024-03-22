@@ -3,6 +3,9 @@
 ### TBA
 * Add d4 coverage calculations to the workflow
 
+### 3.6.6
+* Fix genmod caller-penalty bug for GATK GQC vals ([#170](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/170))
+
 ### 3.6.5
 * Remove bgzip and gunzip from versions
 * Some cleanup in version documentation and code
