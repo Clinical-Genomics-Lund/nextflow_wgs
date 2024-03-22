@@ -154,7 +154,7 @@ Channel
 
 
 // Check whether genome assembly is indexed //
-if(genome_file){
+if(genome_file ){
 	bwaId = Channel
 			.fromPath("${genome_file}.bwt")
 			.ifEmpty { exit 1, "BWA index not found: ${genome_file}.bwt" }
@@ -168,7 +168,6 @@ process fastp {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.container_fastp}"
 
 	when:
 		params.umi
@@ -217,7 +216,6 @@ process bwa_align_sharded {
 	memory '120 GB'
 	tag "$id $shard"
 	time '5h'
-	container = "${params.sentieon_container}"
 
 	input:
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
@@ -267,7 +265,6 @@ process bwa_merge_shards {
 	tag "$id"
 	time '1h'
 	memory '120 GB'
-	container = "${params.sentieon_container}"
 
 	input:
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
@@ -314,7 +311,7 @@ process bwa_align {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
-	container = "${params.sentieon_container}"
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	input:
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
@@ -373,7 +370,7 @@ process markdup {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.sentieon_container}"
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
 	input:
@@ -436,7 +433,7 @@ process bqsr {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.sentieon_container}"
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
 
 	input:
@@ -480,27 +477,27 @@ process sentieon_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.sentieon_container}"
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	input:
-		set id, group, file(bam), file(bai) from qc_bam.mix(bam_qc_choice)
+		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
 
 	output:
-		set id, group, file("mq_metrics.txt"), file("qd_metrics.txt"), file("gc_summary.txt"), 
-			file("gc_metrics.txt"), file("aln_metrics.txt"), file("is_metrics.txt"), file("assay_metrics.txt"), 
-			file("cov_metrics.txt"), file("cov_metrics.txt.sample_summary") into ch_sentieon_qc_metrics
+		set group, id, file("${id}_qc.json") into qc_cdm
+		set group, id, file("${id}_qc.json") into qc_melt
+		file("*.txt")
 		set group, file("*versions.yml") into ch_sentieon_qc_versions
 
 	script:
 		target = ""
-		// A bit of cheating here - these are really optional arguments
-		panel_command = "touch cov_metrics.txt cov_metrics.txt.sample_summary"
-		cov = "WgsMetricsAlgo assay_metrics.txt"
-
-		if (params.onco || params.exome) {
+		panel = ""
+		cov = "WgsMetricsAlgo wgs_metrics.txt"
+		assay = "wgs"
+		if( params.onco || params.exome) {
 			target = "--interval $params.intervals"
+			panel = params.panelhs + "$bam" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
-			panel_command = "sentieon driver -r ${params.genome_file} -t ${params.cpu_all} -i ${bam} --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} assay_metrics.txt"
+			assay = "panel"
 		}
 		
 		"""
@@ -514,22 +511,16 @@ process sentieon_qc {
 			--algo AlignmentStat aln_metrics.txt \\
 			--algo InsertSizeMetricAlgo is_metrics.txt \\
 			--algo $cov
-		$panel_command
+		$panel
+		qc_sentieon.pl $id $assay > ${id}_qc.json
 
 		${sentieon_qc_version(task)}
 		"""
 
 	stub:
 		"""
-		touch "assay_metrics.txt"
-		touch "mq_metrics.txt"
-		touch "qd_metrics.txt"
-		touch "gc_summary.txt"
-		touch "gc_metrics.txt"
-		touch "aln_metrics.txt"
-		touch "is_metrics.txt"
-		touch "cov_metrics.txt"
-		touch "cov_metrics.txt.sample_summary"
+		touch "${id}_qc.json"
+		touch "${id}.txt"
 		${sentieon_qc_version(task)}
 		"""
 }
@@ -540,43 +531,6 @@ def sentieon_qc_version(task) {
 	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
 	END_VERSIONS
 	"""
-}
-
-process sentieon_qc_postprocess {
-	cpus 2
-	memory '10 GB'
-	tag "$id"
-	time '2h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	input:
-		set id, file(dedup) from dedupmet_sentieonqc.mix(dedup_dummy)
-		set id, group, file(mq_metrics), file(qd_metrics), file(gc_summary), file(gc_metrics), file(aln_metrics),
-			file(is_metrics), file(assay_metrics), file(cov_metrics), file(cov_metrics_sample_summary) from ch_sentieon_qc_metrics
-
-	output:
-		set group, id, file("${id}_qc.json") into qc_cdm
-		set group, id, file("${id}_qc.json") into qc_melt
-	
-	script:
-
-		assay = (params.onco || params.exome) ? "panel" : "wgs"
-		"""
-		qc_sentieon.pl \\
-			--SID ${id} \\
-			--type ${assay} \\
-			--align_metrics_file ${aln_metrics} \\
-			--insert_file ${is_metrics} \\
-			--dedup_metrics_file ${dedup} \\
-			--metrics_file ${assay_metrics} \\
-			--gcsummary_file ${gc_summary} \\
-			--coverage_file ${cov_metrics} \\
-			--coverage_file_summary ${cov_metrics_sample_summary} \\
-			> ${id}_qc.json
-		
-		"""
 }
 
 // Calculate coverage for chanjo
@@ -937,7 +891,6 @@ def vcfbreakmulti_expansionhunter_version(task) {
 	    vcflib: 1.0.9
 	    rename-sample-in-vcf: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf --version 2>&1) | sed 's/-SNAPSHOT//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	END_VERSIONS	
 	"""
 }
@@ -1092,13 +1045,13 @@ process dnascope {
 	// 12 GB peak giab //
 	time '4h'
 	tag "$id"
-	container = "${params.sentieon_container}"
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	when:
 		params.varcall
 
 	input:
-		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1])
+		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1] )
 
 	output:
 		set group, id, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
@@ -1162,7 +1115,7 @@ process gvcf_combine {
 	tag "$group"
 	memory '5 GB'
 	time '5h'
-	container = "${params.sentieon_container}"
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	input:
 		set group, id, file(vcf), file(idx) from complete_vcf_choice.groupTuple()
@@ -1416,7 +1369,7 @@ process sentieon_mitochondrial_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "${params.sentieon_container}"
+	container = "/fs1/resources/containers/sentieon_202112.sif"
 
 	when:
 	    params.antype == "wgs"
@@ -2173,8 +2126,6 @@ def add_cadd_scores_to_vcf_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    gunzip: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
 	END_VERSIONS
@@ -2188,7 +2139,7 @@ process inher_models {
 	cpus 6
 	memory '64 GB'
 	tag "$group"
-	time '30m'
+	time '10m'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
@@ -2330,7 +2281,6 @@ def vcf_completion_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	END_VERSIONS	
 	"""
@@ -2400,29 +2350,16 @@ process fastgnomad {
 
 	output:
 		set group, file("${group}.SNPs.vcf") into vcf_upd, vcf_roh, vcf_pod
-		set group, file("*versions.yml") into ch_fastgnomad_versions
 
 	script:
 		"""
 		gzip -c $vcf > ${vcf}.gz
 		annotate -g $params.FASTGNOMAD_REF -i ${vcf}.gz > ${group}.SNPs.vcf
-
-		${fastgnomad_version(task)}
 		"""
 
 	stub:
 		"""
 		touch "${group}.SNPs.vcf"
-
-		${fastgnomad_version(task)}
-		"""
-}
-def fastgnomad_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    gzip: \$(echo \$(gzip --version 2>&1) | sed 's/^.*gzip // ; s/Copyright.*//' )
-	END_VERSIONS	
 	"""
 }
 
@@ -3669,8 +3606,6 @@ def score_sv_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    gunzip: \$(echo \$(gunzip --version 2>&1) | sed -e "s/^.*(gzip) // ; s/Copyright.*//")
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
@@ -3730,7 +3665,6 @@ def compound_finder_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    bgzip: \$(echo \$(bgzip --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	END_VERSIONS	
 	"""
@@ -3891,7 +3825,6 @@ process combine_versions {
 			ch_genmodscore_versions.first(),
 			ch_vcf_completion_versions.first(),
 			ch_peddy_versions.first(),
-			ch_fastgnomad_versions.first(),
 			ch_upd_versions.first(),
 			ch_roh_versions.first(),
 			ch_gatkcov_versions.first(),
