@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### [TBA]
+* Update Gnomad to v4 
+* Update popmax attribute to grpmax (same attribute renamed in v4: https://gnomad.broadinstitute.org/news/2023-11-genetic-ancestry/)
+
 ### 3.6.6
 * Fix genmod caller-penalty bug for GATK GQC vals ([#170](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/170))
 
