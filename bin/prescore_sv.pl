@@ -399,7 +399,7 @@ sub readSV {
 				$gatk_count++;
 			}
 			$gatkqc = ($gatkqc/$gatk_count);
-			$INFO{ GQC } = $gatkqc;
+			$INFO{ GQC } = int($gatkqc);
 		}
 		## if only found in cnvnator
 		if ($$callers[0] == 1 && $$callers[1] == 0 && $$callers[2] == 0) {

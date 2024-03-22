@@ -8,6 +8,13 @@
 * Update intersect file to latest used version of ClinVar (20231230)
 * Update fastp version (0.23.4)
 
+### 3.6.6
+* Fix genmod caller-penalty bug for GATK GQC vals ([#170](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/170))
+
+### 3.6.5
+* Remove bgzip and gunzip from versions
+* Some cleanup in version documentation and code
+
 ### 3.6.4
 * Use new docs as main entry point in repo
 * Start removing old docs
