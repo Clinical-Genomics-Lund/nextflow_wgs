@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.7.6
+* Add d4 coverage calculations to the workflow
+
 ### 3.6.6
 * Fix genmod caller-penalty bug for GATK GQC vals ([#170](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/170))
 
@@ -29,7 +32,7 @@
 * Changes has been verified, report can be found internally
 
 ### 3.5.10
-* changed path to normal-pool-refs for gens. Uses masked hg38 references
+* Changed path to normal-pool-refs for gens. Uses masked hg38 references
 
 ### 3.5.9
 
