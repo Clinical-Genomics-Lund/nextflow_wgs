@@ -1,6 +1,6 @@
 # CHANGELOG
 
-### TBA
+### 3.7.6
 * Add d4 coverage calculations to the workflow
 
 ### 3.6.6
