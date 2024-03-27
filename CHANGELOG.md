@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ### [Unreleased]
+	
 * Give the Sentieon container path by a parameter in the config file
 * Update the Sentieon container to 202308 version
 * Split out the `sentieon_qc` post-processing into its own process `sentieon_qc_postprocess`
@@ -19,7 +20,8 @@
 * Tentative update of scout ranking.  
 * cleanVCF.py now removes records missing CSQ-field.
 * Add `SVTYPE` VEP 111 bug workaround in `vep_sv` process. (See  [Ensembl/ensembl-vep#1631](https://github.com/Ensembl/ensembl-vep/issues/1631#issuecomment-1985973568))
-
+* Add provisional wgs rank models with missing VEP 111 consequences
+	
 ### 3.6.6
 * Fix genmod caller-penalty bug for GATK GQC vals ([#170](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/170))
 
