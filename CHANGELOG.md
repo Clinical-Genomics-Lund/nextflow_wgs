@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.7.7
+#### create_yml.pl
+* small name change for myeloid constitutional to match clarity
+* removed custom_images header for samples without images as pydantic would crash in scout load
+
 ### 3.7.6
 * Add d4 coverage calculations to the workflow
 
