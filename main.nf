@@ -41,6 +41,7 @@ workflow.onComplete {
 		Success     : ${workflow.success}
 		scriptFile  : ${workflow.scriptFile}
 		workDir     : ${workflow.workDir}
+		csv         : ${params.csv}
 		exit status : ${workflow.exitStatus}
 		errorMessage: ${workflow.errorMessage}
 		errorReport :
