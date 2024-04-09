@@ -694,7 +694,7 @@ process add_chanjo2 {
 	publishDir "${CRONDIR}/chanjo2", mode: 'copy', overwrite: 'true', pattern: "*.chanjo2"
 	tag "$id"
 	memory '1 MB'
-	time '5m'
+	time '20m'
 
 	when:
 		!params.noupload
