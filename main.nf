@@ -653,7 +653,7 @@ def d4_intersect_index_bam_version(task) {
 process d4_coverage {
 	cpus 16
 	memory '10 GB'
-	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: "*.d4"
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
 	publishDir "${CRONDIR}/chanjo2", mode: 'copy', overwrite: 'true', pattern: "*.chanjo2"
 	tag "$id"
 	container = "${params.d4tools_container}"
