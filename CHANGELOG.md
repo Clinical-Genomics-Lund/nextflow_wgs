@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.7.8?
+* added csv-file to onComplete function to accomodate CCCP
+
 ### 3.7.7
 #### create_yml.pl
 * small name change for myeloid constitutional to match clarity
