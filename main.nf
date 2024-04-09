@@ -653,7 +653,8 @@ def d4_intersect_index_bam_version(task) {
 process d4_coverage {
 	cpus 16
 	memory '10 GB'
-	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: "*.d4"
+	publishDir "${CRONDIR}/chanjo2", mode: 'copy', overwrite: 'true', pattern: "*.chanjo2"
 	tag "$id"
 	container = "${params.d4tools_container}"
 
@@ -670,12 +671,14 @@ process d4_coverage {
 		--threads ${task.cpus} \\
 		"${bam}" \\
 		"${id}_coverage.d4"
+	echo "scout update individual -c $id -n $id d4_file ${params.accessdir}/cov/${id}_coverage.d4" > ${id}.chanjo2
 	${d4_coverage_version(task)}
 	"""
 
 	stub:
 	"""
 	touch "${id}_coverage.d4"
+	touch "${id}.chanjo2"
 	${d4_coverage_version(task)}
 	"""
 }
