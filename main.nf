@@ -654,7 +654,6 @@ process d4_coverage {
 	cpus 16
 	memory '10 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
-	publishDir "${CRONDIR}/chanjo2", mode: 'copy', overwrite: 'true', pattern: "*.chanjo2"
 	tag "$id"
 	container = "${params.d4tools_container}"
 
@@ -663,6 +662,7 @@ process d4_coverage {
 
 	output:
 		file("${id}_coverage.d4")
+		set group, id, file("${id}_coverage.d4") into ch_final_d4
 		set group, file("*versions.yml") into ch_d4_coverage_versions
 
 	script:
@@ -671,14 +671,12 @@ process d4_coverage {
 		--threads ${task.cpus} \\
 		"${bam}" \\
 		"${id}_coverage.d4"
-	echo "scout update individual -c $id -n $id d4_file ${params.accessdir}/cov/${id}_coverage.d4" > ${id}.chanjo2
 	${d4_coverage_version(task)}
 	"""
 
 	stub:
 	"""
 	touch "${id}_coverage.d4"
-	touch "${id}.chanjo2"
 	${d4_coverage_version(task)}
 	"""
 }
@@ -689,6 +687,33 @@ def d4_coverage_version(task) {
 	    d4tools: \$(echo \$( d4tools 2>&1 | head -1 ) | sed "s/.*version: //" | sed "s/)//" )
 	END_VERSIONS
 	"""
+}
+
+process add_chanjo2 {
+	cpus 1
+	publishDir "${CRONDIR}/chanjo2", mode: 'copy', overwrite: 'true', pattern: "*.chanjo2"
+	tag "$id"
+	memory '1 MB'
+	time '5m'
+
+	when:
+		!params.noupload
+	
+	input:
+		set group, id, file(d4) from ch_final_d4
+	
+	output:
+		file("${id}.chanjo2") into chanjo2_middleman
+
+	script:
+		"""
+		echo "scout update individual -c $id -n $id d4_file ${params.accessdir}/cov/${d4}" > ${id}.chanjo2
+		"""
+	
+	stub:
+		"""
+		touch "${id}.chanjo2"
+		"""
 }
 
 
