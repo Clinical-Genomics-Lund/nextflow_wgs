@@ -156,7 +156,7 @@ Channel
 
 
 // Check whether genome assembly is indexed //
-if(genome_file ){
+if(genome_file){
 	bwaId = Channel
 			.fromPath("${genome_file}.bwt")
 			.ifEmpty { exit 1, "BWA index not found: ${genome_file}.bwt" }
@@ -170,6 +170,7 @@ process fastp {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
+	container = "${params.container_fastp}"
 
 	when:
 		params.umi
@@ -218,6 +219,7 @@ process bwa_align_sharded {
 	memory '120 GB'
 	tag "$id $shard"
 	time '5h'
+	container = "${params.container_sentieon}"
 
 	input:
 		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
@@ -267,6 +269,7 @@ process bwa_merge_shards {
 	tag "$id"
 	time '1h'
 	memory '120 GB'
+	container = "${params.container_sentieon}"
 
 	input:
 		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
@@ -313,7 +316,7 @@ process bwa_align {
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.container_sentieon}"
 
 	input:
 		set val(group), val(id), file(r1), file(r2) from fastq.mix(fastq_trimmed)
@@ -372,7 +375,7 @@ process markdup {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.container_sentieon}"
 	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
 	input:
@@ -435,7 +438,7 @@ process bqsr {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.container_sentieon}"
 	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
 
 	input:
@@ -479,27 +482,27 @@ process sentieon_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.container_sentieon}"
 
 	input:
-		set id, group, file(bam), file(bai), file(dedup) from qc_bam.mix(bam_qc_choice).join(dedupmet_sentieonqc.mix(dedup_dummy))
+		set id, group, file(bam), file(bai) from qc_bam.mix(bam_qc_choice)
 
 	output:
-		set group, id, file("${id}_qc.json") into qc_cdm
-		set group, id, file("${id}_qc.json") into qc_melt
-		file("*.txt")
+		set id, group, file("mq_metrics.txt"), file("qd_metrics.txt"), file("gc_summary.txt"), 
+			file("gc_metrics.txt"), file("aln_metrics.txt"), file("is_metrics.txt"), file("assay_metrics.txt"), 
+			file("cov_metrics.txt"), file("cov_metrics.txt.sample_summary") into ch_sentieon_qc_metrics
 		set group, file("*versions.yml") into ch_sentieon_qc_versions
 
 	script:
 		target = ""
-		panel = ""
-		cov = "WgsMetricsAlgo wgs_metrics.txt"
-		assay = "wgs"
-		if( params.onco || params.exome) {
+		// A bit of cheating here - these are really optional arguments
+		panel_command = "touch cov_metrics.txt cov_metrics.txt.sample_summary"
+		cov = "WgsMetricsAlgo assay_metrics.txt"
+
+		if (params.onco || params.exome) {
 			target = "--interval $params.intervals"
-			panel = params.panelhs + "$bam" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
-			assay = "panel"
+			panel_command = "sentieon driver -r ${params.genome_file} -t ${params.cpu_all} -i ${bam} --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} assay_metrics.txt"
 		}
 		
 		"""
@@ -513,16 +516,22 @@ process sentieon_qc {
 			--algo AlignmentStat aln_metrics.txt \\
 			--algo InsertSizeMetricAlgo is_metrics.txt \\
 			--algo $cov
-		$panel
-		qc_sentieon.pl $id $assay > ${id}_qc.json
+		$panel_command
 
 		${sentieon_qc_version(task)}
 		"""
 
 	stub:
 		"""
-		touch "${id}_qc.json"
-		touch "${id}.txt"
+		touch "assay_metrics.txt"
+		touch "mq_metrics.txt"
+		touch "qd_metrics.txt"
+		touch "gc_summary.txt"
+		touch "gc_metrics.txt"
+		touch "aln_metrics.txt"
+		touch "is_metrics.txt"
+		touch "cov_metrics.txt"
+		touch "cov_metrics.txt.sample_summary"
 		${sentieon_qc_version(task)}
 		"""
 }
@@ -533,6 +542,43 @@ def sentieon_qc_version(task) {
 	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
 	END_VERSIONS
 	"""
+}
+
+process sentieon_qc_postprocess {
+	cpus 2
+	memory '10 GB'
+	tag "$id"
+	time '2h'
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+
+	input:
+		set id, file(dedup) from dedupmet_sentieonqc.mix(dedup_dummy)
+		set id, group, file(mq_metrics), file(qd_metrics), file(gc_summary), file(gc_metrics), file(aln_metrics),
+			file(is_metrics), file(assay_metrics), file(cov_metrics), file(cov_metrics_sample_summary) from ch_sentieon_qc_metrics
+
+	output:
+		set group, id, file("${id}_qc.json") into qc_cdm
+		set group, id, file("${id}_qc.json") into qc_melt
+	
+	script:
+
+		assay = (params.onco || params.exome) ? "panel" : "wgs"
+		"""
+		qc_sentieon.pl \\
+			--SID ${id} \\
+			--type ${assay} \\
+			--align_metrics_file ${aln_metrics} \\
+			--insert_file ${is_metrics} \\
+			--dedup_metrics_file ${dedup} \\
+			--metrics_file ${assay_metrics} \\
+			--gcsummary_file ${gc_summary} \\
+			--coverage_file ${cov_metrics} \\
+			--coverage_file_summary ${cov_metrics_sample_summary} \\
+			> ${id}_qc.json
+		
+		"""
 }
 
 // Calculate coverage for chanjo
@@ -1189,13 +1235,13 @@ process dnascope {
 	// 12 GB peak giab //
 	time '4h'
 	tag "$id"
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.container_sentieon}"
 
 	when:
 		params.varcall
 
 	input:
-		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1] )
+		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1])
 
 	output:
 		set group, id, file("${id}.dnascope.gvcf.gz"), file("${id}.dnascope.gvcf.gz.tbi") into complete_vcf_choice
@@ -1259,7 +1305,7 @@ process gvcf_combine {
 	tag "$group"
 	memory '5 GB'
 	time '5h'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.container_sentieon}"
 
 	input:
 		set group, id, file(vcf), file(idx) from complete_vcf_choice.groupTuple()
@@ -1513,7 +1559,7 @@ process sentieon_mitochondrial_qc {
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
-	container = "/fs1/resources/containers/sentieon_202112.sif"
+	container = "${params.container_sentieon}"
 
 	when:
 	    params.antype == "wgs"
@@ -1959,7 +2005,7 @@ process qc_to_cdm {
     
     
 process annotate_vep {
-	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
+	container = "${params.container_vep}"
 	cpus 54
 	tag "$group"
 	memory '150 GB'
@@ -1981,17 +2027,17 @@ process annotate_vep {
 			-i ${vcf} \\
 			-o ${group}.vep.vcf \\
 			--offline \\
-			--everything \\
+			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
 			--merged \\
 			--vcf \\
 			--no_stats \\
-			--synonyms $params.SYNONYMS \\
+			--synonyms $params.VEP_SYNONYMS \\
 			--fork ${task.cpus} \\
 			--force_overwrite \\
 			--fasta $params.VEP_FASTA \\
 			--dir_cache $params.VEP_CACHE \\
-			--dir_plugins $params.VEP_CACHE/Plugins \\
-			--distance 200 \\
+			--dir_plugins $params.VEP_PLUGINS \\
+			--distance $params.VEP_TRANSCRIPT_DISTANCE \\
 			-cache \\
 			--plugin CADD,$params.CADD \\
 			--plugin LoFtool \\
@@ -2148,7 +2194,7 @@ def extract_indels_for_cadd_version(task) {
 // Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
 process indel_vep {
 	cpus 5
-	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
+	container = "${params.container_vep}"
 	tag "$group"
 	memory '10 GB'
 	time '3h'
@@ -2169,7 +2215,7 @@ process indel_vep {
 			--cache \\
 			--merged \\
 			--vcf \\
-			--synonyms $params.SYNONYMS \\
+			--synonyms $params.VEP_SYNONYMS \\
 			--fasta $params.VEP_FASTA \\
 			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
 			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
@@ -2283,7 +2329,7 @@ process inher_models {
 	cpus 6
 	memory '64 GB'
 	tag "$group"
-	time '10m'
+	time '30m'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
@@ -3520,7 +3566,7 @@ def annotsv_version(task) {
 
 process vep_sv {
 	cpus 56
-	container = '/fs1/resources/containers/ensembl-vep_release_103.sif'
+	container = "${params.container_vep}"
 	tag "$group"
 	memory '150 GB'
 	time '1h'
@@ -3534,13 +3580,19 @@ process vep_sv {
 
 	script:
 		"""
+
+		# Temporary fix for VEP 111.0 annotation bug, where certain MANTA indels are being skipped by VEP
+		# See: https://github.com/Ensembl/ensembl-vep/issues/1631#issuecomment-1985973568
+
+		sed 's/SVTYPE=/BAZBAZ=/' $vcf > ${group}.vep111-workaround.vcf
+
 		vep \\
-			-i $vcf \\
+			-i ${group}.vep111-workaround.vcf \\
 			-o ${group}.vep.vcf \\
 			--offline \\
 			--merged \\
-			--everything \\
-			--synonyms $params.SYNONYMS \\
+			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
+			--synonyms $params.VEP_SYNONYMS \\
 			--vcf \\
 			--no_stats \\
 			--fork ${task.cpus} \\
@@ -3548,10 +3600,13 @@ process vep_sv {
 			--plugin LoFtool \\
 			--fasta $params.VEP_FASTA \\
 			--dir_cache $params.VEP_CACHE \\
-			--dir_plugins $params.VEP_CACHE/Plugins \\
-			--max_sv_size 50000000 \\
-			--distance 200 -cache
+			--dir_plugins $params.VEP_PLUGINS \\
+			--max_sv_size $params.VEP_MAX_SV_SIZE \\
+			--distance $params.VEP_TRANSCRIPT_DISTANCE \\
+			-cache
 
+		# Re-enable SVTYPE:
+		sed -i 's/BAZBAZ=/SVTYPE=/' ${group}.vep.vcf
 		${vep_sv_version(task)}
 		"""
 
