@@ -1,6 +1,6 @@
 # CHANGELOG
 
-### [Unreleased]
+### 3.8.0
 	
 * Give the Sentieon container path by a parameter in the config file
 * Update the Sentieon container to 202308 version
@@ -23,6 +23,21 @@
 * Add VEP105 - 111 annotations to all rank models in use
 * Fix onco model filename version (v5 rank model was misnamed as v4 in production)
 	
+### 3.7.9
+* Add CRON file to load Chanjo2
+
+### 3.7.8
+* added csv-file to onComplete function to accomodate CCCP
+
+### 3.7.7
+#### create_yml.pl
+* small name change for myeloid constitutional to match clarity
+* removed custom_images header for samples without images as pydantic would crash in scout load
+
+### 3.7.6
+* Add d4 coverage calculations to the workflow
+
+>>>>>>> 5d7bc67a6008752cb9ab3b8f85009fb61982e331
 ### 3.6.6
 * Fix genmod caller-penalty bug for GATK GQC vals ([#170](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/170))
 
@@ -52,7 +67,7 @@
 * Changes has been verified, report can be found internally
 
 ### 3.5.10
-* changed path to normal-pool-refs for gens. Uses masked hg38 references
+* Changed path to normal-pool-refs for gens. Uses masked hg38 references
 
 ### 3.5.9
 * Add first iteration of updated documentation

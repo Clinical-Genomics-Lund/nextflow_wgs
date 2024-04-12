@@ -41,6 +41,7 @@ workflow.onComplete {
 		Success     : ${workflow.success}
 		scriptFile  : ${workflow.scriptFile}
 		workDir     : ${workflow.workDir}
+		csv         : ${params.csv}
 		exit status : ${workflow.exitStatus}
 		errorMessage: ${workflow.errorMessage}
 		errorReport :
@@ -89,7 +90,8 @@ bam_choice.into{
 	expansionhunter_bam_choice; 
 	dnascope_bam_choice;
 	bampath_start;
-	chanjo_bam_choice; 
+	chanjo_bam_choice;
+	d4_bam_choice;
 	yaml_bam_choice; 
 	cov_bam_choice; 
 	bam_manta_choice; 
@@ -380,7 +382,7 @@ process markdup {
 		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
 
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
 		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
@@ -619,6 +621,148 @@ def chanjo_sambamba_version(task) {
 	END_VERSIONS
 	"""
 }
+
+process d4_intersect_bam {
+	cpus 2
+	memory '10 GB'
+	tag "$id"
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+
+	when:
+		params.varcall
+
+	input:
+		set group, id, file(bam), file(bai) from d4_bam.mix(d4_bam_choice)
+	
+	output:
+		set group, id, file("*.bam") into d4_bam_intersected
+		set group, file("*versions.yml") into ch_d4_intersect_bam_versions
+
+	script:
+	"""
+	bedtools intersect \\
+		-a "${bam}" \\
+		-b "${params.scoutbed}" \\
+		> "${group}_intersected.bam"
+	${d4_intersect_bam_version(task)}
+	"""
+
+	stub:
+	"""
+	touch "${group}_intersected.bam"
+	${d4_intersect_bam_version(task)}
+	"""
+}
+def d4_intersect_bam_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    bedtools: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
+	END_VERSIONS
+	"""
+}
+
+process d4_intersect_index_bam {
+	cpus 2
+	memory '10 GB'
+	tag "$id"
+
+	input:
+		set group, id, file(bam) from d4_bam_intersected
+
+	output:
+		set group, id, file(bam), file("*.bai") into d4_bam_intersected_indexed
+		set group, file("*versions.yml") into ch_d4_intersect_index_bam_versions
+	
+	script:
+	"""
+	samtools index "${bam}"
+	${d4_intersect_index_bam_version(task)}
+	"""
+
+	stub:
+	"""
+	touch "${bam}.bai"
+	${d4_intersect_index_bam_version(task)}
+	"""
+}
+def d4_intersect_index_bam_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    samtools: \$(echo \$(samtools --version) | head -1 | cut -f2 -d" " )
+	END_VERSIONS
+	"""
+}
+
+process d4_coverage {
+	cpus 16
+	memory '10 GB'
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
+	tag "$id"
+	container = "${params.d4tools_container}"
+
+	input:
+		set group, id, file(bam), file(bai) from d4_bam_intersected_indexed
+
+	output:
+		file("${id}_coverage.d4")
+		set group, id, file("${id}_coverage.d4") into ch_final_d4
+		set group, file("*versions.yml") into ch_d4_coverage_versions
+
+	script:
+	"""
+	d4tools create \\
+		--threads ${task.cpus} \\
+		"${bam}" \\
+		"${id}_coverage.d4"
+	${d4_coverage_version(task)}
+	"""
+
+	stub:
+	"""
+	touch "${id}_coverage.d4"
+	${d4_coverage_version(task)}
+	"""
+}
+def d4_coverage_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    d4tools: \$(echo \$( d4tools 2>&1 | head -1 ) | sed "s/.*version: //" | sed "s/)//" )
+	END_VERSIONS
+	"""
+}
+
+process add_chanjo2 {
+	cpus 1
+	publishDir "${CRONDIR}/chanjo2", mode: 'copy', overwrite: 'true', pattern: "*.chanjo2"
+	tag "$id"
+	memory '1 MB'
+	time '20m'
+
+	when:
+		!params.noupload
+	
+	input:
+		set group, id, file(d4) from ch_final_d4
+	
+	output:
+		file("${id}.chanjo2") into chanjo2_middleman
+
+	script:
+		"""
+		echo "scout update individual -c $id -n $id d4_file ${params.accessdir}/cov/${d4}" > ${id}.chanjo2
+		"""
+	
+	stub:
+		"""
+		touch "${id}.chanjo2"
+		"""
+}
+
 
 // Calculate coverage for paneldepth
 process depth_onco {
@@ -3851,6 +3995,9 @@ process combine_versions {
 			ch_bqsr_versions.first(),
 			ch_sentieon_qc_versions.first(),
 			ch_chanjo_sambamba_versions.first(),
+			ch_d4_intersect_bam_versions.first(),
+			ch_d4_intersect_index_bam_versions.first(),
+			ch_d4_coverage_versions.first(),
 			ch_smn_copy_number_caller_versions.first(),
 			ch_expansionhunter_versions.first(),
 			ch_stranger_versions.first(),
