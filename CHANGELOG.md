@@ -1,27 +1,5 @@
 # CHANGELOG
 
-### 3.8.0
-	
-* Give the Sentieon container path by a parameter in the config file
-* Update the Sentieon container to 202308 version
-* Split out the `sentieon_qc` post-processing into its own process `sentieon_qc_postprocess`
-* Update the Perl script used in `sentieon_qc_postprocess` to take input parameters as explicit arguments
-* Update intersect file to latest used version of ClinVar (20231230)
-* Update fastp to 0.23.4 and move to own container to fix reproducibility issue ([#143](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/143))
-* Update CADD to v1.7
-* Increase `inher_models` processing time
-* Updated VEP from 103.0 to 111.0
-* Updated VEP fasta from 98.0 to 111.0
-* Updated VEP cache from 103.0 to 111.0
-* Moved VEP parameters from processes to config
-* Disabled vep `--everything` to disable VEP annotation w/ GNOMAD
-* Removed deprecated `--af_esp` from `--everything`
-* Tentative update of scout ranking.  
-* cleanVCF.py now removes records missing CSQ-field.
-* Add `SVTYPE` VEP 111 bug workaround in `vep_sv` process. (See  [Ensembl/ensembl-vep#1631](https://github.com/Ensembl/ensembl-vep/issues/1631#issuecomment-1985973568))
-* Add VEP105 - 111 annotations to all rank models in use
-* Fix onco model filename version (v5 rank model was misnamed as v4 in production)
-	
 ### 3.7.9
 * Add CRON file to load Chanjo2
 
@@ -61,29 +39,35 @@
 
 ### 3.6.0
 * Changed melt configs, added flags: exome, removed flags: cov (was being used improperly)
-* Added priors to `mei_list`, and changed `mei_list` to a new location in config
+* Added priors to mei_list, and changed mei_list to a new location in config
 * Changes has been verified, report can be found internally
 
 ### 3.5.10
 * Changed path to normal-pool-refs for gens. Uses masked hg38 references
 
 ### 3.5.9
+
 * Add first iteration of updated documentation
 
 ### 3.5.8
+
 * Move out resource files from `main.nf` to `nextflow.config`
 * Move the selected fields for PHYLOP and PHASTCONS in vep to be specified in the process, similarly to the other plugins/custom fields
 
 ### 3.5.7
+
 * Clean out unused files in repo root directory
 
 ### 3.5.6
+
 * Add Github PR template/test documentation
 
 ### 3.5.5
+
 * Update the cron log directory to use the `params.crondir` folder as base
 
 ### 3.5.4
+
 * Add version outputs from all processes that use external software.
 * Add stubs to processes to allow performing stub runs.
 
@@ -94,7 +78,8 @@
 - MELT is no longer filtered on location based upon regex names INTRONIC/null/PROMOTER, instead added a intersect towards bedfile. This will show splice site variants
 
 ### 3.5.1
-* Add REVEL (Rare Exome Variant Ensemble Learner) Scores to VEP annotations (VEP `REVEL_rankscore` and `REVEL_score`)
+
+* Add REVEL (Rare Exome Variant Ensemble Learner) Scores to VEP annotations (VEP REVEL_rankscore and REVEL_score)
 	
 ### 3.5.0
 
@@ -226,7 +211,7 @@
 
 ### 3.0.5
 #### new funcion
-- GENS middleman command added to `generate_gens_data`. Needed for loading of data into GENS thorugh cron and middleman
+- GENS middleman command added to generate_gens_data. Needed for loading of data into GENS thorugh cron and middleman
 #### bug fixees
 - REViewer now loops through a perl shell script instead of bash. Low covered loci error no longer crash all other svg-image generation
 - fixed a typo which named all svgs as 7156, a validation and verification sample
@@ -258,7 +243,7 @@ new functions
   - haplogrep
   - eklipse
   - modifications to filter_indels (new VEP fields)
-  - modifications to `modify_vcf_scout.pl`, ignore maxentscan for M
+  - modifications to modify_vcf_scout.pl, ignore maxentscan for M
 - added SMNCopyNumberCalling
 - New VEP container and version (103)
 - gatk cnv calling
@@ -297,7 +282,7 @@ new functions
 - rescore.nf had wrongly named variable in output for bamfiles 
 
 ### 2.1.8
-- create\_yml.pl now recieved gene_panel content from hopper-json. no longer require scout-vm connectivity
+- create_yml.pl now recieved gene_panel content from hopper-json. no longer require scout-vm connectivity
 
 ### 2.1.7
 - clincalwes now has correct loqusdb not piggybacking of onco
@@ -307,7 +292,7 @@ new functions
 
 ### 2.1.5
 
-- create\_yml.pl added ahus analysis for wgs_hg38 assay. Stinking mess initiated, please correct
+- create_yml.pl added ahus analysis for wgs_hg38 assay. Stinking mess initiated, please correct
 
 ### 2.1.4
 
@@ -343,7 +328,7 @@ new functions
 #### Features
 - added specific delly filtering script
   - now correctly filters breakpoints outside panel
-- `filter_panel_cnv.pl` now only annotates for scout
+- filter_panel_cnv.pl now only annotates for scout
   - delly precise/imprecise annotation
 - new artifact database for SV-calling for WGS and oncogenetics
 
