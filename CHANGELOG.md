@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.7.10
+* Tag Mitochondrial variants with GQ, loqusdb enabling
+
 ### 3.7.9
 * Add CRON file to load Chanjo2
 
