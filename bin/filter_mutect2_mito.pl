@@ -17,10 +17,10 @@ my $index;
 my $vcf = CMD::vcf2->new('file'=>$ARGV[0] );
 my $proband = $ARGV[1];
 print $vcf->{header_str};
-while ( my $a = $vcf->next_var() ) {    
+while ( my $vcf_rec = $vcf->next_var() ) {    
     if ($line == 1) {
         my $count = 0;
-        foreach my $ind (@{ $a->{GT} }) {
+        foreach my $ind (@{ $vcf_rec->{GT} }) {
             if ($ind->{_sample_id} eq $proband) {
                 $index = $count;
             }
@@ -28,13 +28,15 @@ while ( my $a = $vcf->next_var() ) {
         }
     }
     ## variant exist in proband
-    if ($a->{GT}->[$index]->{GT} =~ /1/) {
+    if ($vcf_rec->{GT}->[$index]->{GT} =~ /1/) {
         ## variant has at least 50 depth    
-        if ($a->{GT}->[$index]->{DP} > 50) {
-            my $gt = genotype_quality($a->{GT});
-            $a->{GT} = $gt;
-            push (@{$a->{FORMAT}},"GQ");
-            my $vcfstr = vcfstr($a,[]);
+        if ($vcf_rec->{GT}->[$index]->{DP} > 50) {
+            my $quality = 99;
+            my $af_thres = 0.99;
+            my $gt = genotype_quality($vcf_rec->{GT},$quality,$af_thres);
+            $vcf_rec->{GT} = $gt;
+            push (@{$vcf_rec->{FORMAT}},"GQ");
+            my $vcfstr = vcfstr($vcf_rec,[]);
             print $vcfstr;
         }
     }
@@ -45,10 +47,12 @@ sub genotype_quality {
     # Add placeholder 99 GQ to each individual
     # Also update genotype to 1/1 if AF>99%
     my $gt = shift;
+    my $quality = shift;
+    my $af_thres = shift;
     my $c = 0;
     foreach my $ind ( @{ $gt }) {
-       $gt->[$c]->{GQ} = 99;
-       if ($ind->{AF} >= 0.99) {
+       $gt->[$c]->{GQ} = $quality;
+       if ($ind->{AF} >= $af_thres) {
             $gt->[$c]->{GT} = '1/1';
        }
        $c++;
