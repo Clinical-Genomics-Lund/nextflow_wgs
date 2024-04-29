@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### TBD
+* Add d4 file path directly to Scout YAML
+
 ### 3.7.10
 * Tag Mitochondrial variants with GQ, loqusdb enabling
 

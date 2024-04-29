@@ -651,9 +651,6 @@ def d4_intersect_index_bam_version(task) {
 	"""
 }
 
-// set group, file("${group}_bam.INFO") into bam_INFO
-// echo "BAM	$id	/access/${params.subdir}/bam/${id}_dedup.bam" > ${group}_bam.INFO
-
 process d4_coverage {
 	cpus 16
 	memory '10 GB'
