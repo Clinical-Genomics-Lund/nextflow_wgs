@@ -699,34 +699,6 @@ def d4_coverage_version(task) {
 	"""
 }
 
-process add_chanjo2 {
-	cpus 1
-	publishDir "${CRONDIR}/chanjo2", mode: 'copy', overwrite: 'true', pattern: "*.chanjo2"
-	tag "$id"
-	memory '1 MB'
-	time '20m'
-
-	when:
-		!params.noupload
-	
-	input:
-		set group, id, file(d4) from ch_final_d4
-	
-	output:
-		file("${id}.chanjo2") into chanjo2_middleman
-
-	script:
-		"""
-		echo "scout update individual -c $id -n $id d4_file ${params.accessdir}/cov/${d4}" > ${id}.chanjo2
-		"""
-	
-	stub:
-		"""
-		touch "${id}.chanjo2"
-		"""
-}
-
-
 // Calculate coverage for paneldepth
 process depth_onco {
 	cpus 2
