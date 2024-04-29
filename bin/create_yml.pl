@@ -143,7 +143,7 @@ while ( <INFO> ) {
         $INFO{mtBAM}->{$tmp[1]} = $tmp[2];
     }
     elsif ($tmp[0] eq "D4") {
-        $INFO{D4}->{$tmp[1]} = $tmp[2]
+        $INFO{D4}->{$tmp[1]} = $tmp[2];
     }
     elsif ($tmp[0] eq "IMG") {
         $INFO{IMG}->{$tmp[1]} = $tmp[2];
@@ -262,7 +262,7 @@ foreach my $ind (@inher_patterns) {
             print OUT "    mt_bam: $INFO{mtBAM}{$pedline[1]}\n";
         }
         if ($INFO{D4}{$pedline[1]}) {
-            print OUT "    d4_file: $INFO{D4}{$pedline[1]}\n"
+            print OUT "    d4_file: $INFO{D4}{$pedline[1]}\n";
         }
     }
     ##########################################
