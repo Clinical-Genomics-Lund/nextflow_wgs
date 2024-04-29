@@ -651,6 +651,9 @@ def d4_intersect_index_bam_version(task) {
 	"""
 }
 
+// set group, file("${group}_bam.INFO") into bam_INFO
+// echo "BAM	$id	/access/${params.subdir}/bam/${id}_dedup.bam" > ${group}_bam.INFO
+
 process d4_coverage {
 	cpus 16
 	memory '10 GB'
@@ -665,6 +668,7 @@ process d4_coverage {
 		file("${id}_coverage.d4")
 		set group, id, file("${id}_coverage.d4") into ch_final_d4
 		set group, file("*versions.yml") into ch_d4_coverage_versions
+		set group, file("${group}_d4.INFO") into d4_INFO
 
 	script:
 	"""
@@ -672,12 +676,17 @@ process d4_coverage {
 		--threads ${task.cpus} \\
 		"${bam}" \\
 		"${id}_coverage.d4"
+
+	echo "D4	$id	/access/${params.subdir}/cov/${id}_coverage.d4" > ${group}_d4.INFO
+
 	${d4_coverage_version(task)}
 	"""
 
 	stub:
 	"""
 	touch "${id}_coverage.d4"
+	touch "${group}_d4.INFO"
+
 	${d4_coverage_version(task)}
 	"""
 }
@@ -3821,7 +3830,7 @@ process output_files {
 	time '2m'
 
 	input:
-		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO).groupTuple()
+		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO,d4_INFO).groupTuple()
 
 	output:
 		set group, file("${group}.INFO") into yaml_INFO
