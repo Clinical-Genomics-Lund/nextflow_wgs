@@ -665,6 +665,7 @@ process d4_coverage {
 		file("${id}_coverage.d4")
 		set group, id, file("${id}_coverage.d4") into ch_final_d4
 		set group, file("*versions.yml") into ch_d4_coverage_versions
+		set group, file("${group}_d4.INFO") into d4_INFO
 
 	script:
 	"""
@@ -672,12 +673,17 @@ process d4_coverage {
 		--threads ${task.cpus} \\
 		"${bam}" \\
 		"${id}_coverage.d4"
+
+	echo "D4	$id	/access/${params.subdir}/cov/${id}_coverage.d4" > ${group}_d4.INFO
+
 	${d4_coverage_version(task)}
 	"""
 
 	stub:
 	"""
 	touch "${id}_coverage.d4"
+	touch "${group}_d4.INFO"
+
 	${d4_coverage_version(task)}
 	"""
 }
@@ -689,34 +695,6 @@ def d4_coverage_version(task) {
 	END_VERSIONS
 	"""
 }
-
-process add_chanjo2 {
-	cpus 1
-	publishDir "${CRONDIR}/chanjo2", mode: 'copy', overwrite: 'true', pattern: "*.chanjo2"
-	tag "$id"
-	memory '1 MB'
-	time '20m'
-
-	when:
-		!params.noupload
-	
-	input:
-		set group, id, file(d4) from ch_final_d4
-	
-	output:
-		file("${id}.chanjo2") into chanjo2_middleman
-
-	script:
-		"""
-		echo "scout update individual -c $id -n $id d4_file ${params.accessdir}/cov/${d4}" > ${id}.chanjo2
-		"""
-	
-	stub:
-		"""
-		touch "${id}.chanjo2"
-		"""
-}
-
 
 // Calculate coverage for paneldepth
 process depth_onco {
@@ -3821,7 +3799,7 @@ process output_files {
 	time '2m'
 
 	input:
-		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO).groupTuple()
+		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO,d4_INFO).groupTuple()
 
 	output:
 		set group, file("${group}.INFO") into yaml_INFO
