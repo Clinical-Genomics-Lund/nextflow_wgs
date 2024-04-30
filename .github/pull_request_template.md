@@ -1,8 +1,3 @@
-<!--
-# clinical-genomics-lund/nextflow_wgs pull request
-
-Thanks for contributing to the CMD nextflow_wgs pipeline.
--->
 # Description
 
 What is changed? What is the result of the changes?
@@ -14,8 +9,6 @@ Close # (issue)
     Major change counts as a change that breaks backward compatibility
     Minor change is a substantial change that requires testing before deployment
     Patch is a minor change like a bug fix, code comment/style fix, etc.
-    
-    Choose one and delete the remaining fields.
 -->
 - [ ] Major change 
 - [ ] Minor change
@@ -68,10 +61,7 @@ Close # (issue)
 -->
 
 # Instructions for the reviewers
-<!--
-    Use this section to guide the reviewer in how to 
-    test your proposed 
--->
+
 ## How to test the changes
 <!--
     Provide clear and concise steps for reviewers to test your changes. 
