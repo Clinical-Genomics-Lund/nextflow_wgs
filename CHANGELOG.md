@@ -1,6 +1,6 @@
 # CHANGELOG
 
-### TBD
+### 3.7.11
 * Add d4 file path directly to Scout YAML
 
 ### 3.7.10
