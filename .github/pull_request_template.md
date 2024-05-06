@@ -7,7 +7,7 @@ Remember that this template doubles as our test/review documentation.
 -->
 # Description and reviewer info
 
-What is changed? How does this update improve the pipeline? How to test it?
+What is changed? How does this update improve the pipeline? (For reviewers) How to test it?
 
 
 ## Type of change
