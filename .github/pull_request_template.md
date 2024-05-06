@@ -23,10 +23,10 @@ What is changed? How does this update improve the pipeline? (For reviewers) How 
 
 # Checklist
 
-- [ ] I have performed a self-review of my code
-- [ ] I have updated the CHANGELOG
-- [ ] I have tagged the latest commit (vX.Y.Z format)
-- [ ] I have logged any samples used for testing in the `Verification_samples_log` Excel sheet
+- [ ] Self-review of my code
+- [ ] Update the CHANGELOG
+- [ ] Tag the latest commit (vX.Y.Z format)
+- [ ] Log samples used for testing in the `Verification_samples_log` Excel sheet
 
 <!--
     Select a checklist below based on selection under # Type of change
