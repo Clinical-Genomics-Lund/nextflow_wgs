@@ -1,8 +1,14 @@
-# Description
+<!--
+Thanks for contributing to the CMD nextflow_wgs pipeline!
 
-What is changed? What is the result of the changes?
+Please use the checklists below to document changes and performed tests.
 
-Close # (issue)
+Remember that this template doubles as our test/review documentation. 
+-->
+# Description and reviewer info
+
+What is changed? How does this update improve the pipeline? (For reviewers) How to test it?
+
 
 ## Type of change
 <!--
@@ -10,24 +16,33 @@ Close # (issue)
     Minor change is a substantial change that requires testing before deployment
     Patch is a minor change like a bug fix, code comment/style fix, etc.
 -->
-- [ ] Major change 
-- [ ] Minor change
-- [ ] Patch
 - [ ] Documentation
+- [ ] Patch
+- [ ] Minor change
+- [ ] Major change 
 
-# Checklist:
+# Checklist
 
-- [ ] I have performed a self-review of my code
-- [ ] I have updated the CHANGELOG
-- [ ] I have tagged the latest commit (before merge, vX.Y.Z format)
-- [ ] I have logged any samples used for testing in the `Verification_samples_log` Excel sheet
+- [ ] Self-review of my code
+- [ ] Update the CHANGELOG
+- [ ] Tag the latest commit (vX.Y.Z format)
+- [ ] Log samples used for testing in the `Verification_samples_log` Excel sheet
 
 <!--
     Select a checklist below based on selection under # Type of change
     and delete the sections that do not apply to this PR:
 -->
-## Major / Minor change
 
+## Documentation
+- [ ] At least one other person has reviewed my changes (not required for trivial changes)
+
+## Patch
+- [ ] Stub run completes without errors or new warnings
+- [ ] At least one other person has reviewed and approved my code (not required for trivial changes)
+
+
+
+## Major / Minor change
 - [ ] Stub run completes without errors or new warnings
 - [ ] `onco` run finishes without any new warnings/errors and the results can 
        be loaded into scout
@@ -36,53 +51,24 @@ Close # (issue)
 - [ ] `wgs` trio run finishes without any new warnings/errors and the results 
        can be loaded into scout
 - [ ] At least one other person has reviewed and approved my code
-- [ ] I have made corresponding changes to the documentation
+- [ ] I have made corresponding changes to the documentation (software versions, etc.)
 
-## Patch
+# Test/review documentation
 
-- [ ] Stub run completes without errors or new warnings
-<!--
-    Remove the comment markers wrapping the checkbox below if you believe that 
-    the patch needs to undergo review. 
-    
-    (If in doubt, then play it safe and request a review).
--->
-<!--
-- [ ] At least one other person has reviewed and approved my code
--->
+## Review performed by
 
-<!--
-    Remove the comment markers wrapping the sectopm below if you believe that 
-    the updated documentation needs to undergo review.
--->
-<!--
-## Documentation
-- [ ] At least one other person has reviewed my changes
--->
+- [ ] Alexander
+- [ ] Jakob
+- [ ] Paul
+- [ ] Ryan
+- [ ] Viktor
 
-# Instructions for the reviewers
+(Add if missing)
 
-## How to test the changes
-<!--
-    Provide clear and concise steps for reviewers to test your changes. 
-    Include any specific commands, inputs, or conditions they should be aware 
-    of.
--->
-1. Step 1
-2. Step 2
+## Testing performed by
 
-## Expected outcome
-<!--
-    Describe what the expected outcome should be after your changes are 
-    implemented. This helps reviewers understand the goal and verify if 
-    everything is working as intended.
--->
-
-# Review
-
-## Review performed by:
-- Reviewer 1: Name1, (\@Github\_handle1)  
-    
-## Testing performed by:
-- Name, (\@Github\_handle)
-
+- [ ] Alexander
+- [ ] Jakob
+- [ ] Paul
+- [ ] Ryan
+- [ ] Viktor
