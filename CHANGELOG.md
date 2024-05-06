@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.7.12
+* Trim down size of checklist template, and add check for entering used test samples
+
 ### 3.7.11
 * Add d4 file path directly to Scout YAML
 
