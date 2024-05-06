@@ -1,7 +1,7 @@
 # CHANGELOG
 
 ### 3.7.13
-* Further changes to checklist template
+* Further simplifications of the checklist template
 
 ### 3.7.12
 * Trim down size of checklist template, and add check for entering used test samples
