@@ -21,7 +21,7 @@ What is changed? How does this update improve the pipeline? (For reviewers) How 
 - [ ] Minor change
 - [ ] Major change 
 
-# Checklist:
+# Checklist
 
 - [ ] I have performed a self-review of my code
 - [ ] I have updated the CHANGELOG
@@ -32,8 +32,17 @@ What is changed? How does this update improve the pipeline? (For reviewers) How 
     Select a checklist below based on selection under # Type of change
     and delete the sections that do not apply to this PR:
 -->
-## Major / Minor change
 
+## Documentation
+- [ ] At least one other person has reviewed my changes (not required for trivial changes)
+
+## Patch
+- [ ] Stub run completes without errors or new warnings
+- [ ] At least one other person has reviewed and approved my code (not required for trivial changes)
+
+
+
+## Major / Minor change
 - [ ] Stub run completes without errors or new warnings
 - [ ] `onco` run finishes without any new warnings/errors and the results can 
        be loaded into scout
@@ -44,17 +53,9 @@ What is changed? How does this update improve the pipeline? (For reviewers) How 
 - [ ] At least one other person has reviewed and approved my code
 - [ ] I have made corresponding changes to the documentation (software versions, etc.)
 
-## Patch
-
-- [ ] Stub run completes without errors or new warnings
-- [ ] At least one other person has reviewed and approved my code (not required for trivial changes)
-
-## Documentation
-- [ ] At least one other person has reviewed my changes (not required for trivial changes)
-
 # Test/review documentation
 
-## Review performed by:
+## Review performed by
 
 - [ ] Alexander
 - [ ] Jakob
@@ -64,7 +65,7 @@ What is changed? How does this update improve the pipeline? (For reviewers) How 
 
 (Add if missing)
 
-## Testing performed by:
+## Testing performed by
 
 - [ ] Alexander
 - [ ] Jakob
