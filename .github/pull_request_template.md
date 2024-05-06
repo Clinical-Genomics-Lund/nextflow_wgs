@@ -19,7 +19,7 @@ Close # (issue)
 
 - [ ] I have performed a self-review of my code
 - [ ] I have updated the CHANGELOG
-- [ ] I have tagged the latest commit (before merge)
+- [ ] I have tagged the latest commit (before merge, vX.Y.Z format)
 - [ ] I have logged any samples used for testing in the `Verification_samples_log` Excel sheet
 
 <!--
