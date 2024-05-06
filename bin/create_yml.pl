@@ -82,7 +82,7 @@ my %assays = (
             'institute_owner' => 'klingen-genlista'
         }
     },
-    'myeloid_const' => {
+    'myeloid-const' => {
         'rankm' => 'SNV-RM-v5.0',
         'svrankm' => 'SV-Panel-RM-v1.0',
         'hemato' => {
@@ -135,15 +135,17 @@ while ( <INFO> ) {
     print STDERR $_,"\n";
     if ($tmp[0] eq "BAM") {
         $INFO{BAM}->{$tmp[1]} = $tmp[2];
-        
     }
     elsif ($tmp[0] eq "TISSUE") {
         $INFO{TISSUE}->{$tmp[1]} = $tmp[2];
     }
-    elsif  ($tmp[0] eq "mtBAM") {
+    elsif ($tmp[0] eq "mtBAM") {
         $INFO{mtBAM}->{$tmp[1]} = $tmp[2];
     }
-    elsif  ($tmp[0] eq "IMG") {
+    elsif ($tmp[0] eq "D4") {
+        $INFO{D4}->{$tmp[1]} = $tmp[2];
+    }
+    elsif ($tmp[0] eq "IMG") {
         $INFO{IMG}->{$tmp[1]} = $tmp[2];
     }
     elsif ($tmp[0] eq "STR_IMG") {
@@ -259,6 +261,9 @@ foreach my $ind (@inher_patterns) {
         if ($INFO{mtBAM}{$pedline[1]}) {
             print OUT "    mt_bam: $INFO{mtBAM}{$pedline[1]}\n";
         }
+        if ($INFO{D4}{$pedline[1]}) {
+            print OUT "    d4_file: $INFO{D4}{$pedline[1]}\n";
+        }
     }
     ##########################################
 
@@ -329,7 +334,6 @@ foreach my $ind (@inher_patterns) {
 
 
     ## If IMGage is available
-    print OUT "custom_images:\n";
     my %img = ( 
         'overviewplot' => {
             'desc' => "Genome overview plot, UPD and ROH", 
@@ -352,6 +356,10 @@ foreach my $ind (@inher_patterns) {
             'height' => '100'
             }
     );
+    # only print header if there are any images for case, pydantic will crash otherwise
+    if ($INFO{IMG} || $INFO{STR_IMG}) {
+        print OUT "custom_images:\n";
+    }
     if ($INFO{IMG}) {
         print OUT "  case:\n";
         foreach my $img_type (keys %{ $INFO{IMG} }) {
