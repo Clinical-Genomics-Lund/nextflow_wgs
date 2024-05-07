@@ -576,59 +576,17 @@ def chanjo_sambamba_version(task) {
 	"""
 }
 
-process d4_intersect_bam {
-	cpus 2
-	memory '10 GB'
-	tag "$id"
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	when:
-		params.varcall
-
-	input:
-		set group, id, file(bam), file(bai) from d4_bam.mix(d4_bam_choice)
-	
-	output:
-		set group, id, file("*.bam") into d4_bam_intersected
-		set group, file("*versions.yml") into ch_d4_intersect_bam_versions
-
-	script:
-	"""
-	bedtools intersect \\
-		-a "${bam}" \\
-		-b "${params.scoutbed}" \\
-		> "${group}_intersected.bam"
-	${d4_intersect_bam_version(task)}
-	"""
-
-	stub:
-	"""
-	touch "${group}_intersected.bam"
-	${d4_intersect_bam_version(task)}
-	"""
-}
-def d4_intersect_bam_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    bedtools: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
-	END_VERSIONS
-	"""
-}
-
-process d4_intersect_index_bam {
+process d4_index_bam {
 	cpus 2
 	memory '10 GB'
 	tag "$id"
 
 	input:
-		set group, id, file(bam) from d4_bam_intersected
+		set group, id, file(bam) from d4_bam
 
 	output:
-		set group, id, file(bam), file("*.bai") into d4_bam_intersected_indexed
-		set group, file("*versions.yml") into ch_d4_intersect_index_bam_versions
+		set group, id, file(bam), file("*.bai") into d4_bam_indexed
+		set group, file("*versions.yml") into ch_d4_index_bam_versions
 	
 	script:
 	"""
@@ -642,7 +600,7 @@ process d4_intersect_index_bam {
 	${d4_intersect_index_bam_version(task)}
 	"""
 }
-def d4_intersect_index_bam_version(task) {
+def d4_index_bam_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
@@ -659,7 +617,7 @@ process d4_coverage {
 	container = "${params.d4tools_container}"
 
 	input:
-		set group, id, file(bam), file(bai) from d4_bam_intersected_indexed
+		set group, id, file(bam), file(bai) from d4_bam_indexed
 
 	output:
 		file("${id}_coverage.d4")
