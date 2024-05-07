@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### TBA
+* Run D4 coverage for full file
+
 ### 3.7.13
 * Further simplifications of the checklist template
 
