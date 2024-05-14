@@ -576,80 +576,6 @@ def chanjo_sambamba_version(task) {
 	"""
 }
 
-process d4_intersect_bam {
-	cpus 2
-	memory '10 GB'
-	tag "$id"
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	when:
-		params.varcall
-
-	input:
-		set group, id, file(bam), file(bai) from d4_bam.mix(d4_bam_choice)
-	
-	output:
-		set group, id, file("*.bam") into d4_bam_intersected
-		set group, file("*versions.yml") into ch_d4_intersect_bam_versions
-
-	script:
-	"""
-	bedtools intersect \\
-		-a "${bam}" \\
-		-b "${params.scoutbed}" \\
-		> "${group}_intersected.bam"
-	${d4_intersect_bam_version(task)}
-	"""
-
-	stub:
-	"""
-	touch "${group}_intersected.bam"
-	${d4_intersect_bam_version(task)}
-	"""
-}
-def d4_intersect_bam_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    bedtools: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
-	END_VERSIONS
-	"""
-}
-
-process d4_intersect_index_bam {
-	cpus 2
-	memory '10 GB'
-	tag "$id"
-
-	input:
-		set group, id, file(bam) from d4_bam_intersected
-
-	output:
-		set group, id, file(bam), file("*.bai") into d4_bam_intersected_indexed
-		set group, file("*versions.yml") into ch_d4_intersect_index_bam_versions
-	
-	script:
-	"""
-	samtools index "${bam}"
-	${d4_intersect_index_bam_version(task)}
-	"""
-
-	stub:
-	"""
-	touch "${bam}.bai"
-	${d4_intersect_index_bam_version(task)}
-	"""
-}
-def d4_intersect_index_bam_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    samtools: \$(echo \$(samtools --version) | head -1 | cut -f2 -d" " )
-	END_VERSIONS
-	"""
-}
 
 process d4_coverage {
 	cpus 16
@@ -659,7 +585,7 @@ process d4_coverage {
 	container = "${params.d4tools_container}"
 
 	input:
-		set group, id, file(bam), file(bai) from d4_bam_intersected_indexed
+		set group, id, file(bam), file(bai) from d4_bam
 
 	output:
 		file("${id}_coverage.d4")
@@ -3918,8 +3844,6 @@ process combine_versions {
 			ch_bqsr_versions.first(),
 			ch_sentieon_qc_versions.first(),
 			ch_chanjo_sambamba_versions.first(),
-			ch_d4_intersect_bam_versions.first(),
-			ch_d4_intersect_index_bam_versions.first(),
 			ch_d4_coverage_versions.first(),
 			ch_smn_copy_number_caller_versions.first(),
 			ch_expansionhunter_versions.first(),
