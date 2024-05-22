@@ -41,6 +41,7 @@ workflow.onComplete {
 		Success     : ${workflow.success}
 		scriptFile  : ${workflow.scriptFile}
 		workDir     : ${workflow.workDir}
+		csv         : ${params.csv}
 		exit status : ${workflow.exitStatus}
 		errorMessage: ${workflow.errorMessage}
 		errorReport :
@@ -89,7 +90,8 @@ bam_choice.into{
 	expansionhunter_bam_choice; 
 	dnascope_bam_choice;
 	bampath_start;
-	chanjo_bam_choice; 
+	chanjo_bam_choice;
+	d4_bam_choice;
 	yaml_bam_choice; 
 	cov_bam_choice; 
 	bam_manta_choice; 
@@ -377,7 +379,7 @@ process markdup {
 		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
 
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
 		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
@@ -570,6 +572,52 @@ def chanjo_sambamba_version(task) {
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    sambamba: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
+	END_VERSIONS
+	"""
+}
+
+
+process d4_coverage {
+	cpus 16
+	memory '10 GB'
+	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
+	tag "$id"
+	container = "${params.d4tools_container}"
+
+	input:
+		set group, id, file(bam), file(bai) from d4_bam
+
+	output:
+		file("${id}_coverage.d4")
+		set group, id, file("${id}_coverage.d4") into ch_final_d4
+		set group, file("*versions.yml") into ch_d4_coverage_versions
+		set group, file("${group}_d4.INFO") into d4_INFO
+
+	script:
+	"""
+	d4tools create \\
+		--threads ${task.cpus} \\
+		"${bam}" \\
+		"${id}_coverage.d4"
+
+	echo "D4	$id	/access/${params.subdir}/cov/${id}_coverage.d4" > ${group}_d4.INFO
+
+	${d4_coverage_version(task)}
+	"""
+
+	stub:
+	"""
+	touch "${id}_coverage.d4"
+	touch "${group}_d4.INFO"
+
+	${d4_coverage_version(task)}
+	"""
+}
+def d4_coverage_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    d4tools: \$(echo \$( d4tools 2>&1 | head -1 ) | sed "s/.*version: //" | sed "s/)//" )
 	END_VERSIONS
 	"""
 }
@@ -3678,7 +3726,7 @@ process output_files {
 	time '2m'
 
 	input:
-		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO).groupTuple()
+		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO,d4_INFO).groupTuple()
 
 	output:
 		set group, file("${group}.INFO") into yaml_INFO
@@ -3797,6 +3845,7 @@ process combine_versions {
 			ch_bqsr_versions.first(),
 			ch_sentieon_qc_versions.first(),
 			ch_chanjo_sambamba_versions.first(),
+			ch_d4_coverage_versions.first(),
 			ch_smn_copy_number_caller_versions.first(),
 			ch_expansionhunter_versions.first(),
 			ch_stranger_versions.first(),

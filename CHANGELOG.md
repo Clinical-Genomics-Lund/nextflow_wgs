@@ -1,5 +1,37 @@
 # CHANGELOG
 
+### 3.7.14
+* Run D4 coverage for full file
+
+### 3.7.13
+* Further simplifications of the checklist template
+
+### 3.7.12
+* Trim down size of checklist template, and add check for entering used test samples
+
+### 3.7.11
+* Add d4 file path directly to Scout YAML
+
+### 3.7.10
+* Tag Mitochondrial variants with GQ, loqusdb enabling
+
+### 3.7.9
+* Add CRON file to load Chanjo2
+
+### 3.7.8
+* added csv-file to onComplete function to accomodate CCCP
+
+### 3.7.7
+#### create_yml.pl
+* small name change for myeloid constitutional to match clarity
+* removed custom_images header for samples without images as pydantic would crash in scout load
+
+### 3.7.6
+* Add d4 coverage calculations to the workflow
+
+### 3.6.6
+* Fix genmod caller-penalty bug for GATK GQC vals ([#170](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/170))
+
 ### 3.6.5
 * Remove bgzip and gunzip from versions
 * Some cleanup in version documentation and code
@@ -26,7 +58,7 @@
 * Changes has been verified, report can be found internally
 
 ### 3.5.10
-* changed path to normal-pool-refs for gens. Uses masked hg38 references
+* Changed path to normal-pool-refs for gens. Uses masked hg38 references
 
 ### 3.5.9
 
