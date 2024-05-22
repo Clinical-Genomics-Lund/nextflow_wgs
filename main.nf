@@ -117,7 +117,7 @@ bam_choice.into{
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
-		params.onco || params.assay == "modycf"
+		params.run_melt
 
 	input:
 		set id, group, file(bam), file(bai) from dedup_dummy_choice
@@ -495,7 +495,7 @@ process sentieon_qc {
 		panel = ""
 		cov = "WgsMetricsAlgo wgs_metrics.txt"
 		assay = "wgs"
-		if( params.antype == "panel") {
+		if (params.antype == "panel") {
 			target = "--interval $params.intervals"
 			panel = params.panelhs + "$bam" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
@@ -952,7 +952,7 @@ process melt_qc_val {
 	memory '50 MB'
 
 	when:
-		params.onco || params.assay == "modycf"
+		params.run_melt
 
 	input:
 		set group, id, qc from qc_melt
@@ -1008,7 +1008,7 @@ process melt {
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
 
 	when:
-		params.onco || params.assay == "modycf"
+		params.run_melt
 
 	output:
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
@@ -1059,7 +1059,7 @@ process intersect_melt {
 		set group, id, file(vcf) from melt_vcf_nonfiltered
 
 	when:
-		params.onco || params.assay == "modycf"
+		params.run_melt
 
 	output:
 		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
@@ -1303,7 +1303,7 @@ process freebayes {
 	stageOutMode 'copy'
 
 	when: 
-		params.antype == "panel"
+		params.run_freebayes
 
 	input:
 		set group, id, file(bam), file(bai) from bam_freebayes.mix(bam_freebayes_choice)
@@ -1750,7 +1750,8 @@ process split_normalize {
 	script:
 	id = id[0]
 	// rename M to MT because genmod does not recognize M
-	if(params.assay != "wgs") {
+	// FIXME: What is the significance of this if / else? Freebayes concat?
+	if (params.run_freebayes) {
 		"""
 		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
 		vcfbreakmulti ${id}.concat.freebayes.vcf > ${group}.multibreak.vcf
@@ -2343,7 +2344,8 @@ process peddy {
 	time '1h'
 
 	when:
-		!params.annotate_only && params.assay != "modycf"
+		// FIXME: Why is this one in particular not run for modycf?
+		!params.annotate_only && params.run_peddy
 
 	input:
 		set group, type, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
@@ -2391,7 +2393,8 @@ process fastgnomad {
 	time '2h'
 
 	when:
-		params.antype == "wgs"
+		// NOTE: The previous change removed myeloid. If we want to remove myeloid, then we don't need the params.run_upd
+		params.run_upd
 
 	input:
 		set group, file(vcf) from vcf_gnomad
@@ -2630,7 +2633,7 @@ process generate_gens_data {
 	memory '5 GB'
 
 	when:
-		params.antype == "wgs"
+		params.prepare_gens_data
 
 	input:
 		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens_choice.join(cov_gens, by:[1])
@@ -3745,6 +3748,7 @@ process output_files {
 }
 
 
+// NOTE: What is this?
 process svvcf_to_bed {
 	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 	tag "group"
