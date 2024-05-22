@@ -1750,7 +1750,6 @@ process split_normalize {
 	script:
 	id = id[0]
 	// rename M to MT because genmod does not recognize M
-	// FIXME: What is the significance of this if / else? Freebayes concat?
 	if (params.run_freebayes) {
 		"""
 		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
@@ -2344,7 +2343,6 @@ process peddy {
 	time '1h'
 
 	when:
-		// FIXME: Why is this one in particular not run for modycf?
 		!params.annotate_only && params.run_peddy
 
 	input:
@@ -2393,7 +2391,6 @@ process fastgnomad {
 	time '2h'
 
 	when:
-		// NOTE: The previous change removed myeloid. If we want to remove myeloid, then we don't need the params.run_upd
 		params.run_upd
 
 	input:
@@ -3748,7 +3745,6 @@ process output_files {
 }
 
 
-// NOTE: What is this?
 process svvcf_to_bed {
 	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 	tag "group"
