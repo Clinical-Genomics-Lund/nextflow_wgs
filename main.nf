@@ -495,7 +495,7 @@ process sentieon_qc {
 		panel = ""
 		cov = "WgsMetricsAlgo wgs_metrics.txt"
 		assay = "wgs"
-		if( params.antype == "panel") {
+		if (params.antype == "panel") {
 			target = "--interval $params.intervals"
 			panel = params.panelhs + "$bam" + params.panelhs2 
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
@@ -1750,7 +1750,7 @@ process split_normalize {
 	script:
 	id = id[0]
 	// rename M to MT because genmod does not recognize M
-	if(params.assay != "wgs") {
+	if (params.onco || params.assay == "modycf") {
 		"""
 		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
 		vcfbreakmulti ${id}.concat.freebayes.vcf > ${group}.multibreak.vcf
@@ -2630,7 +2630,7 @@ process generate_gens_data {
 	memory '5 GB'
 
 	when:
-		params.antype == "wgs"
+		params.prepare_gens_data
 
 	input:
 		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens_choice.join(cov_gens, by:[1])
