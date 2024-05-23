@@ -117,7 +117,7 @@ bam_choice.into{
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
-		params.onco || params.assay == "modycf"
+		params.run_melt
 
 	input:
 		set id, group, file(bam), file(bai) from dedup_dummy_choice
@@ -952,7 +952,7 @@ process melt_qc_val {
 	memory '50 MB'
 
 	when:
-		params.onco || params.assay == "modycf"
+		params.run_melt
 
 	input:
 		set group, id, qc from qc_melt
@@ -1008,7 +1008,7 @@ process melt {
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
 
 	when:
-		params.onco || params.assay == "modycf"
+		params.run_melt
 
 	output:
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
@@ -1059,7 +1059,7 @@ process intersect_melt {
 		set group, id, file(vcf) from melt_vcf_nonfiltered
 
 	when:
-		params.onco || params.assay == "modycf"
+		params.run_melt
 
 	output:
 		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
@@ -2343,7 +2343,7 @@ process peddy {
 	time '1h'
 
 	when:
-		!params.annotate_only && params.assay != "modycf"
+		!params.annotate_only && params.run_peddy
 
 	input:
 		set group, type, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
