@@ -3745,7 +3745,6 @@ process output_files {
 }
 
 
-// NOTE: What is this?
 process svvcf_to_bed {
 	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 	tag "group"
