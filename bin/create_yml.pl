@@ -95,8 +95,8 @@ my %assays = (
         'svrankm' => 'SV-Panel-RM-v1.0',
         'capture_kit' => 'mody-ctfr-aatv1-0',
         'mody' => {
-            'institute' => 'mody-test',
-            'institute_owner' => 'mody',
+            'institute' => 'MODY',
+            'institute_owner' => 'MODY',
         },
         'cf' => {
             'institute' => 'cf-test',
