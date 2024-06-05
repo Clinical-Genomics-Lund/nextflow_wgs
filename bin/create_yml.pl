@@ -88,8 +88,22 @@ my %assays = (
         'hemato' => {
             'institute' => 'myeloid',
             'institute_owner' => 'myeloid',
+        },
+    },
+    'mody-cftr-aatv1-0' => {
+        'rankm' => 'SNV-RM-v5.0',
+        'svrankm' => 'SV-Panel-RM-v1.0',
+        'capture_kit' => 'mody-ctfr-aatv1-0',
+        'mody' => {
+            'institute' => 'MODY',
+            'institute_owner' => 'MODY',
+        },
+        'cf' => {
+            'institute' => 'cf-test',
+            'institute_owner' => 'cf',
         }
     }
+    
 );
 
 

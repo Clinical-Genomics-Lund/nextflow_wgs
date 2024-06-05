@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.8.0
+* Add mody-cf profile
+
 ### 3.7.14
 * Run D4 coverage for full file
 
