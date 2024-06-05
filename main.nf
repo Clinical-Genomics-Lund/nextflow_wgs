@@ -584,6 +584,9 @@ process d4_coverage {
 	tag "$id"
 	container = "${params.d4tools_container}"
 
+	when:
+		params.run_chanjo2
+
 	input:
 		set group, id, file(bam), file(bai) from d4_bam
 
