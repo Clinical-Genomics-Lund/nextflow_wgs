@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.8.1
+* Disable Chanjo2
+
 ### 3.8.0
 * Add mody-cf profile
 
