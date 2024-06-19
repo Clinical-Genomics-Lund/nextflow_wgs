@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.8.2
+* Re-enable D4 file generation (for Chanjo2)
+
 ### 3.8.1
 * Disable Chanjo2
 
