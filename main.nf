@@ -581,43 +581,6 @@ process sentieon_qc_postprocess {
 		"""
 }
 
-process sentieon_qc_postprocess {
-	cpus 2
-	memory '10 GB'
-	tag "$id"
-	time '2h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
-
-	input:
-		set id, file(dedup) from dedupmet_sentieonqc.mix(dedup_dummy)
-		set id, group, file(mq_metrics), file(qd_metrics), file(gc_summary), file(gc_metrics), file(aln_metrics),
-			file(is_metrics), file(assay_metrics), file(cov_metrics), file(cov_metrics_sample_summary) from ch_sentieon_qc_metrics
-
-	output:
-		set group, id, file("${id}_qc.json") into qc_cdm
-		set group, id, file("${id}_qc.json") into qc_melt
-	
-	script:
-
-		assay = (params.onco || params.exome) ? "panel" : "wgs"
-		"""
-		qc_sentieon.pl \\
-			--SID ${id} \\
-			--type ${assay} \\
-			--align_metrics_file ${aln_metrics} \\
-			--insert_file ${is_metrics} \\
-			--dedup_metrics_file ${dedup} \\
-			--metrics_file ${assay_metrics} \\
-			--gcsummary_file ${gc_summary} \\
-			--coverage_file ${cov_metrics} \\
-			--coverage_file_summary ${cov_metrics_sample_summary} \\
-			> ${id}_qc.json
-		
-		"""
-}
-
 process d4_intersect_bam {
 	cpus 2
 	memory '10 GB'
