@@ -7,7 +7,23 @@ use vcf2 qw( parse_vcf );
 use Getopt::Long;
 
 my %opt = ();
-GetOptions( \%opt, 'old=s', 'new=s', 'build=s', 'clinvardate=s' );
+my @incl_bed_files;
+GetOptions( \%opt, 'old_clinvar=s', 'new_clinvar=s', 'build=s', 'clinvardate=s', 'incl_bed=s@' => \@incl_bed_files );
+
+my @required_params = qw(old_clinvar new_clinvar build clinvardate);
+my @missing_params;
+
+foreach my $param (@required_params) {
+    push @missing_params, $param unless defined $opt{$param};
+}
+
+if (@missing_params) {
+    die "Error: Missing required parameters: " . join(", ", @missing_params) . "\nUsage: update_bed.pl --old_clinvar <filepath> --new_clinvar <filepath> --build <108> --clinvardate <20240701> [--incl_bed <filepath>]\n";
+}
+
+if (@incl_bed_files) {
+    print "Additional included BED files: \n" . join("\n", @incl_bed_files) . "\n";
+}
 
 ### Logic ###
 # have a baseline bed that defines exonic regions, padded with 20(?) bp
@@ -17,9 +33,9 @@ GetOptions( \%opt, 'old=s', 'new=s', 'build=s', 'clinvardate=s' );
 #my $clinvar_vcf_old = "/fs1/resources/ref/hg38/annotation_dbs/bedupdatertest/old_chrom8.vcf";
 #my $clinvar_vcf = "/fs1/resources/ref/hg38/annotation_dbs/clinvar38_latest.vcf.gz";
 #my $clinvar_vcf_old = "/data/bnf/ref/annotations_dbs/clinvar38_20200106.vcf.gz";
-my $clinvar_vcf = $opt{'new'};
-my $clinvar_vcf_old = $opt{'old'};
-my $agilent = "agilient_hg38_nochr_noalt_1-3.bed";
+my $clinvar_vcf = $opt{'new_clinvar'};
+my $clinvar_vcf_old = $opt{'old_clinvar'};
+# my $agilent = "agilient_hg38_nochr_noalt_1-3.bed";
 
 ### BASE BED ########
 my $release = $opt{'build'}; # as argument
@@ -27,7 +43,9 @@ my $gtf = "Homo_sapiens.GRCh38.".$release.".gtf.gz";
 my $gtf_request = "https://ftp.ensembl.org/pub/release-".$release."/gtf/homo_sapiens/$gtf";
 my $base_bed = "exons_hg38_".$release.".bed";
 ## fetch $release from ensembl and get all exons for coding genes 
-get_base($gtf_request,$gtf,$base_bed,$release);
+
+# FIXME: Uncomment
+# get_base($gtf_request,$gtf,$base_bed,$release);
 
 ### BED TO ADD DATA TO ###
 my $clinvar = $opt{'clinvardate'}; # as argument
@@ -39,14 +57,29 @@ if(-e $final_bed) {
 }
 
 
+print("A\n");
 
 ## ADD DATA ##
-add_to_bed($final_bed,$base_bed,"EXONS-$release");
-add_to_bed($final_bed,$agilent,"AGILENT-EXOME");
+add_to_bed($final_bed, $base_bed, "EXONS-$release");
+
+print("B\n");
+
+foreach my $incl_bed (@incl_bed_files) {
+    print("Iterating with " . $incl_bed . "\n");
+    my $suffix = $incl_bed;
+    add_to_bed($final_bed, $incl_bed, $suffix);
+}
+
+print("C\n");
+
+# add_to_bed($final_bed,$agilent,"AGILENT-EXOME");
 
 ## clinvar variants ##
+print("Clinvar 1\n");
 my ($clinvar_new,$new_benign) = read_clinvar($clinvar_vcf);
+print("Clinvar 2\n");
 my ($clinvar_old,$old_benign) = read_clinvar($clinvar_vcf_old);
+print("Clinvar 3\n");
 my %old_benign = %$old_benign;
 my %new_benign = %$new_benign;
 my ($newtoadd,$oldtoremove) = compare_clinvar($clinvar_new,$clinvar_old,$final_bed);
@@ -60,6 +93,8 @@ clinvar_bed_andinfo($newtoadd,"bed",$clinvar_final_bed);
 add_to_bed($final_bed,$clinvar_final_bed,".");
 ## SORT MERGE ###
 sort_merge($final_bed);
+
+print("Done\n");
 
 ## takes clinvar-vcf saves pathogenicity status, returns one hash with important variants
 ## and one with benign

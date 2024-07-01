@@ -167,7 +167,7 @@ sub parse_variant {
     
     # First seven fields
     for ( 0..6 ) {
-	$var{ $head->[$_] } = $var_data[$_];
+	    $var{ $head->[$_] } = $var_data[$_];
     }
 
     # Eigth field, INFO
