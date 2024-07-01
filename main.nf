@@ -698,7 +698,7 @@ process d4_coverage {
 	memory '10 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
 	tag "$id"
-	container = "${params.d4tools_container}"
+	container = "${params.container_d4tools}"
 
 	when:
 		params.run_chanjo2
