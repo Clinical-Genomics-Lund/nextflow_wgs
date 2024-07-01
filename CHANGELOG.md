@@ -1,6 +1,6 @@
 # CHANGELOG
 
-### 3.8.0
+### 3.9.0
 	
 * Give the Sentieon container path by a parameter in the config file
 * Update the Sentieon container to 202308 version
@@ -21,7 +21,31 @@
 * Add `SVTYPE` VEP 111 bug workaround in `vep_sv` process. (See  [Ensembl/ensembl-vep#1631](https://github.com/Ensembl/ensembl-vep/issues/1631#issuecomment-1985973568))
 * Add VEP105 - 111 annotations to all rank models in use
 * Fix onco model filename version (v5 rank model was misnamed as v4 in production)
-	
+
+### 3.8.2
+* Re-enable D4 file generation (for Chanjo2)
+
+### 3.8.1
+* Disable Chanjo2
+
+### 3.8.0
+* Add mody-cf profile
+
+### 3.7.14
+* Run D4 coverage for full file
+
+### 3.7.13
+* Further simplifications of the checklist template
+
+### 3.7.12
+* Trim down size of checklist template, and add check for entering used test samples
+
+### 3.7.11
+* Add d4 file path directly to Scout YAML
+
+### 3.7.10
+* Tag Mitochondrial variants with GQ, loqusdb enabling
+
 ### 3.7.9
 * Add CRON file to load Chanjo2
 

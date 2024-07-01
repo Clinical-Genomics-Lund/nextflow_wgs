@@ -88,8 +88,22 @@ my %assays = (
         'hemato' => {
             'institute' => 'myeloid',
             'institute_owner' => 'myeloid',
+        },
+    },
+    'mody-cftr-aatv1-0' => {
+        'rankm' => 'SNV-RM-v5.0',
+        'svrankm' => 'SV-Panel-RM-v1.0',
+        'capture_kit' => 'mody-ctfr-aatv1-0',
+        'mody' => {
+            'institute' => 'MODY',
+            'institute_owner' => 'MODY',
+        },
+        'cf' => {
+            'institute' => 'cf-test',
+            'institute_owner' => 'cf',
         }
     }
+    
 );
 
 
@@ -135,15 +149,17 @@ while ( <INFO> ) {
     print STDERR $_,"\n";
     if ($tmp[0] eq "BAM") {
         $INFO{BAM}->{$tmp[1]} = $tmp[2];
-        
     }
     elsif ($tmp[0] eq "TISSUE") {
         $INFO{TISSUE}->{$tmp[1]} = $tmp[2];
     }
-    elsif  ($tmp[0] eq "mtBAM") {
+    elsif ($tmp[0] eq "mtBAM") {
         $INFO{mtBAM}->{$tmp[1]} = $tmp[2];
     }
-    elsif  ($tmp[0] eq "IMG") {
+    elsif ($tmp[0] eq "D4") {
+        $INFO{D4}->{$tmp[1]} = $tmp[2];
+    }
+    elsif ($tmp[0] eq "IMG") {
         $INFO{IMG}->{$tmp[1]} = $tmp[2];
     }
     elsif ($tmp[0] eq "STR_IMG") {
@@ -258,6 +274,9 @@ foreach my $ind (@inher_patterns) {
         }
         if ($INFO{mtBAM}{$pedline[1]}) {
             print OUT "    mt_bam: $INFO{mtBAM}{$pedline[1]}\n";
+        }
+        if ($INFO{D4}{$pedline[1]}) {
+            print OUT "    d4_file: $INFO{D4}{$pedline[1]}\n";
         }
     }
     ##########################################

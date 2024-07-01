@@ -117,7 +117,7 @@ bam_choice.into{
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
-		params.onco
+		params.run_melt
 
 	input:
 		set id, group, file(bam), file(bai) from dedup_dummy_choice
@@ -581,45 +581,41 @@ process sentieon_qc_postprocess {
 		"""
 }
 
-// Calculate coverage for chanjo
-process chanjo_sambamba {
-	cpus 16
+process sentieon_qc_postprocess {
+	cpus 2
 	memory '10 GB'
-	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true', pattern: '*.cov'
 	tag "$id"
+	time '2h'
 	scratch true
 	stageInMode 'copy'
 	stageOutMode 'copy'
 
-	when:
-		params.varcall
-
-	input:	
-		set group, id, file(bam), file(bai) from chanjo_bam.mix(chanjo_bam_choice)
+	input:
+		set id, file(dedup) from dedupmet_sentieonqc.mix(dedup_dummy)
+		set id, group, file(mq_metrics), file(qd_metrics), file(gc_summary), file(gc_metrics), file(aln_metrics),
+			file(is_metrics), file(assay_metrics), file(cov_metrics), file(cov_metrics_sample_summary) from ch_sentieon_qc_metrics
 
 	output:
-		file("${id}.bwa.chanjo.cov") into chanjocov
-		set group, file("*versions.yml") into ch_chanjo_sambamba_versions
-
+		set group, id, file("${id}_qc.json") into qc_cdm
+		set group, id, file("${id}_qc.json") into qc_melt
+	
 	script:
-		"""
-		sambamba depth region -t ${task.cpus} -L $params.scoutbed -T 10 -T 15 -T 20 -T 50 -T 100 $bam > ${id}.bwa.chanjo.cov
-		${chanjo_sambamba_version(task)}	
-		"""
 
-	stub:
+		assay = (params.onco || params.exome) ? "panel" : "wgs"
 		"""
-		touch "${id}.bwa.chanjo.cov"
-		${chanjo_sambamba_version(task)}	
+		qc_sentieon.pl \\
+			--SID ${id} \\
+			--type ${assay} \\
+			--align_metrics_file ${aln_metrics} \\
+			--insert_file ${is_metrics} \\
+			--dedup_metrics_file ${dedup} \\
+			--metrics_file ${assay_metrics} \\
+			--gcsummary_file ${gc_summary} \\
+			--coverage_file ${cov_metrics} \\
+			--coverage_file_summary ${cov_metrics_sample_summary} \\
+			> ${id}_qc.json
+		
 		"""
-}
-def chanjo_sambamba_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    sambamba: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
-	END_VERSIONS
-	"""
 }
 
 process d4_intersect_bam {
@@ -704,13 +700,17 @@ process d4_coverage {
 	tag "$id"
 	container = "${params.d4tools_container}"
 
+	when:
+		params.run_chanjo2
+
 	input:
-		set group, id, file(bam), file(bai) from d4_bam_intersected_indexed
+		set group, id, file(bam), file(bai) from d4_bam
 
 	output:
 		file("${id}_coverage.d4")
 		set group, id, file("${id}_coverage.d4") into ch_final_d4
 		set group, file("*versions.yml") into ch_d4_coverage_versions
+		set group, file("${group}_d4.INFO") into d4_INFO
 
 	script:
 	"""
@@ -718,12 +718,17 @@ process d4_coverage {
 		--threads ${task.cpus} \\
 		"${bam}" \\
 		"${id}_coverage.d4"
+
+	echo "D4	$id	/access/${params.subdir}/cov/${id}_coverage.d4" > ${group}_d4.INFO
+
 	${d4_coverage_version(task)}
 	"""
 
 	stub:
 	"""
 	touch "${id}_coverage.d4"
+	touch "${group}_d4.INFO"
+
 	${d4_coverage_version(task)}
 	"""
 }
@@ -735,34 +740,6 @@ def d4_coverage_version(task) {
 	END_VERSIONS
 	"""
 }
-
-process add_chanjo2 {
-	cpus 1
-	publishDir "${CRONDIR}/chanjo2", mode: 'copy', overwrite: 'true', pattern: "*.chanjo2"
-	tag "$id"
-	memory '1 MB'
-	time '20m'
-
-	when:
-		!params.noupload
-	
-	input:
-		set group, id, file(d4) from ch_final_d4
-	
-	output:
-		file("${id}.chanjo2") into chanjo2_middleman
-
-	script:
-		"""
-		echo "scout update individual -c $id -n $id d4_file ${params.accessdir}/cov/${d4}" > ${id}.chanjo2
-		"""
-	
-	stub:
-		"""
-		touch "${id}.chanjo2"
-		"""
-}
-
 
 // Calculate coverage for paneldepth
 process depth_onco {
@@ -1094,7 +1071,7 @@ process melt_qc_val {
 	memory '50 MB'
 
 	when:
-		params.onco
+		params.run_melt
 
 	input:
 		set group, id, qc from qc_melt
@@ -1150,7 +1127,7 @@ process melt {
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
 
 	when:
-		params.onco
+		params.run_melt
 
 	output:
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
@@ -1201,7 +1178,7 @@ process intersect_melt {
 		set group, id, file(vcf) from melt_vcf_nonfiltered
 
 	when:
-		params.onco
+		params.run_melt
 
 	output:
 		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
@@ -1445,7 +1422,7 @@ process freebayes {
 	stageOutMode 'copy'
 
 	when: 
-		params.onco || params.assay == "exome"
+		params.antype == "panel"
 
 	input:
 		set group, id, file(bam), file(bai) from bam_freebayes.mix(bam_freebayes_choice)
@@ -1892,7 +1869,7 @@ process split_normalize {
 	script:
 	id = id[0]
 	// rename M to MT because genmod does not recognize M
-	if(params.onco) {
+	if (params.onco || params.assay == "modycf") {
 		"""
 		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
 		vcfbreakmulti ${id}.concat.freebayes.vcf > ${group}.multibreak.vcf
@@ -2485,7 +2462,7 @@ process peddy {
 	time '1h'
 
 	when:
-		!params.annotate_only
+		!params.annotate_only && params.run_peddy
 
 	input:
 		set group, type, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
@@ -2533,7 +2510,7 @@ process fastgnomad {
 	time '2h'
 
 	when:
-		!params.onco && !params.exome
+		params.antype == "wgs"
 
 	input:
 		set group, file(vcf) from vcf_gnomad
@@ -2772,7 +2749,7 @@ process generate_gens_data {
 	memory '5 GB'
 
 	when:
-		!params.onco && !params.exome
+		params.prepare_gens_data
 
 	input:
 		set id, group, file(gvcf), g, type, sex, file(cov_stand), file(cov_denoise) from gvcf_gens_choice.join(cov_gens, by:[1])
@@ -3092,7 +3069,7 @@ process manta {
 	stageOutMode 'copy'
 
 	when:
-		params.sv && !params.onco && !params.exome
+		params.sv && params.antype == "wgs"
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta.mix(bam_manta_choice)
@@ -3139,7 +3116,7 @@ process manta_panel {
 	stageOutMode 'copy'
 
 	when:
-		params.sv && params.onco
+		params.sv && params.antype == "panel"
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta_panel.mix(bam_mantapanel_choice)
@@ -3185,7 +3162,7 @@ process delly_panel {
 	cache 'deep'
 	
 	when:
-		params.sv && params.onco && params.delly
+		params.sv && params.antype == "panel" && params.delly
 
 	input:
 		set group, id, file(bam), file(bai) from bam_delly_panel.mix(bam_dellypanel_choice)
@@ -3232,7 +3209,7 @@ process cnvkit_panel {
 	stageOutMode 'copy'
 
 	when:
-		params.sv && params.onco
+		params.sv && params.antype == "panel"
 
 	input:
 		set group, id, file(bam), file(bai), file(vcf), file(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice).join(vcf_cnvkit, by:[0,1]).join(qc_cnvkit_val, by:[0,1]).view()
@@ -3371,7 +3348,7 @@ process tiddit {
 	stageOutMode 'copy'
 
 	when:
-		params.sv && !params.onco &&  !params.exome
+		params.sv && params.antype == "wgs"
 
 
 	input:
@@ -3519,7 +3496,6 @@ process add_to_loqusdb {
 		"""
 }
 
-//create AnnotSV tsv file
 process annotsv {
 	container = '/fs1/resources/containers/annotsv.v2.3.sif'
 	cpus 2
@@ -3535,33 +3511,34 @@ process annotsv {
 		set group, file("${group}_annotsv.tsv") into annotsv, annotsv_ma, annotsv_fa
 		set group, file("*versions.yml") into ch_annotsv_versions
 
-	script:
-		"""
+	shell:
+		version_str = annotsv_version(task)
+		'''
 		export ANNOTSV="/AnnotSV"
-		/AnnotSV/bin/AnnotSV -SvinputFile $sv \\
+		/AnnotSV/bin/AnnotSV -SvinputFile !{sv} \\
 			-typeOfAnnotation full \\
-			-outputDir $group \\
+			-outputDir !{group} \\
 			-genomeBuild GRCh38
-		mv $group/*.annotated.tsv ${group}_annotsv.tsv
-
-		${annotsv_version(task)}
-		"""
+		if [-f !{group}/*.annotated.tsv]; then
+			mv !{group}/*.annotated.tsv !{group}_annotsv.tsv
+		else
+		    echo "1\n" > !{group}_annotsv.tsv
+		fi
+		echo "!{version_str}" > "!{task.process}_versions.yml"
+		'''
 
 	stub:
+		version_str = annotsv_version(task)
 		"""
 		export ANNOTSV="/AnnotSV"
 		touch "${group}_annotsv.tsv"
 
-		${annotsv_version(task)}
+		echo "${version_str}" > "${task.process}_versions.yml"
 		"""
 }
 def annotsv_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    annotsv: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )
-	END_VERSIONS	
-	"""
+	"""${task.process}:
+	    annotsv: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )"""
 }
 
 process vep_sv {
@@ -3876,7 +3853,7 @@ process output_files {
 	time '2m'
 
 	input:
-		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO).groupTuple()
+		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO,d4_INFO).groupTuple()
 
 	output:
 		set group, file("${group}.INFO") into yaml_INFO
@@ -3902,7 +3879,7 @@ process svvcf_to_bed {
 	time '10m'
 
 	when:
-		!params.onco && !params.exome
+		params.antype != "panel"
 
 	input:
 		set group, file(vcf) from svvcf_bed
@@ -3995,8 +3972,6 @@ process combine_versions {
 			ch_bqsr_versions.first(),
 			ch_sentieon_qc_versions.first(),
 			ch_chanjo_sambamba_versions.first(),
-			ch_d4_intersect_bam_versions.first(),
-			ch_d4_intersect_index_bam_versions.first(),
 			ch_d4_coverage_versions.first(),
 			ch_smn_copy_number_caller_versions.first(),
 			ch_expansionhunter_versions.first(),
