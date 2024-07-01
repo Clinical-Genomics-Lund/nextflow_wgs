@@ -156,7 +156,7 @@ Channel
 
 
 // Check whether genome assembly is indexed //
-if(genome_file){
+if(genome_file) {
 	bwaId = Channel
 			.fromPath("${genome_file}.bwt")
 			.ifEmpty { exit 1, "BWA index not found: ${genome_file}.bwt" }
