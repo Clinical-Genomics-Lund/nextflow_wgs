@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### TBD
+
+* Update MODY-cf configs to use the same as onco
+* Clean up in MODY-cf config post merge
+
 ### 3.9.0
 	
 * Give the Sentieon container path by a parameter in the config file
