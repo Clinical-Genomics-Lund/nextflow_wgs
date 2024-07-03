@@ -26,16 +26,22 @@ if ! [[ "${no_running}" =~ ^[yY]$ ]]; then
 fi
 
 echo "> Retrieving current git.hash from ${DEST}/git.hash, please wait ..."
-current_hash=$(ssh "${DEST_HOST}" "cat $PIPELINE_DEST/git.hash")
+remote_hash=$(ssh "${DEST_HOST}" "cat $PIPELINE_DEST/git.hash")
 
-echo "> Showing diff to ${current_hash}"
-git diff ${current_hash} --stat
+local_hash=$(git rev-parse HEAD)
+
+echo "> Local hash is ${local_hash}, remote hash is ${remote_hash}"
+echo "> Writing local hash to ${DIR}/git.hash"
+echo "${local_hash}" > "${DIR}/git.hash"
+
+echo "> Showing diff to ${remote_hash}"
+git diff ${remote_hash} --stat
 
 echo "> Do you want to view the full diff? (y/n)"
 read -r view_full
 
 if [[ "${view_full}" =~ ^[Yy]$ ]]; then
-    git diff ${current_hash}
+    git diff ${remote_hash}
 fi
 
 echo "> Do you want to proceed with deploying? (y/n)"
