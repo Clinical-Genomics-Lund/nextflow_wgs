@@ -5,8 +5,6 @@ echo "> Current working directory: ${DIR}"
 DEST_HOST="rs-fs1.lunarc.lu.se"
 PIPELINE_DEST="/fs1/pipelines/wgs_germline38"
 
-current_computer=$(hostname)
-
 current_branch=$(git branch | grep "^*" | sed "s/^* //")
 if [[ "${current_branch}" != "master" ]]; then
     echo "> You are not on the master branch. Current branch: ${current_branch}"
