@@ -1,9 +1,9 @@
 # CHANGELOG
 
-### TBD
+### 3.9.2
 
 * Add updated and more communicative deploy script
-* Deprecate unused deploy scripts
+* Remove or rename other deploy scripts
 
 ### 3.9.1
 
