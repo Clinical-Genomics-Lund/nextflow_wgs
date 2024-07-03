@@ -1,6 +1,6 @@
 # CHANGELOG
 
-### TBD
+### 3.9.1
 
 * Update MODY-cf configs to use the same as onco
 * Clean up in MODY-cf config post merge
