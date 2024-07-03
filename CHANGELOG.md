@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### TBD
+
+* Add updated and more communicative deploy script
+* Deprecate unused deploy scripts
+
 ### 3.9.1
 
 * Update MODY-cf configs to use the same as onco
