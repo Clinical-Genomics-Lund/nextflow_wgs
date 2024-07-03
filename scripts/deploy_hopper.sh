@@ -4,6 +4,7 @@ echo "> Current working directory: ${DIR}"
 
 DEST_HOST="rs-fs1.lunarc.lu.se"
 PIPELINE_DEST="/fs1/pipelines/wgs_germline38"
+DEST="${DEST_HOST}:${PIPELINE_DEST}"
 
 current_branch=$(git branch | grep "^*" | sed "s/^* //")
 if [[ "${current_branch}" != "master" ]]; then
@@ -24,7 +25,7 @@ if ! [[ "${no_running}" =~ ^[yY]$ ]]; then
     exit 0
 fi
 
-echo "> Retrieving current git.hash from ${DEST_HOST}:$PIPELINE_DEST/git.hash, please wait ..."
+echo "> Retrieving current git.hash from ${DEST}/git.hash, please wait ..."
 current_hash=$(ssh "${DEST_HOST}" "cat $PIPELINE_DEST/git.hash")
 
 echo "> Showing diff to ${current_hash}"
@@ -41,17 +42,18 @@ echo "> Do you want to proceed with deploying? (y/n)"
 read -r response
 
 if [[ "${response}" =~ ^[Yy]$ ]]; then
+
     # Copy pipeline script
-    cp -v $DIR/main.nf $DEST
+    cp -v "${DIR}/main.nf" "${DEST}"
 
     # Copy configuration file
-    cp -v $DIR/configs/nextflow.hopper.config $DEST/nextflow.config
+    cp -v "${DIR}/configs/nextflow.hopper.config" "${DEST}/nextflow.config"
 
     # Copy other files
-    cp -r -v $DIR/bin $DEST
+    cp -r -v "${DIR}/bin" "${DEST}"
 
     #git rev-parse HEAD > git.hash
-    cp -v $DIR/git.hash $DEST
+    cp -v "${DIR}/git.hash" "${DEST}"
 
 else
     echo "Deploy aborted"
