@@ -43,17 +43,19 @@ read -r response
 
 if [[ "${response}" =~ ^[Yy]$ ]]; then
 
+    echo "Deploying to ${DEST} ..."
+
     # Copy pipeline script
-    scp -v "${DIR}/main.nf" "${DEST}"
+    scp "${DIR}/main.nf" "${DEST}"
 
     # Copy configuration file
-    scp -v "${DIR}/configs/nextflow.hopper.config" "${DEST}/nextflow.config"
+    scp "${DIR}/configs/nextflow.hopper.config" "${DEST}/nextflow.config"
 
     # Copy other files
-    scp -r -v "${DIR}/bin" "${DEST}"
+    scp -r "${DIR}/bin" "${DEST}"
 
     #git rev-parse HEAD > git.hash
-    scp -v "${DIR}/git.hash" "${DEST}"
+    scp "${DIR}/git.hash" "${DEST}"
 
 else
     echo "Deploy aborted"
