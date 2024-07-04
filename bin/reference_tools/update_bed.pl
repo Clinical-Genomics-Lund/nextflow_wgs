@@ -56,13 +56,8 @@ if(-e $final_bed) {
     unlink($final_bed);
 }
 
-
-print("A\n");
-
 ## ADD DATA ##
-add_to_bed($final_bed, $base_bed, "EXONS-$release");
-
-print("B\n");
+# add_to_bed($final_bed, $base_bed, "EXONS-$release");
 
 foreach my $incl_bed (@incl_bed_files) {
     print("Iterating with " . $incl_bed . "\n");
@@ -70,29 +65,33 @@ foreach my $incl_bed (@incl_bed_files) {
     add_to_bed($final_bed, $incl_bed, $suffix);
 }
 
-print("C\n");
-
 # add_to_bed($final_bed,$agilent,"AGILENT-EXOME");
 
 ## clinvar variants ##
 print("Clinvar 1\n");
-my ($clinvar_new,$new_benign) = read_clinvar($clinvar_vcf);
+my ($clinvar_new, $new_benign) = read_clinvar($clinvar_vcf);
 print("Clinvar 2\n");
-my ($clinvar_old,$old_benign) = read_clinvar($clinvar_vcf_old);
+my ($clinvar_old, $old_benign) = read_clinvar($clinvar_vcf_old);
 print("Clinvar 3\n");
 my %old_benign = %$old_benign;
 my %new_benign = %$new_benign;
-my ($newtoadd,$oldtoremove) = compare_clinvar($clinvar_new,$clinvar_old,$final_bed);
+my ($newtoadd, $oldtoremove) = compare_clinvar($clinvar_new, $clinvar_old, $final_bed);
 my $clinvarlog = "clinvar_".$clinvar.".log";
 my $clinvar_final_bed = "clinvar_".$clinvar.".bed";
-if (-e $clinvarlog) { unlink( $clinvarlog ); }
-if (-e $clinvar_final_bed) { unlink( $clinvar_final_bed ); }
-clinvar_bed_andinfo($newtoadd,"new",$clinvarlog);
-clinvar_bed_andinfo($oldtoremove,"old",$clinvarlog);
-clinvar_bed_andinfo($newtoadd,"bed",$clinvar_final_bed);
-add_to_bed($final_bed,$clinvar_final_bed,".");
-## SORT MERGE ###
-sort_merge($final_bed);
+if (-e $clinvarlog) { 
+    unlink( $clinvarlog ); 
+}
+if (-e $clinvar_final_bed) { 
+    unlink( $clinvar_final_bed ); 
+}
+clinvar_bed_and_info($newtoadd, "new", $clinvarlog);
+clinvar_bed_and_info($oldtoremove, "old", $clinvarlog);
+clinvar_bed_and_info($newtoadd, "bed", $clinvar_final_bed);
+add_to_bed($final_bed, $clinvar_final_bed, ".");
+
+print($final_bed, "\n");
+
+sort_merge_output($final_bed);
 
 print("Done\n");
 
@@ -100,12 +99,16 @@ print("Done\n");
 ## and one with benign
 sub read_clinvar {
     my $vcf = shift;
-    my $vcf_hash = CMD::vcf2->new('file'=>$vcf );
+    my $vcf_hash = CMD::vcf2->new('file'=>$vcf);
     my %clinvar_variants;
     my %benign_clinvar_variants;
     my $clinvar_bed = "clinvar.bed";
+
+    print("read_clinvar 1 " . $vcf . "\n");
+
     ## save all variants that is marked as Pathogenic in some way
     while ( my $var = $vcf_hash->next_var() ) {
+
         my $sig = ""; my $confidence = "";
         my $haplo = "";
         if ($var->{INFO}->{CLNSIG}) {
@@ -204,7 +207,7 @@ sub add_to_bed {
     close BED2ADD;
 }
 ## merges bed-file targets and collapses 4th column
-sub sort_merge {
+sub sort_merge_output {
     my $bed = shift;
     system( "bedtools sort -i $bed > tmp.sort.bed" );
     system( "bedtools merge -i tmp.sort.bed -c 4 -o collapse > $bed" );
@@ -229,7 +232,8 @@ sub compare_clinvar {
         print NEW $new{$key}->{CHROM}."\t";
         print NEW ($new{$key}->{POS} - 5)."\t";
         print NEW ($new{$key}->{POS} + 5)."\t";
-        my $info = clinvar_info($new{$key},$key);
+        my $info = clinvar_info($new{$key}, $key);
+        # print("$info: " . $info . "\n");
         print NEW "$info\n";
 
     }
@@ -244,7 +248,7 @@ sub compare_clinvar {
             print OLD $old{$key}->{CHROM}."\t";
             print OLD ($old{$key}->{POS} - 5)."\t";
             print OLD ($old{$key}->{POS} + 5)."\t";
-            my $info = clinvar_info($old{$key},$key);
+            my $info = clinvar_info($old{$key}, $key);
             print OLD "$info\n";
         }
 
@@ -252,10 +256,10 @@ sub compare_clinvar {
     close NEW;
     close OLD;
 
-    my @add2bed = push(@incommon,@new_added);
-    my $newtoadd = intersect($new_bed,$final_bed);
+    my @add2bed = push(@incommon, @new_added);
+    my $newtoadd = intersect($new_bed, $final_bed);
     unlink($new_bed);
-    my $oldtoremove = intersect($old_bed,$final_bed);
+    my $oldtoremove = intersect($old_bed, $final_bed);
     unlink($old_bed);
     print "clinvar in common between versions :".scalar(@incommon)."\n";
     print "added new(unique targets)          :".scalar(@new_added)."(".scalar(@{$newtoadd}).")"."\n";
@@ -275,34 +279,48 @@ sub clinvar_info {
     my $info = shift;
     my $var = shift;
     my %info = %$info;
-    my @forth;
-    push (@forth,$var);
-    push (@forth,$info->{REASON});
-    push (@forth,$info->{INFO}->{CLNACC});
-    push (@forth,$info->{INFO}->{CLNDN});
-    my $forth = join('~',@forth);
-    return $forth;
+    my @fourth;
+
+    push (@fourth, $var);
+    push (@fourth, $info->{REASON});
+    push (@fourth, $info->{INFO}->{CLNACC});
+
+    my $clndn = "Undefined";
+    if ( defined $fourth[3] ) {
+        $clndn = $info->{INFO}->{CLNDN};
+    }
+
+    push (@fourth, $clndn);
+
+    my $fourth = join('~', @fourth);
+    return $fourth;
 }
 ## creates a log for added and removed clinvar variants as well
 ## as creates the bed that gets added to the final big bed-file
-sub clinvar_bed_andinfo {
+sub clinvar_bed_and_info {
     my $clinvar = shift;
-    my $neworold = shift;
+    my $new_or_old = shift;
     my $clinvarlog = shift;
-    open (LOG,'>>',$clinvarlog);
+
+    print("Inside clinvar_bed_and_info with $clinvar " . "\n");
+
+    open (LOG, '>>', $clinvarlog);
     foreach my $target (@{ $clinvar }) {
         chomp($target);
-        my @line = split('\t',$target);
-        my @clinvarreason = split("~",$line[3]);
-        my @pos = split('_',$clinvarreason[0]);
-        if ($neworold eq "old") {
+
+        print("With target: " . $target . "\n");
+
+        my @line = split('\t', $target);
+        my @clinvarreason = split("~", $line[3]);
+        my @pos = split('_' ,$clinvarreason[0]);
+        if ($new_or_old eq "old") {
             my $innew = "MISSING";
             if ($new_benign{$clinvarreason[0]}->{INFO}->{CLNSIG}) {
                 $innew = $new_benign{$clinvarreason[0]}->{INFO}->{CLNSIG};
             }
             print LOG "REMOVED:".$pos[0].":".$clinvarreason[2].":".$clinvarreason[1]."=>".$innew."\n";
         }
-        elsif ($neworold eq "new") {
+        elsif ($new_or_old eq "new") {
             print LOG "ADDED:".$pos[0].":".$clinvarreason[2].":".$clinvarreason[1]."\n";
         }
         else {

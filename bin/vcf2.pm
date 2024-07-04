@@ -165,6 +165,8 @@ sub parse_variant {
 
     $var{ vcf_str } = $var_str;
     
+    print("parse_variant " . "\n");
+
     # First seven fields
     for ( 0..6 ) {
 	    $var{ $head->[$_] } = $var_data[$_];

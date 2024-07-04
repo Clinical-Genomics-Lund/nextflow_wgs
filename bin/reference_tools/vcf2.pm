@@ -65,14 +65,15 @@ sub next_var {
     my ($self) = @_;
     
     my $line = readline($$self{fh});
+
     if ($line) {
-	chomp $line;
+        chomp $line;
 
-	my $variant = parse_variant( $line, $$self{head}, $$self{meta} );
+        my $variant = parse_variant( $line, $$self{head}, $$self{meta} );
 
-	if( $variant->{CHROM} ) {
-	    return $variant if defined $variant;
-	}
+        if( $variant->{CHROM} ) {
+            return $variant if defined $variant;
+        }
     }
     return 0;
 }
@@ -167,7 +168,7 @@ sub parse_variant {
     
     # First seven fields
     for ( 0..6 ) {
-	$var{ $head->[$_] } = $var_data[$_];
+	    $var{ $head->[$_] } = $var_data[$_];
     }
 
     # Eigth field, INFO
