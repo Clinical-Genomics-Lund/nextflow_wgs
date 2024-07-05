@@ -192,7 +192,7 @@ sub add_to_bed {
     while (<BED2ADD>) {
         chomp;
         my @line = split('\t');
-	next if $line[0] eq "M";
+    next if $line[0] eq "M";
         if ($line[3]) {
             print BED $line[0]."\t".$line[1]."\t".$line[2]."\t".$line[3]."\n";    
         }
