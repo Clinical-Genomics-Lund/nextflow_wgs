@@ -305,13 +305,18 @@ sub clinvar_bed_and_info {
     print("Inside clinvar_bed_and_info with $clinvar " . "\n");
 
     open (LOG, '>>', $clinvarlog);
-    foreach my $target (@{ $clinvar }) {
-        chomp($target);
+    foreach my $clinvar_line (@{ $clinvar }) {
+        chomp($clinvar_line);
 
-        print("With target: " . $target . "\n");
+        # print("With target: " . $target . "\n");
 
-        my @line = split('\t', $target);
-        my @clinvarreason = split("~", $line[3]);
+        my @clinvar_fields = split('\t', $clinvar_line);
+        my @clinvarreason = split("~", $clinvar_fields[3]);
+
+        while (@clinvarreason < 3) {
+            push @clinvarreason, "[missing value]" 
+        }
+
         my @pos = split('_' ,$clinvarreason[0]);
         if ($new_or_old eq "old") {
             my $innew = "MISSING";
@@ -324,9 +329,10 @@ sub clinvar_bed_and_info {
             print LOG "ADDED:".$pos[0].":".$clinvarreason[2].":".$clinvarreason[1]."\n";
         }
         else {
-            print LOG $line[0]."\t".$line[1]."\t".$line[2]."\t"."CLINVAR-$clinvarreason[1]\n";
+            print LOG $clinvar_fields[0]."\t".$clinvar_fields[1]."\t".$clinvar_fields[2]."\t"."CLINVAR-".$clinvarreason[1]."\n";
         }
         
     }
     close LOG;
 }
+
