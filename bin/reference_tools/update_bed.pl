@@ -22,7 +22,7 @@ if (@missing_params) {
 }
 
 if (@incl_bed_files) {
-    print "Additional included BED files: \n" . join("\n", @incl_bed_files) . "\n";
+    print "Additional included BED files: " . join(", ", @incl_bed_files) . "\n";
 }
 
 ### Logic ###
@@ -45,55 +45,47 @@ my $base_bed = "exons_hg38_".$release.".bed";
 ## fetch $release from ensembl and get all exons for coding genes 
 
 # FIXME: Uncomment
-# get_base($gtf_request,$gtf,$base_bed,$release);
+get_base($gtf_request, $gtf, $base_bed, $release);
 
 ### BED TO ADD DATA TO ###
 my $clinvar = $opt{'clinvardate'}; # as argument
-my $final_bed = "exons_".$release."padded20bp_clinvar-".$clinvar."padded5bp."."bed";  # final name of bed, will concat to this
+my $final_bed_fp = "exons_".$release."padded20bp_clinvar-".$clinvar."padded5bp."."bed";  # final name of bed, will concat to this
 
 # if recreating same clinvarversion and ensembl build, delete old so it wont be concatenated
-if(-e $final_bed) {
-    unlink($final_bed);
+if(-e $final_bed_fp) {
+    unlink($final_bed_fp);
 }
 
 ## ADD DATA ##
-# add_to_bed($final_bed, $base_bed, "EXONS-$release");
+add_to_bed($final_bed_fp, $base_bed, "EXONS-$release");
 
 foreach my $incl_bed (@incl_bed_files) {
-    print("Iterating with " . $incl_bed . "\n");
     my $suffix = $incl_bed;
-    add_to_bed($final_bed, $incl_bed, $suffix);
+    add_to_bed($final_bed_fp, $incl_bed, $suffix);
 }
 
-# add_to_bed($final_bed,$agilent,"AGILENT-EXOME");
+# add_to_bed($final_bed_fp, $agilent,"AGILENT-EXOME");
 
 ## clinvar variants ##
-print("Clinvar 1\n");
 my ($clinvar_new, $new_benign) = read_clinvar($clinvar_vcf);
-print("Clinvar 2\n");
 my ($clinvar_old, $old_benign) = read_clinvar($clinvar_vcf_old);
-print("Clinvar 3\n");
 my %old_benign = %$old_benign;
 my %new_benign = %$new_benign;
-my ($newtoadd, $oldtoremove) = compare_clinvar($clinvar_new, $clinvar_old, $final_bed);
+my ($newtoadd, $oldtoremove) = compare_clinvar($clinvar_new, $clinvar_old, $final_bed_fp);
 my $clinvarlog = "clinvar_".$clinvar.".log";
-my $clinvar_final_bed = "clinvar_".$clinvar.".bed";
+my $clinvar_final_bed_fp = "clinvar_".$clinvar.".bed";
 if (-e $clinvarlog) { 
     unlink( $clinvarlog ); 
 }
-if (-e $clinvar_final_bed) { 
-    unlink( $clinvar_final_bed ); 
+if (-e $clinvar_final_bed_fp) { 
+    unlink( $clinvar_final_bed_fp ); 
 }
 clinvar_bed_and_info($newtoadd, "new", $clinvarlog);
 clinvar_bed_and_info($oldtoremove, "old", $clinvarlog);
-clinvar_bed_and_info($newtoadd, "bed", $clinvar_final_bed);
-add_to_bed($final_bed, $clinvar_final_bed, ".");
+clinvar_bed_and_info($newtoadd, "bed", $clinvar_final_bed_fp);
+add_to_bed($final_bed_fp, $clinvar_final_bed_fp, ".");
 
-print($final_bed, "\n");
-
-sort_merge_output($final_bed);
-
-print("Done\n");
+sort_merge_output($final_bed_fp);
 
 ## takes clinvar-vcf saves pathogenicity status, returns one hash with important variants
 ## and one with benign
@@ -103,8 +95,6 @@ sub read_clinvar {
     my %clinvar_variants;
     my %benign_clinvar_variants;
     my $clinvar_bed = "clinvar.bed";
-
-    print("read_clinvar 1 " . $vcf . "\n");
 
     ## save all variants that is marked as Pathogenic in some way
     while ( my $var = $vcf_hash->next_var() ) {
@@ -161,8 +151,9 @@ sub get_base {
     my $gtf = shift;
     my $base = shift;
     my $release = shift;
-    system("wget $gtf_req -O tmp.gtf.gz");
-    system("gunzip tmp.gtf.gz");
+    # FIXME: Restore
+    # system("wget $gtf_req -O tmp.gtf.gz");
+    # system("gunzip tmp.gtf.gz");
     open(BASE,'>',$base);
     open(GTF, "tmp.gtf");
     my $keep = 0;
@@ -217,38 +208,37 @@ sub sort_merge_output {
 ## depending on variant status. Take clinvar-hashes (old and new) returns
 ## list of variants to create bed
 sub compare_clinvar {
-    my $new = shift;
-    my $old = shift;
-    my $final_bed = shift;
-    my %new = %$new;
-    my %old = %$old;
-    my $new_bed = "clinvar_new.bed";
-    my $old_bed = "clinvar_old.bed";
-    open (NEW,'>',$new_bed);
-    open (OLD,'>',$old_bed);
-    my @incommon = ();
-    foreach my $key (keys %new ) {
-        push(@incommon, $key) if exists $old{$key};
-        print NEW $new{$key}->{CHROM}."\t";
-        print NEW ($new{$key}->{POS} - 5)."\t";
-        print NEW ($new{$key}->{POS} + 5)."\t";
-        my $info = clinvar_info($new{$key}, $key);
-        # print("$info: " . $info . "\n");
+    my $new_clinvar = shift;
+    my $old_clinvar = shift;
+    my $acc_bed_fp = shift;
+    my %new_clinvar = %$new_clinvar;
+    my %old_clinvar = %$old_clinvar;
+    my $new_bed_fp = "clinvar_new.bed";
+    my $old_bed_fp = "clinvar_old.bed";
+    open (new_clinvar, '>', $new_bed_fp);
+    open (OLD, '>', $old_bed_fp);
+    my @clinvar_in_common = ();
+    foreach my $key (keys %new_clinvar ) {
+        push(@clinvar_in_common, $key) if exists $old_clinvar{$key};
+        print NEW $new_clinvar{$key}->{CHROM}."\t";
+        print NEW ($new_clinvar{$key}->{POS} - 5)."\t";
+        print NEW ($new_clinvar{$key}->{POS} + 5)."\t";
+        my $info = clinvar_info($new_clinvar{$key}, $key);
         print NEW "$info\n";
 
     }
     my @new_added = ();
-    foreach my $key (keys %new ) {
-        push(@new_added, $key) unless exists $old{$key};
+    foreach my $key (keys %new_clinvar ) {
+        push(@new_added, $key) unless exists $old_clinvar{$key};
     }
     my @old_removed = ();
-    foreach my $key (keys %old ) {
-        unless (exists $new{$key}) {
+    foreach my $key (keys %old_clinvar ) {
+        unless (exists $new_clinvar{$key}) {
             push(@old_removed, $key);
-            print OLD $old{$key}->{CHROM}."\t";
-            print OLD ($old{$key}->{POS} - 5)."\t";
-            print OLD ($old{$key}->{POS} + 5)."\t";
-            my $info = clinvar_info($old{$key}, $key);
+            print OLD $old_clinvar{$key}->{CHROM}."\t";
+            print OLD ($old_clinvar{$key}->{POS} - 5)."\t";
+            print OLD ($old_clinvar{$key}->{POS} + 5)."\t";
+            my $info = clinvar_info($old_clinvar{$key}, $key);
             print OLD "$info\n";
         }
 
@@ -256,15 +246,16 @@ sub compare_clinvar {
     close NEW;
     close OLD;
 
-    my @add2bed = push(@incommon, @new_added);
-    my $newtoadd = intersect($new_bed, $final_bed);
-    unlink($new_bed);
-    my $oldtoremove = intersect($old_bed, $final_bed);
-    unlink($old_bed);
-    print "clinvar in common between versions :".scalar(@incommon)."\n";
-    print "added new(unique targets)          :".scalar(@new_added)."(".scalar(@{$newtoadd}).")"."\n";
-    print "removed old(unique targets)        :".scalar(@old_removed)."(".scalar(@{$oldtoremove}).")"."\n";
-    return $newtoadd,$oldtoremove;
+    my @add2bed = push(@clinvar_in_common, @new_added);
+    # my $newtoadd = intersect($new_bed_fp, $old_bed_fp);
+    my $new_to_add = intersect($new_bed_fp, $acc_bed_fp);
+    unlink($new_bed_fp);
+    my $old_to_remove = intersect($old_bed_fp, $acc_bed_fp);
+    unlink($old_bed_fp);
+    print "clinvar in common between versions :".scalar(@clinvar_in_common)."\n";
+    print "added new(unique targets)          :".scalar(@new_added)."(".scalar(@{$new_to_add}).")"."\n";
+    print "removed old(unique targets)        :".scalar(@old_removed)."(".scalar(@{$old_to_remove}).")"."\n";
+    return $new_to_add, $old_to_remove;
 }
 ## finds unique targets, important to keep track of what variants gets added
 ## and what variants get removed
@@ -302,13 +293,10 @@ sub clinvar_bed_and_info {
     my $new_or_old = shift;
     my $clinvarlog = shift;
 
-    print("Inside clinvar_bed_and_info with $clinvar " . "\n");
-
     open (LOG, '>>', $clinvarlog);
     foreach my $clinvar_line (@{ $clinvar }) {
         chomp($clinvar_line);
 
-        # print("With target: " . $target . "\n");
 
         my @clinvar_fields = split('\t', $clinvar_line);
         my @clinvarreason = split("~", $clinvar_fields[3]);
