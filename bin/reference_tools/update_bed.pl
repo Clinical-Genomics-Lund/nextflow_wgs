@@ -7,7 +7,7 @@ use vcf2 qw( parse_vcf );
 use Getopt::Long;
 
 my %opt = (
-    skip_download = 0
+    skip_download => 0
 );
 my @incl_bed_files;
 GetOptions( \%opt, 'old=s', 'new=s', 'build=s', 'clinvardate=s', 'incl_bed=s@' => \@incl_bed_files, 'skip_download'  );
@@ -71,13 +71,6 @@ foreach my $incl_bed (@incl_bed_files) {
 ## clinvar variants ##
 my ($clinvar_new, $new_benign) = read_clinvar($clinvar_vcf);
 my ($clinvar_old, $old_benign) = read_clinvar($clinvar_vcf_old);
-
-my $num_clinvar_new = scalar keys %$clinvar_new;
-my $num_clinvar_old = scalar keys %$clinvar_old;
-my $num_benign_new = scalar keys %$new_benign;
-my $num_benign_old = scalar keys %$old_benign;
-
-print("$num_clinvar_new $num_clinvar_old $num_benign_new $num_benign_old\n");
 
 my %old_benign = %$old_benign;
 my %new_benign = %$new_benign;
@@ -162,6 +155,7 @@ sub get_base {
     my $base = shift;
     my $release = shift;
     my $skip_download = shift;
+
     unless ($skip_download) {
         system("wget $gtf_req -O tmp.gtf.gz");
         system("gunzip tmp.gtf.gz");
@@ -187,6 +181,7 @@ sub get_base {
     close BASE;    
     
 }
+
 ## concats bed files and adds 4th column describing why it was added
 sub add_to_bed {
     my $bed = shift;
@@ -209,6 +204,7 @@ sub add_to_bed {
     close BED;
     close BED2ADD;
 }
+
 ## merges bed-file targets and collapses 4th column
 sub sort_merge_output {
     my $bed = shift;
@@ -216,6 +212,7 @@ sub sort_merge_output {
     system( "bedtools merge -i tmp.sort.bed -c 4 -o collapse > $bed" );
     unlink( "tmp.sort.bed");
 }
+
 ## finds calculates which variants to add to new bed, and which to remove
 ## depending on variant status. Take clinvar-hashes (old and new) returns
 ## list of variants to create bed
@@ -244,39 +241,34 @@ sub compare_clinvar {
     }
     my $clinvar_in_common_nbr = scalar @clinvar_in_common;
 
-    my @new_added = ();
+    my @clinvar_new_added = ();
     foreach my $key (keys %new_clinvar ) {
-        push(@new_added, $key) unless exists $old_clinvar{$key};
+        push(@clinvar_new_added, $key) unless exists $old_clinvar{$key};
     }
-    my @old_removed = ();
+    my @clinvar_old_removed = ();
     foreach my $key (keys %old_clinvar ) {
         unless (exists $new_clinvar{$key}) {
-            push(@old_removed, $key);
+            push(@clinvar_old_removed, $key);
             print OLD $old_clinvar{$key}->{CHROM}."\t";
             print OLD ($old_clinvar{$key}->{POS} - 5)."\t";
             print OLD ($old_clinvar{$key}->{POS} + 5)."\t";
             my $info = clinvar_info($old_clinvar{$key}, $key);
             print OLD "$info\n";
         }
-
     }
     close NEW;
     close OLD;
-
-    # FIXME: Does this make sense? Looks like it always will add back the new
-    # to the already existing ones
-    # Commenting until further clarification ...
-    # push(@clinvar_in_common, @new_added);
 
     my $new_to_add = intersect($new_bed_fp, $final_bed_fp);
     unlink($new_bed_fp);
     my $old_to_remove = intersect($old_bed_fp, $final_bed_fp);
     unlink($old_bed_fp);
     print "ClinVar in common between versions :".scalar(@clinvar_in_common)."\n";
-    print "Added new(unique targets)          :".scalar(@new_added)."(".scalar(@{$new_to_add}).")"."\n";
-    print "Removed old(unique targets)        :".scalar(@old_removed)."(".scalar(@{$old_to_remove}).")"."\n";
+    print "Added new(unique targets)          :".scalar(@clinvar_new_added)."(".scalar(@{$new_to_add}).")"."\n";
+    print "Removed old(unique targets)        :".scalar(@clinvar_old_removed)."(".scalar(@{$old_to_remove}).")"."\n";
     return $new_to_add, $old_to_remove;
 }
+
 ## finds unique targets, important to keep track of what variants gets added
 ## and what variants get removed
 sub intersect {
@@ -285,6 +277,7 @@ sub intersect {
     my @notinbed = `bedtools intersect -a $clinvar -b $bed -v`;
     return \@notinbed;
 }
+
 ## concats INFO-field into 4th column for clinvarbed
 sub clinvar_info {
     my $info = shift;
@@ -306,6 +299,7 @@ sub clinvar_info {
     my $fourth = join('~', @fourth);
     return $fourth;
 }
+
 ## creates a log for added and removed clinvar variants as well
 ## as creates the bed that gets added to the final big bed-file
 sub clinvar_bed_and_info {
