@@ -6,9 +6,11 @@ use lib dirname (__FILE__);
 use vcf2 qw( parse_vcf );
 use Getopt::Long;
 
-my %opt = ();
+my %opt = (
+    skip_download = 0
+);
 my @incl_bed_files;
-GetOptions( \%opt, 'old=s', 'new=s', 'build=s', 'clinvardate=s', 'incl_bed=s@' => \@incl_bed_files );
+GetOptions( \%opt, 'old=s', 'new=s', 'build=s', 'clinvardate=s', 'incl_bed=s@' => \@incl_bed_files, 'skip_download'  );
 
 my @required_params = qw(old new build clinvardate);
 my @missing_params;
@@ -18,7 +20,7 @@ foreach my $param (@required_params) {
 }
 
 if (@missing_params) {
-    die "Error: Missing required parameters: " . join(", ", @missing_params) . "\nUsage: update_bed.pl --old <filepath> --new <filepath> --build <108> --clinvardate <20240701> [--incl_bed <filepath>]\n";
+    die "Error: Missing required parameters: " . join(", ", @missing_params) . "\nUsage: update_bed.pl --old <filepath> --new <filepath> --build <108> --clinvardate <20240701> [--incl_bed <filepath>] [--skip_download]\n";
 }
 
 if (@incl_bed_files) {
@@ -42,15 +44,16 @@ my $release = $opt{'build'}; # as argument
 my $gtf = "Homo_sapiens.GRCh38.".$release.".gtf.gz"; 
 my $gtf_request = "https://ftp.ensembl.org/pub/release-".$release."/gtf/homo_sapiens/$gtf";
 my $base_bed = "exons_hg38_".$release.".bed";
-## fetch $release from ensembl and get all exons for coding genes 
 
-get_base($gtf_request, $gtf, $base_bed, $release);
+## fetch $release from ensembl and get all exons for coding genes 
+get_base($gtf_request, $gtf, $base_bed, $release, $opt{'skip_download'});
 
 ### BED TO ADD DATA TO ###
-my $clinvar = $opt{'clinvardate'}; # as argument
-my $final_bed_fp = "exons_".$release."padded20bp_clinvar-".$clinvar."padded5bp."."bed";  # final name of bed, will concat to this
+my $clinvar = $opt{'clinvardate'};
+# final name of bed, will concat to this
+my $final_bed_fp = "exons_".$release."padded20bp_clinvar-".$clinvar."padded5bp."."bed";
 
-# if recreating same clinvarversion and ensembl build, delete old so it wont be concatenated
+# if recreating same clinvarversion and ensembl build, delete old so it won't be concatenated
 if(-e $final_bed_fp) {
     unlink($final_bed_fp);
 }
@@ -158,9 +161,11 @@ sub get_base {
     my $gtf = shift;
     my $base = shift;
     my $release = shift;
-    # FIXME: Restore
-    # system("wget $gtf_req -O tmp.gtf.gz");
-    # system("gunzip tmp.gtf.gz");
+    my $skip_download = shift;
+    unless ($skip_download) {
+        system("wget $gtf_req -O tmp.gtf.gz");
+        system("gunzip tmp.gtf.gz");
+    }
     open(BASE,'>',$base);
     open(GTF, "tmp.gtf");
     my $keep = 0;
@@ -224,8 +229,6 @@ sub compare_clinvar {
     my $new_clinvar_count = scalar keys %new_clinvar;
     my $old_clinvar_count = scalar keys %old_clinvar;
 
-    print("In compare_clinvar new: $new_clinvar_count old: $old_clinvar_count\n");
-
     my $new_bed_fp = "clinvar_new.bed";
     my $old_bed_fp = "clinvar_old.bed";
     open (NEW, '>', $new_bed_fp);
@@ -240,7 +243,6 @@ sub compare_clinvar {
         print NEW "$info\n";
     }
     my $clinvar_in_common_nbr = scalar @clinvar_in_common;
-    print("Nbr in clinvar_in_common: $clinvar_in_common_nbr\n");
 
     my @new_added = ();
     foreach my $key (keys %new_clinvar ) {
@@ -295,7 +297,7 @@ sub clinvar_info {
     push (@fourth, $info->{INFO}->{CLNACC});
 
     my $clndn = "Undefined";
-    if ( defined $fourth[3] ) {
+    if (defined $fourth[3]) {
         $clndn = $info->{INFO}->{CLNDN};
     }
 
