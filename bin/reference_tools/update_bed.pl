@@ -8,9 +8,9 @@ use Getopt::Long;
 
 my %opt = ();
 my @incl_bed_files;
-GetOptions( \%opt, 'old_clinvar=s', 'new_clinvar=s', 'build=s', 'clinvardate=s', 'incl_bed=s@' => \@incl_bed_files );
+GetOptions( \%opt, 'old=s', 'new=s', 'build=s', 'clinvardate=s', 'incl_bed=s@' => \@incl_bed_files );
 
-my @required_params = qw(old_clinvar new_clinvar build clinvardate);
+my @required_params = qw(old new build clinvardate);
 my @missing_params;
 
 foreach my $param (@required_params) {
@@ -18,7 +18,7 @@ foreach my $param (@required_params) {
 }
 
 if (@missing_params) {
-    die "Error: Missing required parameters: " . join(", ", @missing_params) . "\nUsage: update_bed.pl --old_clinvar <filepath> --new_clinvar <filepath> --build <108> --clinvardate <20240701> [--incl_bed <filepath>]\n";
+    die "Error: Missing required parameters: " . join(", ", @missing_params) . "\nUsage: update_bed.pl --old <filepath> --new <filepath> --build <108> --clinvardate <20240701> [--incl_bed <filepath>]\n";
 }
 
 if (@incl_bed_files) {
@@ -33,8 +33,8 @@ if (@incl_bed_files) {
 #my $clinvar_vcf_old = "/fs1/resources/ref/hg38/annotation_dbs/bedupdatertest/old_chrom8.vcf";
 #my $clinvar_vcf = "/fs1/resources/ref/hg38/annotation_dbs/clinvar38_latest.vcf.gz";
 #my $clinvar_vcf_old = "/data/bnf/ref/annotations_dbs/clinvar38_20200106.vcf.gz";
-my $clinvar_vcf = $opt{'new_clinvar'};
-my $clinvar_vcf_old = $opt{'old_clinvar'};
+my $clinvar_vcf = $opt{'new'};
+my $clinvar_vcf_old = $opt{'old'};
 # my $agilent = "agilient_hg38_nochr_noalt_1-3.bed";
 
 ### BASE BED ########
@@ -142,7 +142,7 @@ sub read_clinvar {
             $benign_clinvar_variants{$var->{CHROM}.":".$var->{POS}."_".$var->{REF}."_".$var->{ALT}}{REASON} = $reason;
         }
     }
-    return \%clinvar_variants,\%benign_clinvar_variants;
+    return \%clinvar_variants, \%benign_clinvar_variants;
 }
 
 ## fetches $release ensembl gtf and returns bed with coding genes exons
@@ -210,12 +210,12 @@ sub sort_merge_output {
 sub compare_clinvar {
     my $new_clinvar = shift;
     my $old_clinvar = shift;
-    my $acc_bed_fp = shift;
+    my $final_bed_fp = shift;
     my %new_clinvar = %$new_clinvar;
     my %old_clinvar = %$old_clinvar;
     my $new_bed_fp = "clinvar_new.bed";
     my $old_bed_fp = "clinvar_old.bed";
-    open (new_clinvar, '>', $new_bed_fp);
+    open (NEW, '>', $new_bed_fp);
     open (OLD, '>', $old_bed_fp);
     my @clinvar_in_common = ();
     foreach my $key (keys %new_clinvar ) {
@@ -246,11 +246,9 @@ sub compare_clinvar {
     close NEW;
     close OLD;
 
-    my @add2bed = push(@clinvar_in_common, @new_added);
-    # my $newtoadd = intersect($new_bed_fp, $old_bed_fp);
-    my $new_to_add = intersect($new_bed_fp, $acc_bed_fp);
+    my $new_to_add = intersect($new_bed_fp, $final_bed_fp);
     unlink($new_bed_fp);
-    my $old_to_remove = intersect($old_bed_fp, $acc_bed_fp);
+    my $old_to_remove = intersect($old_bed_fp, $final_bed_fp);
     unlink($old_bed_fp);
     print "clinvar in common between versions :".scalar(@clinvar_in_common)."\n";
     print "added new(unique targets)          :".scalar(@new_added)."(".scalar(@{$new_to_add}).")"."\n";
