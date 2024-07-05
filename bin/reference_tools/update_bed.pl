@@ -54,7 +54,7 @@ my $clinvar = $opt{'clinvardate'};
 my $final_bed_fp = "exons_".$release."padded20bp_clinvar-".$clinvar."padded5bp."."bed";
 
 # if recreating same clinvarversion and ensembl build, delete old so it won't be concatenated
-if(-e $final_bed_fp) {
+if (-e $final_bed_fp) {
     unlink($final_bed_fp);
 }
 
@@ -222,9 +222,6 @@ sub compare_clinvar {
     my $final_bed_fp = shift;
     my %new_clinvar = %$new_clinvar;
     my %old_clinvar = %$old_clinvar;
-
-    my $new_clinvar_count = scalar keys %new_clinvar;
-    my $old_clinvar_count = scalar keys %old_clinvar;
 
     my $new_bed_fp = "clinvar_new.bed";
     my $old_bed_fp = "clinvar_old.bed";
