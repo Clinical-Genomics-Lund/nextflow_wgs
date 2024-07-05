@@ -44,7 +44,6 @@ my $gtf_request = "https://ftp.ensembl.org/pub/release-".$release."/gtf/homo_sap
 my $base_bed = "exons_hg38_".$release.".bed";
 ## fetch $release from ensembl and get all exons for coding genes 
 
-# FIXME: Uncomment
 get_base($gtf_request, $gtf, $base_bed, $release);
 
 ### BED TO ADD DATA TO ###
@@ -69,6 +68,14 @@ foreach my $incl_bed (@incl_bed_files) {
 ## clinvar variants ##
 my ($clinvar_new, $new_benign) = read_clinvar($clinvar_vcf);
 my ($clinvar_old, $old_benign) = read_clinvar($clinvar_vcf_old);
+
+my $num_clinvar_new = scalar keys %$clinvar_new;
+my $num_clinvar_old = scalar keys %$clinvar_old;
+my $num_benign_new = scalar keys %$new_benign;
+my $num_benign_old = scalar keys %$old_benign;
+
+print("$num_clinvar_new $num_clinvar_old $num_benign_new $num_benign_old\n");
+
 my %old_benign = %$old_benign;
 my %new_benign = %$new_benign;
 my ($newtoadd, $oldtoremove) = compare_clinvar($clinvar_new, $clinvar_old, $final_bed_fp);
@@ -80,9 +87,9 @@ if (-e $clinvarlog) {
 if (-e $clinvar_final_bed_fp) { 
     unlink( $clinvar_final_bed_fp ); 
 }
-clinvar_bed_and_info($newtoadd, "new", $clinvarlog);
-clinvar_bed_and_info($oldtoremove, "old", $clinvarlog);
-clinvar_bed_and_info($newtoadd, "bed", $clinvar_final_bed_fp);
+clinvar_bed_and_info($newtoadd, "new", $clinvarlog, $new_benign);
+clinvar_bed_and_info($oldtoremove, "old", $clinvarlog, $new_benign);
+clinvar_bed_and_info($newtoadd, "bed", $clinvar_final_bed_fp, $new_benign);
 add_to_bed($final_bed_fp, $clinvar_final_bed_fp, ".");
 
 sort_merge_output($final_bed_fp);
@@ -141,7 +148,7 @@ sub read_clinvar {
             $benign_clinvar_variants{$var->{CHROM}.":".$var->{POS}."_".$var->{REF}."_".$var->{ALT}}{INFO} = $var->{INFO};
             $benign_clinvar_variants{$var->{CHROM}.":".$var->{POS}."_".$var->{REF}."_".$var->{ALT}}{REASON} = $reason;
         }
-    }
+    }    
     return \%clinvar_variants, \%benign_clinvar_variants;
 }
 
@@ -213,6 +220,12 @@ sub compare_clinvar {
     my $final_bed_fp = shift;
     my %new_clinvar = %$new_clinvar;
     my %old_clinvar = %$old_clinvar;
+
+    my $new_clinvar_count = scalar keys %new_clinvar;
+    my $old_clinvar_count = scalar keys %old_clinvar;
+
+    print("In compare_clinvar new: $new_clinvar_count old: $old_clinvar_count\n");
+
     my $new_bed_fp = "clinvar_new.bed";
     my $old_bed_fp = "clinvar_old.bed";
     open (NEW, '>', $new_bed_fp);
@@ -225,8 +238,10 @@ sub compare_clinvar {
         print NEW ($new_clinvar{$key}->{POS} + 5)."\t";
         my $info = clinvar_info($new_clinvar{$key}, $key);
         print NEW "$info\n";
-
     }
+    my $clinvar_in_common_nbr = scalar @clinvar_in_common;
+    print("Nbr in clinvar_in_common: $clinvar_in_common_nbr\n");
+
     my @new_added = ();
     foreach my $key (keys %new_clinvar ) {
         push(@new_added, $key) unless exists $old_clinvar{$key};
@@ -246,13 +261,18 @@ sub compare_clinvar {
     close NEW;
     close OLD;
 
+    # FIXME: Does this make sense? Looks like it always will add back the new
+    # to the already existing ones
+    # Commenting until further clarification ...
+    # push(@clinvar_in_common, @new_added);
+
     my $new_to_add = intersect($new_bed_fp, $final_bed_fp);
     unlink($new_bed_fp);
     my $old_to_remove = intersect($old_bed_fp, $final_bed_fp);
     unlink($old_bed_fp);
-    print "clinvar in common between versions :".scalar(@clinvar_in_common)."\n";
-    print "added new(unique targets)          :".scalar(@new_added)."(".scalar(@{$new_to_add}).")"."\n";
-    print "removed old(unique targets)        :".scalar(@old_removed)."(".scalar(@{$old_to_remove}).")"."\n";
+    print "ClinVar in common between versions :".scalar(@clinvar_in_common)."\n";
+    print "Added new(unique targets)          :".scalar(@new_added)."(".scalar(@{$new_to_add}).")"."\n";
+    print "Removed old(unique targets)        :".scalar(@old_removed)."(".scalar(@{$old_to_remove}).")"."\n";
     return $new_to_add, $old_to_remove;
 }
 ## finds unique targets, important to keep track of what variants gets added
@@ -290,6 +310,7 @@ sub clinvar_bed_and_info {
     my $clinvar = shift;
     my $new_or_old = shift;
     my $clinvarlog = shift;
+    my $new_benign = shift;
 
     open (LOG, '>>', $clinvarlog);
     foreach my $clinvar_line (@{ $clinvar }) {
