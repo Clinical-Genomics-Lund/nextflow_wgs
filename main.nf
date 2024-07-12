@@ -632,6 +632,7 @@ def d4_coverage_version(task) {
 // Calculate coverage for paneldepth
 process depth_onco {
 	cpus 2
+	time '1h'
 	memory '10 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
 	tag "$id"
@@ -956,7 +957,7 @@ def vcfbreakmulti_expansionhunter_version(task) {
 /////////////////////////////////////////////////////////////////////////
 process melt_qc_val {
 	tag "$id"
-	time '2m'
+	time '20m'
 	memory '50 MB'
 
 	when:
@@ -1008,7 +1009,8 @@ process melt {
 	errorStrategy 'retry'
 	container = '/fs1/resources/containers/melt_2.2.2.sif'
 	tag "$id"
-	memory '40 GB'
+	// memory seems to scale with less number of reads?
+	memory '70 GB'
 	time '3h'
 	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf'
 
@@ -1307,6 +1309,7 @@ def madeline_version(task) {
 process freebayes {
 	cpus 1
 	time '2h'
+	memory '10 GB'
 	container '/fs1/resources/containers/twistmyeloid_2020-06-17.sif'
 	// scratch true
 	// stageInMode 'copy'
@@ -3002,11 +3005,11 @@ def manta_version(task) {
 }
 
 process manta_panel {
-	cpus = 56
+	cpus = 20
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$id"
 	time '1h'
-	memory '100 GB'
+	memory '50 GB'
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -3098,7 +3101,7 @@ process cnvkit_panel {
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	publishDir "${OUTDIR}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
 	tag "$id"
-	time '20m'
+	time '1h'
 	memory '20 GB'
 	// scratch true
 	// stageInMode 'copy'
