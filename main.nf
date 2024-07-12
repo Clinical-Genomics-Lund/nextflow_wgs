@@ -310,7 +310,7 @@ def bwa_merge_shards_version(task) {
 // ALTERNATIVE PATH: Unsharded BWA, utilize local scratch space.
 process bwa_align {
 	cpus 50
-	memory '80 GB'
+	memory '100 GB'
 	// 64 GB peak giab //
 	scratch true
 	stageInMode 'copy'
@@ -369,12 +369,12 @@ process markdup {
 	errorStrategy 'retry'
 	maxErrors 5
 	tag "$id"
-	memory '30 GB'
+	memory '50 GB'
 	// 12gb peak giab //
 	time '3h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	container = "${params.container_sentieon}"
 	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
@@ -435,9 +435,9 @@ process bqsr {
 	memory '30 GB'
 	// 12gb peak giab //
 	time '5h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	container = "${params.container_sentieon}"
 	publishDir "${OUTDIR}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
 
@@ -479,9 +479,9 @@ process sentieon_qc {
 	memory '30 GB'
 	tag "$id"
 	time '2h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	container = "${params.container_sentieon}"
 
 	input:
@@ -502,7 +502,7 @@ process sentieon_qc {
 		if (params.onco || params.exome) {
 			target = "--interval $params.intervals"
 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
-			panel_command = "sentieon driver -r ${params.genome_file} -t ${params.cpu_all} -i ${bam} --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} assay_metrics.txt"
+			panel_command = "sentieon driver -r ${params.genome_file} -t ${task.cpus} -i ${bam} --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} assay_metrics.txt"
 		}
 		
 		"""
@@ -546,12 +546,12 @@ def sentieon_qc_version(task) {
 
 process sentieon_qc_postprocess {
 	cpus 2
-	memory '10 GB'
+	memory '1 GB'
 	tag "$id"
 	time '2h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	input:
 		set id, file(dedup) from dedupmet_sentieonqc.mix(dedup_dummy)
@@ -632,12 +632,13 @@ def d4_coverage_version(task) {
 // Calculate coverage for paneldepth
 process depth_onco {
 	cpus 2
+	time '1h'
 	memory '10 GB'
 	publishDir "${OUTDIR}/cov", mode: 'copy', overwrite: 'true'
 	tag "$id"
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	when:
 		params.assay == "swea"
@@ -744,9 +745,9 @@ process expansionhunter {
 	cpus 2
 	time '10h'
 	memory '40 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	when:
 		params.str
@@ -799,9 +800,10 @@ process stranger {
 	tag "$group"
 	memory '1 GB'
 	time '10m'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	cpus 2
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	container = "/fs1/resources/containers/stranger_0.8.sif"
 
 	input:
@@ -838,12 +840,12 @@ def stranger_version(task) {
 //for i in $( ls *.svg | cut -f 2 -d "." ); do echo "STR_IMG $i /access/!{params.subdir}/plots/reviewer/!{group}/!{group}.${i}.svg" >> !{group}_rev.INFO; done
 process reviewer {
 	tag "$group"
-	cpus 1
-	time '10m'
+	cpus 2
+	time '1h'
 	memory '1 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	errorStrategy 'ignore'
 	container = "/fs1/resources/containers/REViewer_2021-06-07.sif"
 	publishDir "${OUTDIR}/plots/reviewer/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.svg'
@@ -889,11 +891,11 @@ def reviewer_version(task) {
 process vcfbreakmulti_expansionhunter {
 	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$group"
-	time '10m'
-	memory '40 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	time '1h'
+	memory '50 GB'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	input:
 		set group, id, file(eh_vcf_anno) from expansionhunter_vcf_anno
@@ -955,7 +957,7 @@ def vcfbreakmulti_expansionhunter_version(task) {
 /////////////////////////////////////////////////////////////////////////
 process melt_qc_val {
 	tag "$id"
-	time '2m'
+	time '20m'
 	memory '50 MB'
 
 	when:
@@ -1007,7 +1009,8 @@ process melt {
 	errorStrategy 'retry'
 	container = '/fs1/resources/containers/melt_2.2.2.sif'
 	tag "$id"
-	memory '40 GB'
+	// memory seems to scale with less number of reads?
+	memory '70 GB'
 	time '3h'
 	publishDir "${OUTDIR}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf'
 
@@ -1096,7 +1099,7 @@ def intersect_melt_version(task) {
 // When rerunning sample from bam, dnascope has to be run unsharded. this is mixed together with all other vcfs in a trio //
 process dnascope {
 	cpus 54
-	memory '40 GB'
+	memory '100 GB'
 	// 12 GB peak giab //
 	time '4h'
 	tag "$id"
@@ -1213,7 +1216,8 @@ def gvcf_combine_version(task) {
 process create_ped {
 	tag "$group"
 	time '20m'
-	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'	
+	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true'
+	memory '1 GB'
 
 	input:
 		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis from ped.filter { item -> item[7] == 'proband' }
@@ -1252,7 +1256,8 @@ process create_ped {
 process madeline {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.xml'
 	memory '1 GB'
-	time '30m'
+	time '1h'
+	cpus 2
 	container '/fs1/resources/containers/madeline.sif'
 
 	input:
@@ -1304,10 +1309,11 @@ def madeline_version(task) {
 process freebayes {
 	cpus 1
 	time '2h'
+	memory '10 GB'
 	container '/fs1/resources/containers/twistmyeloid_2020-06-17.sif'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	when: 
 		params.antype == "panel"
@@ -1368,7 +1374,7 @@ def freebayes_version(task) {
 process fetch_MTseqs {
 	cpus 2
 	memory '10GB'
-	time '30m'
+	time '1h'
 	tag "$id"
 	publishDir "${OUTDIR}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
 
@@ -1417,13 +1423,13 @@ process sentieon_mitochondrial_qc {
     // Fetch mitochondrial coverage statistics
     // Calculate mean_coverage and pct_above_500x
     
-    cpus 52
-    memory '30 GB'
+    cpus 30
+    memory '20 GB'
 	tag "$id"
 	time '2h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	container = "${params.container_sentieon}"
 
 	when:
@@ -1467,10 +1473,10 @@ def sentieon_mitochondrial_qc_version(task) {
 }
 
 process build_mitochondrial_qc_json {
-   
-    cpus 4
+	memory '1 GB'
+    cpus 2
     tag "$id"
-    time "10m"
+    time "1h"
 
     input:
         set group, id, file(mito_qc_file) from qc_mito
@@ -1541,9 +1547,9 @@ def run_mutect2_version(task) {
 
 // split and left-align variants
 process split_normalize_mito {
-	cpus 1
+	cpus 2
 	memory '1GB'
-	time '10m'
+	time '1h'
 
 	input:
 		set group, id, file(ms_vcf) from ms_vcfs_1
@@ -1589,9 +1595,9 @@ def split_normalize_mito_version(task) {
 // use python tool HmtNote for annotating vcf
 // future merging with diploid genome does not approve spaces in info-string
 process run_hmtnote {
-	cpus 1
+	cpus 2
 	memory '5GB'
-	time '15m'
+	time '1h'
 
 	input:
 		set group, file(adj_vcf) from adj_vcfs
@@ -1629,9 +1635,9 @@ def run_hmtnote_version(task) {
 
 // run haplogrep 2 on resulting vcf
 process run_haplogrep {
-	time '10m'
-	memory '30 GB'
-	cpus '2'
+	time '1h'
+	memory '50 GB'
+	cpus 2
 	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
 
 	input:
@@ -1681,7 +1687,8 @@ def run_haplogrep_version(task) {
 // use eKLIPse for detecting mitochondrial deletions
 process run_eklipse {
 	cpus 2
-	memory '10GB'
+	// in rare cases with samples above 50 000x this can peak at 500+ GB of VMEM. Add downsampling!
+	memory '100GB'
 	time '60m'
 	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.txt'
 	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
@@ -1734,14 +1741,14 @@ def run_eklipse_version(task) {
 
 // Splitting & normalizing variants, merging with Freebayes/Mutect2, intersecting against exome/clinvar introns
 process split_normalize {
-	cpus 1
+	cpus 2
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	tag "$group"
-	memory '10 GB'
+	memory '50 GB'
 	time '1h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	when:
 		params.annotate
@@ -1816,12 +1823,13 @@ def split_normalize_version(task) {
 /////////////// Collect QC into single file ///////////////
 
 process merge_qc_json {   
-    cpus 1
+    cpus 2
     errorStrategy 'retry'
     maxErrors 5
     publishDir "${OUTDIR}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
     tag "$id"
-    time '10m'
+    time '1h'
+	memory '1 GB'
 
     input:
         set group, id, file(qc) from qc_cdm.mix(qc_mito_json).groupTuple(by: [0,1])
@@ -1843,12 +1851,12 @@ process merge_qc_json {
     
 // Load QC data into CDM (via middleman)
 process qc_to_cdm {
-	cpus 1
+	cpus 2
 	errorStrategy 'retry'
 	maxErrors 5
 	publishDir "${CRONDIR}/qc", mode: 'copy' , overwrite: 'true'
 	tag "$id"
-	time '10m'
+	time '1h'
 
 	when:
 		!params.noupload
@@ -1871,13 +1879,10 @@ process qc_to_cdm {
     
 process annotate_vep {
 	container = "${params.container_vep}"
-	cpus 54
+	cpus 30
 	tag "$group"
-	memory '150 GB'
+	memory '50 GB'
 	time '5h'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
 
 	input:
 		set group, id, file(vcf), idx from split_vep.mix(annotate_only_vep)
@@ -1935,11 +1940,11 @@ def annotate_vep_version(task) {
 
 // gene, clinvar, loqusdb, enigma(onco)
 process vcfanno {
-	cpus params.cpu_some
-	memory '32GB'
-	time '20m'
+	memory '1GB'
+	time '1h'
 	errorStrategy 'retry'
 	maxErrors 5
+	cpus 2
 
 	input:
 		set group, file(vcf) from vep
@@ -1974,10 +1979,10 @@ def vcfanno_version(task) {
 // Modifying annotations by VEP-plugins, and adding to info-field: 
 // Modifying CLNSIG field to allow it to be used by genmod score properly:
 process modify_vcf {
-	cpus 1
+	cpus 2
 	tag "$group"
 	memory '1 GB'
-	time '10m'
+	time '1h'
 
 	input:
 		set group, file(vcf) from vcfanno_vcf
@@ -1999,10 +2004,10 @@ process modify_vcf {
 
 // Marking splice INDELs: 
 process mark_splice {
-	cpus 1
+	cpus 2
 	tag "$group"
 	memory '1 GB'
-	time '20m'
+	time '1h'
 
 	input:
 		set group, file(vcf) from mod_vcf
@@ -2023,10 +2028,10 @@ process mark_splice {
 
 // Extract all INDELs from VCF for CADD annotation
 process extract_indels_for_cadd {
-	cpus 1
+	cpus 2
 	tag "$group"
 	memory '1 GB'
-	time '5m'
+	time '1h'
 
 	input:
 		set group, id, file(vcf), idx from split_cadd.mix(annotate_only_cadd)
@@ -2111,11 +2116,11 @@ def indel_vep_version(task) {
 process calculate_indel_cadd {
 	cpus 2
 	container = '/fs1/resources/containers/cadd_v1.6.sif'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	tag "$group"
-	memory '15 GB'
+	memory '20 GB'
 	time '3h'
 
 	input:
@@ -2191,13 +2196,13 @@ def add_cadd_scores_to_vcf_version(task) {
 
 // # Annotating variant inheritance models:
 process inher_models {
-	cpus 6
-	memory '64 GB'
+	cpus 3
+	memory '80 GB'
 	tag "$group"
-	time '30m'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	time '1h'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	container = '/fs1/resources/containers/genmod.sif'
 
 	input:
@@ -2235,8 +2240,8 @@ def inher_models_version(task) {
 process genmodscore {
 	cpus 2
 	tag "$group"
-	memory '10 GB'
-	time '30m'
+	memory '20 GB'
+	time '1h'
 	container = '/fs1/resources/containers/genmod.sif'
 
 	input:
@@ -2293,6 +2298,7 @@ process vcf_completion {
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 	tag "$group"
 	time '1h'
+	memory '5 GB'
 
 	input:
 		set group, type, file(vcf) from scored_vcf
@@ -2345,9 +2351,10 @@ process peddy {
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.ped'
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.csv'
 	//container = '/fs1/resources/containers/wgs_20200115.sif'
-	cpus 6
+	cpus 4
 	tag "$group"
 	time '1h'
+	memory '20GB'
 
 	when:
 		!params.annotate_only && params.run_peddy
@@ -2392,7 +2399,7 @@ def peddy_version(task) {
 // Extract all variants (from whole genome) with a gnomAD af > x%
 process fastgnomad {
 	cpus 2
-	memory '32 GB'
+	memory '40 GB'
 	tag "$group"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '2h'
@@ -2422,8 +2429,9 @@ process fastgnomad {
 // Call UPD regions from SNP vcf
 process upd {
 	tag "$group"
-	time '10m'
+	time '1h'
 	memory '1 GB'
+	cpus 2
 
 	input:
 		set group, file(vcf) from vcf_upd
@@ -2473,8 +2481,9 @@ def upd_version(task) {
 process upd_table {
 	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true'
 	tag "$group"
-	time '10m'
+	time '1h'
 	memory '1 GB'
+	cpus 2
 
 	input:
 		set group, file(upd_sites) from upd_table
@@ -2500,8 +2509,9 @@ process upd_table {
 // Call ROH regions from SNP vcf
 process roh {
 	tag "$group"
-	time '10m'
+	time '1h'
 	memory '1 GB'
+	cpus 2
 
 	input:
 		set group, file(vcf) from vcf_roh
@@ -2536,7 +2546,7 @@ process gatkcov {
 	publishDir "${OUTDIR}/cov", mode: 'copy' , overwrite: 'true', pattern: '*.tsv'
 	tag "$group"
 	cpus 2
-	memory '60 GB'
+	memory '80 GB'
 	time '5h'
 
 	input:
@@ -2594,8 +2604,9 @@ def gatkcov_version(task) {
 process overview_plot {
 	publishDir "${OUTDIR}/plots", mode: 'copy' , overwrite: 'true', pattern: "*.png"
 	tag "$group"
-	time '20m'
+	time '1h'
 	memory '5 GB'
+	cpus 2
 
 	input:
 		file(upd) from upd_plot
@@ -2668,13 +2679,13 @@ process generate_gens_data {
 // GATK panel+wgs //
 
 process gatk_coverage {
-	cpus 10
+	cpus 2
 	memory '50GB'
 	time '2h'
 	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	tag "$id"   
 
 	when:
@@ -2727,12 +2738,12 @@ def gatk_coverage_version(task) {
 
 process gatk_call_ploidy {
 	cpus 10
-	memory '40GB'
+	memory '50GB'
 	time '2h'
 	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	tag "$id"
 
 	input:
@@ -2782,12 +2793,12 @@ def gatk_call_ploidy_version(task) {
 
 process gatk_call_cnv {
 	cpus 8
-	memory '45GB'
+	memory '50GB'
 	time '3h'
 	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	tag "$id"
 
 	input:
@@ -2844,8 +2855,8 @@ def gatk_call_cnv_version(task) {
 }
 
 process postprocessgatk {
-	cpus 8
-	memory '40GB'
+	cpus 5
+	memory '50GB'
 	time '3h'
 	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'	
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
@@ -2922,7 +2933,7 @@ def postprocessgatk_version(task) {
 }
 
 process filter_merge_gatk {
-	cpus 1
+	cpus 2
 	tag "$group"
 	time '2h'
 	memory '1 GB'
@@ -2952,9 +2963,9 @@ process manta {
 	tag "$id"
 	time '10h'
 	memory '150 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	when:
 		params.sv && params.antype == "wgs"
@@ -2994,14 +3005,14 @@ def manta_version(task) {
 }
 
 process manta_panel {
-	cpus = 56
+	cpus = 20
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$id"
 	time '1h'
-	memory '150 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	memory '50 GB'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	when:
 		params.sv && params.antype == "panel"
@@ -3044,9 +3055,9 @@ process delly_panel {
 	tag "$id"
 	time '3h'
 	memory '10 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	cache 'deep'
 	
 	when:
@@ -3090,11 +3101,11 @@ process cnvkit_panel {
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	publishDir "${OUTDIR}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
 	tag "$id"
-	time '20m'
+	time '1h'
 	memory '20 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	when:
 		params.sv && params.antype == "panel"
@@ -3143,15 +3154,15 @@ def cnvkit_panel_version(task) {
 }
 
 process svdb_merge_panel {
-	cpus 1
+	cpus 2
 	cache 'deep'
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-	time '10m'
+	time '1h'
 	memory '1 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	input:
 		//set group, id, file(mantaV), file(dellyV), file(melt), file(cnvkitV) \
@@ -3230,10 +3241,10 @@ process tiddit {
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '10h'
 	tag "$id"
-	memory '10 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	memory '15 GB'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	when:
 		params.sv && params.antype == "wgs"
@@ -3269,14 +3280,14 @@ def tiddit_version(task) {
 }
 
 process svdb_merge {
-	cpus 1
+	cpus 2
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '2h'
 	memory '1 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	input:
 		set group, id, file(mantaV) from called_manta.groupTuple()
@@ -3354,11 +3365,11 @@ process add_to_loqusdb {
 	cpus 1
 	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
 	tag "$group"
-	memory '1 MB'
-	time '5m'
+	memory '100 MB'
+	time '25m'
 
 	when:
-		!params.noupload
+		!params.noupload && !params.reanalyze
 
 	input:
 		set group, type, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel)).view()
@@ -3430,10 +3441,10 @@ def annotsv_version(task) {
 }
 
 process vep_sv {
-	cpus 56
+	cpus 10
 	container = "${params.container_vep}"
 	tag "$group"
-	memory '150 GB'
+	memory '50 GB'
 	time '1h'
 	
 	input:
@@ -3491,7 +3502,9 @@ def vep_sv_version(task) {
 }
 
 process postprocess_vep {
-	cpus = 1
+	cpus = 2
+	memory '10GB'
+	time '1h'
 	tag "$group"
 
 	input:
@@ -3529,13 +3542,13 @@ def postprocess_vep_version(task) {
 
 // Query artefact db
 process artefact {
-	cpus 1
+	cpus 2
 	tag "$group"
 	time '10h'
 	memory '10 GB'
-	scratch true
-	stageInMode 'copy'
-	stageOutMode 'copy'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 
 	input:
 		set group, file(sv) from artefact_vcf
@@ -3587,10 +3600,10 @@ def artefact_version(task) {
 
 
 process prescore {
-	cpus 1
+	cpus 2
 	tag "$group"
 	memory '10 GB'
-	time '30m'
+	time '1h'
 
 	input:
 		set group, file(sv_artefact), type, file(ped), file(annotsv) from manip_vcf.mix(manip_vcf_ma,manip_vcf_fa).join(ped_prescore.mix(ped_prescore_ma,ped_prescore_fa)).join(annotsv.mix(annotsv_ma,annotsv_fa))
@@ -3611,7 +3624,7 @@ process prescore {
 }
 
 process score_sv {
-	cpus 5
+	cpus 2
 	tag "$group $mode"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 	memory '10 GB'
@@ -3678,7 +3691,7 @@ def score_sv_version(task) {
 }
 
 process compound_finder {
-	cpus 5
+	cpus 2
 	tag "$group $mode"
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 	memory '10 GB'
@@ -3736,9 +3749,9 @@ def compound_finder_version(task) {
 
 
 process output_files {
-	cpus 1
-	memory '1MB'
-	time '2m'
+	cpus 2
+	memory '1GB'
+	time '1h'
 
 	input:
 		set group, files from bam_INFO.mix(snv_INFO,sv_INFO,str_INFO,peddy_INFO,madde_INFO,svcompound_INFO,smn_INFO,bamchoice_INFO,mtBAM_INFO,oplot_INFO,haplogrep_INFO,eklipse_INFO,cnvkit_INFO,d4_INFO).groupTuple()
@@ -3764,7 +3777,8 @@ process svvcf_to_bed {
 	publishDir "${OUTDIR}/bed", mode: 'copy' , overwrite: 'true'
 	tag "group"
 	memory '1 GB'
-	time '10m'
+	time '1h'
+	cpus 2
 
 	when:
 		params.antype != "panel"
@@ -3792,8 +3806,9 @@ process plot_pod {
 	container = '/fs1/resources/containers/POD_2020-05-19.sif'
 	publishDir "${OUTDIR}/pod", mode: 'copy' , overwrite: 'true'
 	tag "$group"
-	time '20m'
+	time '1h'
 	memory '1 GB'
+	cpus 2
 
 	input:
 		set group, file(snv) from vcf_pod

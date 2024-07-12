@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.9.3
+
+* Re-optimized profiles wgs and onco. More memory allocations
+* added flag for reanalyze for bjorn to hook into
+
 ### 3.9.2
 
 * Add updated and more communicative deploy script
