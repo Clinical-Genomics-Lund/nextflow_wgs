@@ -3365,11 +3365,11 @@ process add_to_loqusdb {
 	cpus 1
 	publishDir "${CRONDIR}/loqus", mode: 'copy' , overwrite: 'true'
 	tag "$group"
-	memory '1 MB'
-	time '5m'
+	memory '100 MB'
+	time '25m'
 
 	when:
-		!params.noupload
+		!params.noupload && !params.reanalyze
 
 	input:
 		set group, type, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel)).view()
