@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.9.4
+* add flag `--alignment_only` to only output genomic and mito `.bam` and QC data
+
 ### 3.9.3
 
 * Re-optimized profiles wgs and onco. More memory allocations
