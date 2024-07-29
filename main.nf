@@ -1507,7 +1507,7 @@ process run_mutect2 {
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 
 	when:
-		!params.onco
+		!params.onco  && !params.alignment_only
 	
 	input:
 		set group, id, file(bam), file(bai) from mutserve_bam.groupTuple()
@@ -1703,6 +1703,9 @@ process run_eklipse {
 		set file("*.png"), file("${id}.hetplasmid_frequency.txt")
 		set group, file("${id}_eklipse.INFO") into eklipse_INFO
 		set group, file("*versions.yml") into ch_run_eklipse_versions
+
+	when:
+		!params.alignment_only
 
 	script:
 		"""
