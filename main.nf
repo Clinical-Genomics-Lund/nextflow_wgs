@@ -448,6 +448,9 @@ process bqsr {
 		set group, id, file("${id}.bqsr.table") into dnascope_bqsr
 		set group, file("*versions.yml") into ch_bqsr_versions
 
+	when:
+		!params.alignment_only
+
 	script:
 		"""
 		sentieon driver -t ${task.cpus} \\
@@ -1018,7 +1021,7 @@ process melt {
 		set id, group, file(bam), file(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_melt.mix(bam_melt_choice).join(qc_melt_val)
 
 	when:
-		params.run_melt
+		params.run_melt && !params.alignment_only 
 
 	output:
 		set group, id, file("${id}.melt.merged.vcf") into melt_vcf_nonfiltered
