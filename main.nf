@@ -589,7 +589,7 @@ process d4_coverage {
 	container = "${params.container_d4tools}"
 
 	when:
-		params.run_chanjo2
+		params.run_chanjo2 && !params.alignment_only
 
 	input:
 		set group, id, file(bam), file(bai) from d4_bam
@@ -641,7 +641,7 @@ process depth_onco {
 	// stageOutMode 'copy'
 
 	when:
-		params.assay == "swea"
+		params.assay == "swea" && !params.alignment_only
 
 	input:	
 		set group, id, file(bam), file(bai) from depth_onco
@@ -669,7 +669,7 @@ process SMNCopyNumberCaller {
 	tag "$id"
 
 	when:
-		params.antype == "wgs"
+		params.antype == "wgs" && !params.alignment_only
 
 	input:
 		set group, id, file(bam), file(bai) from smncnc_bam.mix(bam_SMN_choice)
@@ -750,7 +750,7 @@ process expansionhunter {
 	// stageOutMode 'copy'
 
 	when:
-		params.str
+		params.str && !params.alignment_only
 		
 	input:
 		set group, id, file(bam), file(bai), sex, type \
@@ -1106,7 +1106,7 @@ process dnascope {
 	container = "${params.container_sentieon}"
 
 	when:
-		params.varcall
+		params.varcall && !params.alignment_only
 
 	input:
 		set group, id, bam, bai, bqsr from complete_bam.mix(dnascope_bam_choice).join(dnascope_bqsr, by: [0,1])
@@ -1316,7 +1316,7 @@ process freebayes {
 	// stageOutMode 'copy'
 
 	when: 
-		params.antype == "panel"
+		params.antype == "panel" && !params.alignment_only
 
 	input:
 		set group, id, file(bam), file(bai) from bam_freebayes.mix(bam_freebayes_choice)
@@ -2557,7 +2557,7 @@ process gatkcov {
 		set group, file("*versions.yml") into ch_gatkcov_versions
 
 	when:
-		params.gatkcov
+		params.gatkcov && !params.alignment_only
 
 	script:
 		"""
@@ -2689,7 +2689,7 @@ process gatk_coverage {
 	tag "$id"   
 
 	when:
-		params.sv && params.gatkcnv
+		params.sv && params.gatkcnv && !params.alignment_only
 
 	input:
 		set group, id, file(bam), file(bai) from bam_gatk.mix(bam_gatk_choice)
@@ -2968,7 +2968,7 @@ process manta {
 	// stageOutMode 'copy'
 
 	when:
-		params.sv && params.antype == "wgs"
+		params.sv && params.antype == "wgs" && !params.alignment_only
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta.mix(bam_manta_choice)
@@ -3015,7 +3015,7 @@ process manta_panel {
 	// stageOutMode 'copy'
 
 	when:
-		params.sv && params.antype == "panel"
+		params.sv && params.antype == "panel" && !params.alignment_only
 
 	input:
 		set group, id, file(bam), file(bai) from bam_manta_panel.mix(bam_mantapanel_choice)
@@ -3061,7 +3061,7 @@ process delly_panel {
 	cache 'deep'
 	
 	when:
-		params.sv && params.antype == "panel" && params.delly
+		params.sv && params.antype == "panel" && params.delly && !params.alignment_only
 
 	input:
 		set group, id, file(bam), file(bai) from bam_delly_panel.mix(bam_dellypanel_choice)
@@ -3108,7 +3108,7 @@ process cnvkit_panel {
 	// stageOutMode 'copy'
 
 	when:
-		params.sv && params.antype == "panel"
+		params.sv && params.antype == "panel" && !params.alignment_only
 
 	input:
 		set group, id, file(bam), file(bai), file(vcf), file(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice).join(vcf_cnvkit, by:[0,1]).join(qc_cnvkit_val, by:[0,1]).view()
@@ -3247,7 +3247,7 @@ process tiddit {
 	// stageOutMode 'copy'
 
 	when:
-		params.sv && params.antype == "wgs"
+		params.sv && params.antype == "wgs" && !params.alignment_only
 
 
 	input:
