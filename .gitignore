@@ -13,3 +13,4 @@ mito_full.nf
 bin/reference_tools/*.log
 bin/reference_tools/*.bed
 *.orig
+data/
