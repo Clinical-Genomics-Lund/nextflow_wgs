@@ -1,6 +1,6 @@
 # CHANGELOG
 
-### TBA
+### 3.9.4
 * Use -K flag in bwa-mem for consistent results
 
 ### 3.9.3
