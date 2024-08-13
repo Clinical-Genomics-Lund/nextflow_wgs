@@ -488,6 +488,9 @@ process sentieon_qc {
 	// stageOutMode 'copy'
 	container = "${params.container_sentieon}"
 
+	when:
+		!params.alignment_only
+
 	input:
 		set id, group, file(bam), file(bai) from qc_bam.mix(bam_qc_choice)
 
@@ -1437,8 +1440,8 @@ process sentieon_mitochondrial_qc {
 	container = "${params.container_sentieon}"
 
 	when:
-	    params.antype == "wgs"
-    
+	    params.antype == "wgs" && !params.alignment_only
+
 	input:
         set group, id, file(bam), file(bai) from qc_mito_bam
 
