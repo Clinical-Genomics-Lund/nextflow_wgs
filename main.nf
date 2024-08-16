@@ -3419,7 +3419,7 @@ process annotsv {
 			-typeOfAnnotation full \\
 			-outputDir !{group} \\
 			-genomeBuild GRCh38
-		if [-f !{group}/*.annotated.tsv]; then
+		if [ -f !{group}/*.annotated.tsv ]; then
 			mv !{group}/*.annotated.tsv !{group}_annotsv.tsv
 		else
 		    echo "1\n" > !{group}_annotsv.tsv

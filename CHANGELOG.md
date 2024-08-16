@@ -1,4 +1,6 @@
 # CHANGELOG
+### 3.9.5
+* Fixed faulty if-condition for annotsv, would result in empty annotsv tsv everytime
 
 ### 3.9.4
 * Use -K flag in bwa-mem for consistent results
