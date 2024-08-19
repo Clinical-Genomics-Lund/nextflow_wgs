@@ -2,7 +2,12 @@
 ### 3.9.5
 * Fixed faulty if-condition for annotsv, would result in empty annotsv tsv everytime
 
+### TBA
+
+* add flag `--alignment_only` to only output genomic and mito `.bam` and QC data
+
 ### 3.9.4
+
 * Use -K flag in bwa-mem for consistent results
 
 ### 3.9.3

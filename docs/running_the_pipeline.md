@@ -103,3 +103,7 @@ Assuming it is named `jobfile.run`, then it can be queued by running:
 sbatch jobfile.run
 ```
 
+## BAM and Sequencing QC-only run
+
+For an alignment and QC-only run, where the pipeline only outputs genomic and mitochondrial BAM files and associated QC data, pass the `--alignment_only` to `nextflow run`
+
