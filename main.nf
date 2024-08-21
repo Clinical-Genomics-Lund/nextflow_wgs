@@ -109,6 +109,16 @@ bam_choice.into{
 	bam_bqsr_choice;
 	bam_gatk_choice }
 
+// bqsr expects sample_id to come first, instead of group_id
+bam_bqsr_choice.map {
+	input_tuple ->
+	def group_id = input_tuple.get(0)
+	def sample_id = input_tuple.get(1)
+	def bam_path = input_tuple.get(2)
+	def bai_path = input_tuple.get(3)
+	return tuple(sample_id, group_id, bam_path, bai_path)
+}.set{bam_bqsr_choice}
+
 // vcf_choice.into{
 // 	split_cadd_choice;
 // 	split_vep_choice;
