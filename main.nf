@@ -2207,7 +2207,7 @@ process inher_models {
 	container = '/fs1/resources/containers/genmod.sif'
 
 	input:
-		set group, file(vcf), type, file(ped) from base_vcf.mix(ma_vcf, fa_vcf).join(ped_inher.mix(ped_inher_ma,ped_inher_fa)).view()
+		set group, file(vcf), type, file(ped) from base_vcf.mix(ma_vcf, fa_vcf).join(ped_inher.mix(ped_inher_ma,ped_inher_fa))
 
 	output:
 		set group, type, file("${group}.models.vcf") into inhermod
@@ -3112,7 +3112,7 @@ process cnvkit_panel {
 		params.sv && params.antype == "panel"
 
 	input:
-		set group, id, file(bam), file(bai), file(vcf), file(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice).join(vcf_cnvkit, by:[0,1]).join(qc_cnvkit_val, by:[0,1]).view()
+		set group, id, file(bam), file(bai), file(vcf), file(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice).join(vcf_cnvkit, by:[0,1]).join(qc_cnvkit_val, by:[0,1])
 		//set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from qc_cnvkit_val.view()
 		//set group, id, file(vcf) from vcf_cnvkit.view()
 	
@@ -3168,7 +3168,7 @@ process svdb_merge_panel {
 	input:
 		//set group, id, file(mantaV), file(dellyV), file(melt), file(cnvkitV) \
 		//	from called_manta_panel.join(called_delly_panel, by:[0,1]).join(melt_vcf, by:[0,1]).join(called_cnvkit_panel, by:[0,1])
-		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_delly_panel,called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf).view()
+		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_delly_panel,called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf)
 				
 	output:
 		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
@@ -3373,7 +3373,7 @@ process add_to_loqusdb {
 		!params.noupload && !params.reanalyze
 
 	input:
-		set group, type, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel)).view()
+		set group, type, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel))
 
 	output:
 		file("${group}*.loqus") into loqusdb_done
@@ -3845,7 +3845,7 @@ process create_yaml {
 	memory '1 GB'
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, type, file(ped), file(INFO) from yml_diag.join(ped_scout).join(yaml_INFO)
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, type, file(ped), file(INFO) from yml_diag.filter { it[7] == 'proband' }.join(ped_scout).join(yaml_INFO).view()
 
 	output:
 		set group, file("${group}.yaml*") into yaml
@@ -3853,7 +3853,7 @@ process create_yaml {
 	script:
 		"""
 		create_yml.pl \\
-			--g $group,$clarity_sample_id --d $diagnosis --panelsdef $params.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
+			--g $group,$id,$clarity_sample_id --d $diagnosis --panelsdef $params.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
 		"""
 
 	stub:
