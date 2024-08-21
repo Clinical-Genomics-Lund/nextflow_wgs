@@ -130,7 +130,7 @@ if ($opt{assay}) {
     else { $analysis = 'ph';}
     
 }
-
+print  STDERR"$assay $analysis\n";
 ### Group ###
 if (!defined $opt{g}) { print STDERR "need group name"; exit;}
 my @g_c = split/,/,$opt{g};
@@ -177,7 +177,7 @@ while ( <INFO> ) {
 
 }
 close INFO;
-print Dumper(%INFO);
+#print Dumper(%INFO);
 ####################################################
 
 my $kit = "Intersected WGS"; ## placeholder, does not change for panels
@@ -205,7 +205,9 @@ if ($opt{assay}) {
     $institute_owner = $assays{$assay}{$analysis}{institute_owner};
     $kit = $assays{$assay}{capture_kit};
 }
+print STDERR "$institute $institute_owner\n";
 my $gene_panels = get_genelist($institute);
+
 ####################################################
 
 
@@ -413,16 +415,8 @@ sub get_genelist {
     while (<JSON>) {
         $data = decode_json($_);
     }
-   # print Dumper($data);
     foreach my $key (@{$data}) {
-        if (ref $key->{institute} eq 'ARRAY') {
-            foreach my $inst (@{ $key->{institute} }) {
-                next if $key->{'display_name'} =~ /ERSATT|TEST|test|Test/;
-                push @ok_panels,$key->{panel_name} if $inst eq $institute;
-            }
-        }
-        elsif ($key->{institute} eq $institute) {
-            next if $key->{'display_name'} =~ /ERSATT|TEST|test|Test/;
+        if ($key->{institute} eq $institute) {
             push @ok_panels,$key->{panel_name};
         }
     }
