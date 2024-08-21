@@ -130,53 +130,77 @@ if ($opt{assay}) {
     else { $analysis = 'ph';}
     
 }
-print  STDERR "$assay $analysis\n";
+
 ### Group ###
-if (!defined $opt{g}) { print STDERR "need group name"; exit;}
-my @g_c = split/,/,$opt{g};
+### Proband ### Could differ from group, needed to select correct eklipse image
+### Clarity-ID ###
+my @g_c;
+if (!defined $opt{g}) { 
+    print STDERR "need group ID, proband ID and clarity ID\n"; 
+    exit;
+}
+else {
+    @g_c = split/,/,$opt{g};
+    unless (scalar(@g_c) == 3) {
+        print STDERR "need group ID, proband ID and clarity ID\n"; 
+        exit;       
+    }
+}
+
+
 my $group = $g_c[0];
-my $clarity_id = $g_c[1];
+my $proband = $g_c[1];
+my $clarity_id = $g_c[2];
 
 ### Read ped, save individuals ####################
 my $files = $opt{files};
 open (INFO, $files) or die "Cannot open $files\n";
 my %INFO;
 my @bams;
+# For mother affected, father affected also print files associated to these
 my @inher_patterns;
 while ( <INFO> ) {
 
     my @tmp = split/\s+/,$_;
-    if ($tmp[0] eq "BAM") {
-        $INFO{BAM}->{$tmp[1]} = $tmp[2];
+    my $category = $tmp[0];
+    my $subcat = $tmp[1];
+    my $filepath = $tmp[2];
+    if ($category eq "BAM") {
+        $INFO{BAM}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "TISSUE") {
-        $INFO{TISSUE}->{$tmp[1]} = $tmp[2];
+    elsif ($category eq "TISSUE") {
+        $INFO{TISSUE}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "mtBAM") {
-        $INFO{mtBAM}->{$tmp[1]} = $tmp[2];
+    elsif ($category eq "mtBAM") {
+        $INFO{mtBAM}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "D4") {
-        $INFO{D4}->{$tmp[1]} = $tmp[2];
+    elsif ($category eq "D4") {
+        $INFO{D4}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "IMG") {
-        $INFO{IMG}->{$tmp[1]} = $tmp[2];
-    }
-    elsif ($tmp[0] eq "STR_IMG") {
-        $INFO{STR_IMG}->{$tmp[1]} = $tmp[2];
-    }
-    elsif ($tmp[0] eq "SV" or $tmp[0] eq "SVc" or $tmp[0] eq "SNV" or $tmp[0] eq "MADDE") {
-        if ($tmp[0] eq "SNV") {
-            push @inher_patterns,$tmp[1];
+    elsif ($category eq "IMG") {
+        # for trios there are several IMG for eklipse, use proband one!
+        unless ($filepath =~ /$proband/) {
+            next;
         }
-        $INFO{$tmp[0]}->{$tmp[1]} = $tmp[2];
+        $INFO{IMG}->{$subcat} = $filepath;
+    }
+    elsif ($category eq "STR_IMG") {
+        $INFO{STR_IMG}->{$subcat} = $filepath;
+    }
+    elsif ($category eq "SV" or $category eq "SVc" or $category eq "SNV" or $category eq "MADDE") {
+        if ($category eq "SNV") {
+            push @inher_patterns,$subcat;
+        }
+        $INFO{$category}->{$subcat} = $filepath;
     }
     else {
-        $INFO{$tmp[0]} = $tmp[1];
+        $INFO{$category} = $subcat;
     }
 
 }
 close INFO;
-print STDERR Dumper(%INFO);
+my $info_json = to_json(\%INFO, { pretty => 1, indent => 4 });
+print STDERR ($info_json);
 ####################################################
 
 my $kit = "Intersected WGS"; ## placeholder, does not change for panels
