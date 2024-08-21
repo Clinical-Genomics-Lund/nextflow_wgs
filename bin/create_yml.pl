@@ -121,7 +121,7 @@ my $analysis = "";
 if ($opt{assay}) { 
     my @a_a = split/,/,$opt{assay};
     $assay = $a_a[0];
-    if ($a_a[1] ne 'false' && $a_a[1]) {
+    if ($a_a[1]) {
         $analysis = $a_a[1];
     }
     elsif ($opt{d} eq 'ahus') { ## beginning of stinking mess, deadline for fix 2021-03-01
@@ -130,7 +130,7 @@ if ($opt{assay}) {
     else { $analysis = 'ph';}
     
 }
-print  STDERR"$assay $analysis\n";
+print  STDERR "$assay $analysis\n";
 ### Group ###
 if (!defined $opt{g}) { print STDERR "need group name"; exit;}
 my @g_c = split/,/,$opt{g};
@@ -146,7 +146,6 @@ my @inher_patterns;
 while ( <INFO> ) {
 
     my @tmp = split/\s+/,$_;
-    print STDERR $_,"\n";
     if ($tmp[0] eq "BAM") {
         $INFO{BAM}->{$tmp[1]} = $tmp[2];
     }
@@ -177,7 +176,7 @@ while ( <INFO> ) {
 
 }
 close INFO;
-#print Dumper(%INFO);
+print STDERR Dumper(%INFO);
 ####################################################
 
 my $kit = "Intersected WGS"; ## placeholder, does not change for panels
@@ -203,9 +202,10 @@ if ($opt{assay}) {
     }
     $institute = $assays{$assay}{$analysis}{institute};
     $institute_owner = $assays{$assay}{$analysis}{institute_owner};
-    $kit = $assays{$assay}{capture_kit};
+    if ($assays{$assay}{capture_kit}) {
+        $kit = $assays{$assay}{capture_kit};
+    }
 }
-print STDERR "$institute $institute_owner\n";
 my $gene_panels = get_genelist($institute);
 
 ####################################################
