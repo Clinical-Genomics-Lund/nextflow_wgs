@@ -192,8 +192,8 @@ while ( <INFO> ) {
 
 }
 close INFO;
-my $info_json = to_json(\%INFO, { pretty => 1, indent => 4 });
-print STDERR ($info_json);
+#my $info_json = to_json(\%INFO, { pretty => 1, indent => 4 });
+#print STDERR ($info_json);
 ####################################################
 
 my $kit = "Intersected WGS"; ## placeholder, does not change for panels
@@ -213,10 +213,6 @@ close PED;
 my $institute = "klingen";
 my $institute_owner = "klingen";
 if ($opt{assay}) { 
-    ## if something added to wgs-hg38, i.e wgs-hg38-nu (no upload loqusdb)
-    if ($assay =~ /wgs-hg38/ ) {
-        $assay = "wgs-hg38";
-    }
     $institute = $assays{$assay}{$analysis}{institute};
     $institute_owner = $assays{$assay}{$analysis}{institute_owner};
     if ($assays{$assay}{capture_kit}) {
