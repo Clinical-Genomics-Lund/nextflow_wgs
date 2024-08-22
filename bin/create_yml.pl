@@ -135,22 +135,19 @@ if ($opt{assay}) {
 ### Proband ### Could differ from group, needed to select correct eklipse image
 ### Clarity-ID ###
 my @g_c;
-if (!defined $opt{g}) { 
-    print STDERR "need group ID, proband ID and clarity ID\n"; 
-    exit;
-}
-else {
+if (defined $opt{g}) { 
     @g_c = split/,/,$opt{g};
-    unless (scalar(@g_c) == 3) {
-        print STDERR "need group ID, proband ID and clarity ID\n"; 
-        exit;       
+    unless (scalar(@g_c) == 32 {
+        print STDERR "need group-id,clarity-id\n";
+        exit; 
     }
 }
-
-
+else {
+    print STDERR "need group-id,clarity-id\n";
+    exit;       
+}
 my $group = $g_c[0];
-my $proband = $g_c[1];
-my $clarity_id = $g_c[2];
+my $clarity_id = $g_c[1];
 
 ### Read ped, save individuals ####################
 my $files = $opt{files};
@@ -178,10 +175,6 @@ while ( <INFO> ) {
         $INFO{D4}->{$subcat} = $filepath;
     }
     elsif ($category eq "IMG") {
-        # for trios there are several IMG for eklipse, use proband one!
-        unless ($filepath =~ /$proband/) {
-            next;
-        }
         $INFO{IMG}->{$subcat} = $filepath;
     }
     elsif ($category eq "STR_IMG") {
@@ -252,8 +245,6 @@ foreach my $ind (@inher_patterns) {
         }
     }
     open (OUT,'>',$out);
-
-
     
     print OUT "---\n";
     ### ASSAY DECIDE OWNER? ####
