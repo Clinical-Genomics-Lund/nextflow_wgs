@@ -145,7 +145,7 @@ Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, row.id, row.sex, row.type) }
-	.into { meta_gatkcov; meta_exp; meta_svbed; meta_pod; meta_mutect2}
+	.into { meta_gatkcov; meta_exp; meta_svbed; meta_pod; meta_mutect2; meta_eklipse}
 
 
 Channel
@@ -1695,14 +1695,18 @@ process run_eklipse {
 	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
 
 	input:
-		set group, id, file(bam), file(bai) from eklipse_bam
-
+		set group, id, file(bam), file(bai), sex, type from eklipse_bam.join(meta_eklipse, by: [0,1])
+	
 	output:
 		set file("*.png"), file("${id}.hetplasmid_frequency.txt")
-		set group, file("${id}_eklipse.INFO") into eklipse_INFO
+		set group, file("${id}_eklipse.INFO")  optional true into eklipse_INFO
 		set group, file("*versions.yml") into ch_run_eklipse_versions
 
 	script:
+		yml_info_command = ""
+		if (type == "proband") {
+			yml_info_command = "echo 'IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png' > ${id}_eklipse.INFO"
+		}
 		"""
 		source activate htslib10
 		echo "${bam}\tsample" > infile.txt
@@ -1714,17 +1718,21 @@ process run_eklipse {
 		mv eKLIPse_*/eKLIPse_sample.png ./${id}_eklipse.png
 		hetplasmid_frequency_eKLIPse.pl --bam ${bam} --in ${id}_deletions.csv
 		mv hetplasmid_frequency.txt ${id}.hetplasmid_frequency.txt
-		echo "IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png" > ${id}_eklipse.INFO
+		$yml_info_command
 
 		${run_eklipse_version(task)}
 		"""
 
 	stub:
+		yml_info_command = ""
+		if (type == "proband") {
+			yml_info_command = "echo 'IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png' > ${id}_eklipse.INFO"
+		}
 		"""
 		source activate htslib10
 		touch "${id}.hetplasmid_frequency.txt"
-		touch "${id}_eklipse.INFO"
 		touch "${id}.png"
+		$yml_info_command
 
 		${run_eklipse_version(task)}
 		"""
@@ -3845,7 +3853,7 @@ process create_yaml {
 	memory '1 GB'
 
 	input:
-		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, type, file(ped), file(INFO) from yml_diag.filter { it[7] == 'proband' }.join(ped_scout).join(yaml_INFO).view()
+		set group, id, sex, mother, father, phenotype, diagnosis, type, assay, clarity_sample_id, ffpe, analysis, type, file(ped), file(INFO) from yml_diag.join(ped_scout).join(yaml_INFO)
 
 	output:
 		set group, file("${group}.yaml*") into yaml
@@ -3853,7 +3861,7 @@ process create_yaml {
 	script:
 		"""
 		create_yml.pl \\
-			--g $group,$id,$clarity_sample_id --d $diagnosis --panelsdef $params.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
+			--g $group,$clarity_sample_id --d $diagnosis --panelsdef $params.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
 		"""
 
 	stub:
