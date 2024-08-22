@@ -137,7 +137,7 @@ if ($opt{assay}) {
 my @g_c;
 if (defined $opt{g}) { 
     @g_c = split/,/,$opt{g};
-    unless (scalar(@g_c) == 32 {
+    unless (scalar(@g_c) == 2) {
         print STDERR "need group-id,clarity-id\n";
         exit; 
     }
@@ -245,7 +245,7 @@ foreach my $ind (@inher_patterns) {
         }
     }
     open (OUT,'>',$out);
-    
+
     print OUT "---\n";
     ### ASSAY DECIDE OWNER? ####
     print OUT "owner: $institute_owner\n";
