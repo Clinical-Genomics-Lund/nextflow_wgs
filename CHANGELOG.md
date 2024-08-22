@@ -1,4 +1,9 @@
 # CHANGELOG
+### 3.9.7
+* Solved trio eklipse image being wrongly added to yaml
+* removed outdated regex matches for genepanel, woudl remove important genepanels
+* general clean-up of create_yml.pl
+
 ### 3.9.5
 * Fixed faulty if-condition for annotsv, would result in empty annotsv tsv everytime
 
