@@ -155,7 +155,7 @@ Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, row.id, row.sex, row.type) }
-	.into { meta_gatkcov; meta_exp; meta_svbed; meta_pod; meta_mutect2}
+	.into { meta_gatkcov; meta_exp; meta_svbed; meta_pod; meta_mutect2; meta_eklipse}
 
 
 Channel
@@ -1705,14 +1705,18 @@ process run_eklipse {
 	publishDir "${OUTDIR}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
 
 	input:
-		set group, id, file(bam), file(bai) from eklipse_bam
-
+		set group, id, file(bam), file(bai), sex, type from eklipse_bam.join(meta_eklipse, by: [0,1])
+	
 	output:
 		set file("*.png"), file("${id}.hetplasmid_frequency.txt")
-		set group, file("${id}_eklipse.INFO") into eklipse_INFO
+		set group, file("${id}_eklipse.INFO")  optional true into eklipse_INFO
 		set group, file("*versions.yml") into ch_run_eklipse_versions
 
 	script:
+		yml_info_command = ""
+		if (type == "proband") {
+			yml_info_command = "echo 'IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png' > ${id}_eklipse.INFO"
+		}
 		"""
 		source activate htslib10
 		echo "${bam}\tsample" > infile.txt
@@ -1724,17 +1728,21 @@ process run_eklipse {
 		mv eKLIPse_*/eKLIPse_sample.png ./${id}_eklipse.png
 		hetplasmid_frequency_eKLIPse.pl --bam ${bam} --in ${id}_deletions.csv
 		mv hetplasmid_frequency.txt ${id}.hetplasmid_frequency.txt
-		echo "IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png" > ${id}_eklipse.INFO
+		$yml_info_command
 
 		${run_eklipse_version(task)}
 		"""
 
 	stub:
+		yml_info_command = ""
+		if (type == "proband") {
+			yml_info_command = "echo 'IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png' > ${id}_eklipse.INFO"
+		}
 		"""
 		source activate htslib10
 		touch "${id}.hetplasmid_frequency.txt"
-		touch "${id}_eklipse.INFO"
 		touch "${id}.png"
+		$yml_info_command
 
 		${run_eklipse_version(task)}
 		"""
@@ -2217,7 +2225,7 @@ process inher_models {
 	container = '/fs1/resources/containers/genmod.sif'
 
 	input:
-		set group, file(vcf), type, file(ped) from base_vcf.mix(ma_vcf, fa_vcf).join(ped_inher.mix(ped_inher_ma,ped_inher_fa)).view()
+		set group, file(vcf), type, file(ped) from base_vcf.mix(ma_vcf, fa_vcf).join(ped_inher.mix(ped_inher_ma,ped_inher_fa))
 
 	output:
 		set group, type, file("${group}.models.vcf") into inhermod
@@ -3122,7 +3130,7 @@ process cnvkit_panel {
 		params.sv && params.antype == "panel"
 
 	input:
-		set group, id, file(bam), file(bai), file(vcf), file(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice).join(vcf_cnvkit, by:[0,1]).join(qc_cnvkit_val, by:[0,1]).view()
+		set group, id, file(bam), file(bai), file(vcf), file(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from bam_cnvkit_panel.mix(bam_cnvkitpanel_choice).join(vcf_cnvkit, by:[0,1]).join(qc_cnvkit_val, by:[0,1])
 		//set id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV) from qc_cnvkit_val.view()
 		//set group, id, file(vcf) from vcf_cnvkit.view()
 	
@@ -3178,7 +3186,7 @@ process svdb_merge_panel {
 	input:
 		//set group, id, file(mantaV), file(dellyV), file(melt), file(cnvkitV) \
 		//	from called_manta_panel.join(called_delly_panel, by:[0,1]).join(melt_vcf, by:[0,1]).join(called_cnvkit_panel, by:[0,1])
-		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_delly_panel,called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf).view()
+		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_delly_panel,called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf)
 				
 	output:
 		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
@@ -3383,7 +3391,7 @@ process add_to_loqusdb {
 		!params.noupload && !params.reanalyze
 
 	input:
-		set group, type, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel)).view()
+		set group, type, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel))
 
 	output:
 		file("${group}*.loqus") into loqusdb_done
