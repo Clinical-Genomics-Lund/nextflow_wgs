@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.9.8
+* reverted removed code in genepanel matches, caused missing gene panels for onco samples
+
 ### 3.9.7
 * Solved trio eklipse image being wrongly added to yaml
 * removed outdated regex matches for genepanel, woudl remove important genepanels

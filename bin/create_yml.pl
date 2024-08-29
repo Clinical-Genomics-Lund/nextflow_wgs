@@ -130,7 +130,7 @@ if ($opt{assay}) {
     else { $analysis = 'ph';}
     
 }
-
+print STDERR "assay: $assay analysis: $analysis\n";
 ### Group ###
 ### Proband ### Could differ from group, needed to select correct eklipse image
 ### Clarity-ID ###
@@ -427,7 +427,14 @@ sub get_genelist {
         $data = decode_json($_);
     }
     foreach my $key (@{$data}) {
-        if ($key->{institute} eq $institute) {
+        ## This is because some gene panels are assigned to two different institutes
+        ## NOT SUPPORTED by scouut, it's a fluke that it even works
+        if (ref $key->{institute} eq 'ARRAY') {
+            foreach my $inst (@{ $key->{institute} }) {
+                push @ok_panels,$key->{panel_name} if $inst eq $institute;
+            }
+        }
+        elsif ($key->{institute} eq $institute) {
             push @ok_panels,$key->{panel_name};
         }
     }
