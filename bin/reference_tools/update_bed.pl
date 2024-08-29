@@ -59,7 +59,7 @@ if (-e $final_bed_fp) {
 }
 
 ## ADD DATA ##
-add_to_bed($final_bed_fp, $base_bed, "EXONS-$release");
+# add_to_bed($final_bed_fp, $base_bed, "EXONS-$release");
 
 foreach my $incl_bed (@incl_bed_files) {
     my $suffix = $incl_bed;

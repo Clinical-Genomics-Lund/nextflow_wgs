@@ -3,6 +3,7 @@
 import argparse
 import subprocess
 import os
+from pathlib import Path
 
 
 def main():
@@ -10,21 +11,53 @@ def main():
 
     clinvar_vcf = args.new
     clinvar_vcf_old = args.old
+    clinvardate = args.clinvardate
+    out_dir = Path(args.out_dir)
+    
+    if not out_dir.exists():
+        out_dir.mkdir(out_dir, parents=True, exist_ok=True)
 
-    release = args.build
-    gtf = f'Homo_sapiens.GRCh38.{release}.gtf.gz'
-    gtf_request = f'http://ftp.ensembl.org/pub/release-{release}/gtf/homo_sapiens/gft'
-    base_bed = f'exons_hg38_{release}.bed'
+    release = args.release
+    # gtf_fp = f'Homo_sapiens.GRCh38.{release}.gtf.gz'
+    gtf_request = f'https://ftp.ensembl.org/pub/release-{release}/gtf/homo_sapiens/Homo_sapiens.GRCh38.{release}.gtf.gz'
+    out_base_fp = f'{out_dir}/exons_hg38_{release}.bed'
+    
+    print("Write initial base")
+    write_base(gtf_request, args.ensembl, out_base_fp, release, args.skip_download)
 
-    get_base(gtf_request, gtf, base_bed, release, args.skip_download)
+    pad = 20
+    small_pad = 5
+    final_bed_path = Path(f'exons_{release}.padded{pad}bp_clinvar-{args.clinvardate}padded{small_pad}bp.bed')
+    if final_bed_path.exists() and final_bed_path.is_file():
+        print(f'Removing file: {final_bed_path}')
+        final_bed_path.unlink()
+
+    if args.incl_bed is not None:
+        print(f'Include {args.incl_bed}')
+        for bed_fp in args.incl_bed:
+            suffix = bed_fp
+            append_to_bed(final_bed_path, bed_fp, suffix)
+    else:
+        print('No extra bed files to include')
+
+    (clinvar_new, new_benign) = read_clinvar(clinvar_vcf)
+    (clinvar_old, old_benign) = read_clinvar(clinvar_vcf_old)
+
+    clinvar_final_bed_fp = f'clinvar_{clinvardate}.bed'
+    (new_to_add, old_to_remove) = compare_clinvar(clinvar_new, clinvar_old, clinvar_final_bed_fp, out_dir)
+
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--old', required=True)
     parser.add_argument('--new', required=True)
-    parser.add_argument('--build', required=True)
+    parser.add_argument('--release', required=True)
     parser.add_argument('--clinvardate', required=True)
+
+    parser.add_argument('--out_dir', required=True)
+
+    parser.add_argument('--ensembl')
 
     parser.add_argument('--incl_bed', nargs="*")
     parser.add_argument('--skip_download', action="store_true")
@@ -37,13 +70,54 @@ class Variant:
         fields = vcf_line.split('\t')
         self.chr = fields[0]
         self.pos = int(fields[1])
+        self.ref = fields[3]
+        self.alt = fields[4]
         info_str = fields[7]
-        reason = None
+        self.reason = None
 
-        info = {}
+        self.info = {}
         for info_field in info_str.split(';'):
             (key, val) = info_field.split('=')
-            info[key] = val
+            self.info[key] = val
+        
+        self.clndn = 'Undefined'
+        if self.info.get('CLNDN') is not None:
+            self.clndn = self.info['CLNDN']
+        
+        self.key = 'FIXME'
+        self.fourth = '~'.join(self.key, self.reason, self.info['CLNACC'])
+
+        
+
+#     fourth = [key, variant.reason, variant.info['CLNACC']]
+
+
+
+class BedEntry:
+    def __init__(self, line: str):
+        line = line.rstrip()
+        fields = line.split('\t')
+        self.chr = fields[0]
+        self.start = int(fields[1])
+        self.end = int(fields[2])
+        self.annot = None if len(fields) == 3 else fields[3]
+
+    def __str__(self) -> str:
+        out_fields = [self.chr, str(self.start), str(self.end)]
+        if self.annot is not None:
+            out_fields.append(self.annot)
+        return '\t'.join(out_fields)
+
+
+class GtfEntry:
+    def __init__(self, line: str):
+            line = line.rstrip()
+            fields = line.split('\t')
+            self.chr = fields[0]
+            self.molecule = fields[2]
+            self.start_pos = int(fields[3])
+            self.end_pos = int(fields[4])
+            self.annotation = fields[8]
 
 
 def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
@@ -57,9 +131,9 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
                 continue
             variant = Variant(line)
 
-            sig = None
-            confidence = None
-            haplo = None
+            sig = ''
+            confidence = ''
+            haplo = ''
 
             info = variant.info
 
@@ -100,7 +174,7 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
     return (clinvar_variants, benign_clinvar_variants)
 
 
-def get_base(gtf_req: str, gtf: str, out_fp: str, release: str, skip_download: bool):
+def write_base(gtf_req: str, ensembl_fp: str|None, out_fp: str, release: str, skip_download: bool):
     
     padding = 20
 
@@ -110,8 +184,11 @@ def get_base(gtf_req: str, gtf: str, out_fp: str, release: str, skip_download: b
         subprocess.run(download_gtf_cmd, check=True)
         gunzip_cmd = ['gunzip', 'tmp.gtf.gz']
         subprocess.run(gunzip_cmd, check=True)
+    else:
+        # FIXME: Handle situation where not available
+        pass
     
-    with open(gtf, 'r') as gtf_fh, open(out_fp, 'w') as out_fh:
+    with open(ensembl_fp, 'r') as gtf_fh, open(out_fp, 'w') as out_fh:
         keep = False
         for line in gtf_fh:
             if line.startswith('#'):
@@ -119,16 +196,16 @@ def get_base(gtf_req: str, gtf: str, out_fp: str, release: str, skip_download: b
             gtf_entry = GtfEntry(line)
 
             # FIXME: Guess this filters away non regular chromosomes?
-            if len(chr) > 2:
+            if len(gtf_entry.chr) > 2:
                 continue
             if gtf_entry.molecule == 'transcript':
                 keep = gtf_entry.annotation.find('transcript_biotype "protein_coding"') != -1
             if gtf_entry.molecule == 'exon' and keep:
-                out_line = f'{chr}\t{gtf_entry.start_pos - padding}\t{gtf_entry.end_pos + padding}\n'
+                out_line = f'{gtf_entry.chr}\t{gtf_entry.start_pos - padding}\t{gtf_entry.end_pos + padding}\n'
                 print(out_line, file=out_fh)
 
 
-def write_to_bed(out_bed_fp: str, bed2add_fp: str, fourth_col: str):
+def append_to_bed(out_bed_fp: str, bed2add_fp: str, fourth_col: str):
     with open(bed2add_fp, 'r') as bed2add_fh, open(out_bed_fp, 'a') as out_fh:
         for line in bed2add_fh:
             bed_entry = BedEntry(line)
@@ -146,16 +223,22 @@ def write_sorted_merged_output(bed_fp: str):
     os.remove(tmp_bed_fp)
 
 
-def compare_clinvar(new_clinvar: dict[str, str], old_clinvar: dict[str, str], final_bed_fp: str) -> tuple[list[str], list[str]]:
+def compare_clinvar(new_clinvar: dict[str, Variant], old_clinvar: dict[str, Variant], final_bed_fp: str, out_dir: str) -> tuple[list[str], list[str]]:
     
-    new_bed_fp = 'clinvar_new.bed'
-    old_bed_fp = 'clinvar_old.bed'
-    clinvar_in_common = {}
+    new_bed_fp = f'{out_dir}/clinvar_new.bed'
+    old_bed_fp = f'{out_dir}/clinvar_old.bed'
+    clinvar_in_common = set()
     padding = 5
     with open(new_bed_fp, 'w') as new_fh, open(old_bed_fp, 'w') as old_fh:
-        out_line = [
+        for key, variant in new_clinvar.items():
+            if old_clinvar.get(key) is not None:
+                clinvar_in_common.add(key)
+            # clinvar_info = get_clinvar_info(variant, key)
+            clinvar_info = variant.fourth
+            out_line = f'{variant.chr}\t{variant.pos - padding}\t{variant.pos + padding}\t{clinvar_info}'
+            print(out_line, file=new_fh)
 
-        ]
+    # FIXME: This is a work in progress
 
 
 def get_intersect(clinvar: str, bed: str) -> list[str]:
@@ -165,38 +248,22 @@ def get_intersect(clinvar: str, bed: str) -> list[str]:
     return []
 
 
-def get_clinvar_info(info: dict[str,str], var: str) -> str:
-    pass
+# def get_clinvar_info(variant: Variant, key: str) -> str:
+#     fourth = [key, variant.reason, variant.info['CLNACC']]
+#     clndn = 'Undefined'
+#     if variant.info.get('CLNDN') is not None:
+#         clndn = variant.info.get('CLNDN')
+#     fourth.append(clndn)
+#     return '~'.join(fourth)
 
-def log_clinvar_bed_and_info(clinvar: str, new_or_old: str, clinvar_log: str):
-    pass
+def log_clinvar_bed_and_info(clinvar: dict[str, Variant], new_or_old: dict[str, Variant], clinvar_log: str):
+    with open(clinvar_log, 'a') as log_fh:
+        for key, variant in clinvar.items():
+            clinvarreason = variant.reason
+            
+
 
 if __name__ == "__main__":
     main()
 
 
-class BedEntry:
-    def __init__(self, line: str):
-        line = line.rstrip()
-        fields = line.split('\t')
-        self.chr = fields[0]
-        self.start = int(fields[1])
-        self.end = int(fields[2])
-        self.annot = None if len(fields) == 3 else fields[3]
-
-    def __str__(self) -> str:
-        out_fields = [self.chr, str(self.start), str(self.end)]
-        if self.annot is not None:
-            out_fields.append(self.annot)
-        return '\t'.join(out_fields)
-
-
-class GtfEntry:
-    def __init__(self, line: str):
-            line = line.rstrip()
-            fields = line.split('\t')
-            self.chr = fields[0]
-            self.molecule = fields[2]
-            self.start_pos = int(fields[3])
-            self.end_pos = int(fields[4])
-            self.annotation = fields[8]
