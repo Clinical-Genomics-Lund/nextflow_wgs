@@ -1,10 +1,11 @@
 from unittest.mock import patch
-import sys
 from pathlib import Path
 
-# sys.path.insert(0, str(Path(__file__).resolve().parent / 'bin'))
-
 from src.update_bed import write_base, append_to_bed, compare_clinvar, read_clinvar, Variant
+
+# FIXME: OUTSTANDING QUESTIONS
+# What is up with the extra annotation values
+# When all is up, what is required to get the same results as the Perl script
 
 mock_gtf_content = '''\
 # Example GTF file
@@ -147,13 +148,43 @@ chr2\t12345\t.\tG\tA\t.\t.\tCLNSIG=Likely_pathogenic
 
 
 
-# def test_compare_clinvar(tmp_path: Path):
+def test_compare_clinvar(tmp_path: Path):
 
-#     new_clinvar = {}
-#     old_clinvar = {}
-#     final_bed_fp = ''
-#     out_dir = ''
+    new_clinvar = {
+        'chr1:1000_A_G': Variant('chr1', 1000, 'A', 'G', {'CLDN': 'CLDN', 'CLNACC': 'CLNACC'}),
+        'chr2:3000_C_T': Variant('chr2', 3000, 'C', 'T', {'CLDN': 'CLDN', 'CLNACC': 'CLNACC'}),
+        'chr3:5000_G_A': Variant('chr3', 5000, 'G', 'A', {'CLDN': 'CLDN', 'CLNACC': 'CLNACC'}),
+    }
 
-#     compare_clinvar(
-        
-#     )
+    old_clinvar = {
+        'chr1:1000_A_G': Variant('chr1', 1000, 'A', 'G', {'CLDN': 'CLDN', 'CLNACC': 'CLNACC'}),
+        'chr2:2000_A_G': Variant('chr2', 2000, 'A', 'G', {'CLDN': 'CLDN', 'CLNACC': 'CLNACC'}),
+        'chr2:5000_C_T': Variant('chr2', 5000, 'C', 'T', {'CLDN': 'CLDN', 'CLNACC': 'CLNACC'}),
+    }
+
+    final_bed_fp = tmp_path / 'final.bed'
+
+    bed_test_content = '''\
+chr1\t1\t5\told_annot
+chr1\t10\t15\told_annot2
+chr1\t1000\t2000\tdefault_annot
+chr1\t3000\t4000\tgene1
+chr2\t5000\t6000\tdefault_annot
+'''
+
+    final_bed_fp.write_text(bed_test_content)
+
+    out_dir = str(tmp_path)
+    padding = 5
+
+    new_to_add, old_to_remove = compare_clinvar(
+        new_clinvar,
+        old_clinvar,
+        final_bed_fp,
+        padding,
+        out_dir
+    )
+
+    print(new_to_add)
+    print(old_to_remove)
+

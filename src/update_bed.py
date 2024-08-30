@@ -46,6 +46,18 @@ def main():
     clinvar_final_bed_fp = f'clinvar_{clinvardate}.bed'
     (new_to_add, old_to_remove) = compare_clinvar(clinvar_new, clinvar_old, clinvar_final_bed_fp, out_dir, small_pad)
 
+    clinvar_log_path = Path('{out_dir}/clinvar_{clinvardate}.log')
+    clinvar_final_bed_path = Path('{out_dir}/clinvar_{clinvardate}.bed')
+    clinvar_log_path.unlink()
+    clinvar_final_bed_path.unlink()
+
+    log_clinvar_bed_and_info(new_to_add, 'new', clinvar_log_path, new_benign)
+    log_clinvar_bed_and_info(old_to_remove, 'old', clinvar_log_path, new_benign)
+    log_clinvar_bed_and_info(new_to_add, 'bed', clinvar_final_bed_fp, new_benign)
+
+    append_to_bed(final_bed_path, clinvar_final_bed_fp, '.')
+
+    sort_merge_output(final_bed_path)
 
     # sort_merge_output()
 
@@ -69,21 +81,34 @@ def parse_arguments():
 
 
 class Variant:
-    def __init__(self, vcf_line):
+
+    @staticmethod
+    def from_line(vcf_line) -> 'Variant':
+
         vcf_line = vcf_line.rstrip()
         fields = vcf_line.split('\t')
-        self.fields = fields
-        self.chr = fields[0]
-        self.pos = int(fields[1])
-        self.ref = fields[3]
-        self.alt = fields[4]
+        chrom = fields[0]
+        pos = int(fields[1])
+        ref = fields[3]
+        alt = fields[4]
         info_str = fields[7]
-        self.reason = None
 
-        self.info = {}
+        info = {}
         for info_field in info_str.split(';'):
             (key, val) = info_field.split('=')
-            self.info[key] = val
+            info[key] = val
+
+        return Variant(chrom, pos, ref, alt, info)
+
+    def __init__(self, chrom: str, pos: int, ref: str, alt: str, info: dict[str, str] = {}):
+
+        self.chrom = chrom
+        self.pos = pos
+        self.ref = ref
+        self.alt = alt
+        self.info = info
+
+        self.reason = None
         
         self.clndn = 'Undefined'
         if self.info.get('CLNDN') is not None:
@@ -93,8 +118,17 @@ class Variant:
         # clnacc = self.info['CLNACC'] if self.info.get('CLNACC') is not None else ""
         # self.fourth = '~'.join([self.key, self.reason, clnacc])
     
+    def get_bed(self, padding: int) -> list[str, int, int, str]:
+        return f'{self.chrom}\t{self.pos - padding}\t{self.pos + padding}\t<INFO PLACEHOLDER>'
+
     def __str__(self):
         return '\t'.join(self.fields)
+    
+    def get_bed_annot(self):
+        reason = self.reason
+        clnacc = self.info['CLNACC']
+        clndn = self.info['CLNDN'] if self.info.get('CLNDN') is not None else 'Undefined'
+        return f'{self.chrom}:{self.pos}_{self.ref}_{self.alt}~{reason}~{clnacc}~{clndn}'
 
         
 
@@ -138,7 +172,7 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
         for line in vcf_fh:
             if line.startswith('#'):
                 continue
-            variant = Variant(line)
+            variant = Variant.from_line(line)
 
             sig = ''
             confidence = ''
@@ -177,7 +211,7 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
                 keep = True
                 reason = haplo
 
-            key = f'{variant.chr}:{variant.pos}_{variant.ref}_{variant.alt}'
+            key = f'{variant.chrom}:{variant.pos}_{variant.ref}_{variant.alt}'
             if keep:
                 variant.reason = reason
                 clinvar_variants[key] = variant
@@ -237,37 +271,54 @@ def sort_merge_output(bed_fp: str):
     os.remove(tmp_bed_fp)
 
 
-def compare_clinvar(new_clinvar: dict[str, Variant], old_clinvar: dict[str, Variant], final_bed_fp: str, out_dir: str, padding: int) -> tuple[list[str], list[str]]:
+def compare_clinvar(new_clinvar: dict[str, Variant], old_clinvar: dict[str, Variant], final_bed_fp: str, padding: int, tmp_dir: str = '/tmp') -> tuple[list[str], list[str]]:
     
-    new_bed_fp = f'{out_dir}/clinvar_new.bed'
-    old_bed_fp = f'{out_dir}/clinvar_old.bed'
+    new_bed_path = Path(f'{tmp_dir}/clinvar_new.bed')
+    old_bed_path = Path(f'{tmp_dir}/clinvar_old.bed')
     clinvar_in_common = set()
-    with open(new_bed_fp, 'w') as new_fh, open(old_bed_fp, 'w') as old_fh:
+    with open(str(new_bed_path), 'w') as new_fh:
         for key, variant in new_clinvar.items():
             if old_clinvar.get(key) is not None:
                 clinvar_in_common.add(key)
-            # clinvar_info = get_clinvar_info(variant, key)
-            clinvar_info = variant.fourth
-            out_line = f'{variant.chr}\t{variant.pos - padding}\t{variant.pos + padding}\t{clinvar_info}'
+
+            # FIXME: Look over this
+            clinvar_info = variant.get_bed_annot()
+            out_line = f'{variant.chrom}\t{variant.pos - padding}\t{variant.pos + padding}\t{clinvar_info}'
             print(out_line, file=new_fh)
 
-    # FIXME: This is a work in progress
+    clinvar_new_added = set()
+    for new_key in new_clinvar:
+        if new_key not in old_clinvar:
+            clinvar_new_added.add(new_key)
+
+    with open(old_bed_path, 'w') as old_fh:
+        clinvar_old_removed = set()
+        for old_key in old_clinvar:
+            if old_key not in new_clinvar:
+                old_var = old_clinvar[old_key]
+                clinvar_old_removed.add(old_key)
+                # FIXME: Write this to old BED
+                print(old_var.get_bed(padding), file=old_fh)
+
+    new_to_add = get_bed_intersect(new_bed_path, final_bed_fp)
+    old_to_remove = get_bed_intersect(old_bed_path, final_bed_fp)
+    new_bed_path.unlink()
+    old_bed_path.unlink()
+
+    print(f'Clinvar in common between versions: {len(clinvar_in_common)}')
+    print(f'Added new (unique targets): {len(clinvar_new_added)} ({len(new_to_add)})')
+    print(f'Removed old (unique targets): {len(clinvar_old_removed)} ({len(old_to_remove)})')
+
+    return (new_to_add, old_to_remove)
 
 
-def get_intersect(clinvar: str, bed: str) -> list[str]:
+def get_bed_intersect(clinvar: str, bed: str) -> list[str]:
     not_in_bed_cmd = ['bedtools', 'intersect', '-a', clinvar, '-b', bed, '-v']
     # FIXME: How to gather and return results
-    subprocess.call(not_in_bed_cmd)
-    return []
+    result = subprocess.run(not_in_bed_cmd, capture_output=True, text=True, check=True)
+    intersected_regions = result.stdout.strip().splitlines()
+    return intersected_regions
 
-
-# def get_clinvar_info(variant: Variant, key: str) -> str:
-#     fourth = [key, variant.reason, variant.info['CLNACC']]
-#     clndn = 'Undefined'
-#     if variant.info.get('CLNDN') is not None:
-#         clndn = variant.info.get('CLNDN')
-#     fourth.append(clndn)
-#     return '~'.join(fourth)
 
 def log_clinvar_bed_and_info(clinvar: dict[str, Variant], new_or_old: dict[str, Variant], clinvar_log: str):
     with open(clinvar_log, 'a') as log_fh:
@@ -275,8 +326,6 @@ def log_clinvar_bed_and_info(clinvar: dict[str, Variant], new_or_old: dict[str, 
             clinvarreason = variant.reason
             
 
-
 if __name__ == "__main__":
     main()
-
 
