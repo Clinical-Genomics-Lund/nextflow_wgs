@@ -4,7 +4,7 @@ from pathlib import Path
 
 # sys.path.insert(0, str(Path(__file__).resolve().parent / 'bin'))
 
-from src.update_bed import write_base
+from src.update_bed import write_base, append_to_bed
 
 mock_gtf_content = '''\
 # Example GTF file
@@ -26,6 +26,8 @@ chr3\tENSEMBL\ttranscript\t4000\t5000\t.\t+\t.\tgene_id "gene3"; transcript_biot
 chr3\tENSEMBL\texon\t4400\t4500\t.\t+\t.\tgene_id "gene3"; transcript_id "transcript3";
 '''
 
+
+
 def get_file_string(rows: list[list[str]]) -> str:
     """
     Convert 
@@ -41,7 +43,7 @@ def get_file_string(rows: list[list[str]]) -> str:
     return '\n'.join(row_strs) + '\n'
 
 
-def test_write_base(tmp_path: str):
+def test_write_base(tmp_path: Path):
 
     release = "108"
     skip_download = True
@@ -71,6 +73,41 @@ def test_write_base(tmp_path: str):
     ]
     expected_output = get_file_string(row_fields)
     assert output_content == expected_output, f'Output was: {output_content}'
+
+
+def test_append_to_bed(tmp_path: Path):
+    
+    base_bed_content = '''\
+chr1\t1\t5\told_annot
+chr1\t10\t15\told_annot2
+'''
+
+    mock_bed_content = '''\
+chr1\t1000\t2000
+chr1\t3000\t4000\tgene1
+chr2\t5000\t6000
+'''
+
+    expected_output = '''\
+chr1\t1\t5\told_annot
+chr1\t10\t15\told_annot2
+chr1\t1000\t2000\tdefault_annot
+chr1\t3000\t4000\tgene1
+chr2\t5000\t6000\tdefault_annot
+'''
+
+    out_bed_path = tmp_path / 'out_bed.bed'
+    bed2add_path = tmp_path / 'bed2add.bed'
+
+    bed2add_path.write_text(mock_bed_content)
+
+    fourth_col_default = 'default_annot'
+
+    append_to_bed(str(out_bed_path), str(bed2add_path), fourth_col_default)
+
+    result = out_bed_path.read_text()
+
+    assert result == expected_output, f'Output was: {result}'
 
 # def test_full(tmp_path: str):
 #     print("Test")

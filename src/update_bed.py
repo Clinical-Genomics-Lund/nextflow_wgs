@@ -207,12 +207,12 @@ def write_base(ensembl_fp: str|None, out_fp: str, release: str, skip_download: b
                 print(out_line, file=out_fh)
 
 
-def append_to_bed(out_bed_fp: str, bed2add_fp: str, fourth_col: str):
+def append_to_bed(out_bed_fp: str, bed2add_fp: str, fourth_col_default: str):
     with open(bed2add_fp, 'r') as bed2add_fh, open(out_bed_fp, 'a') as out_fh:
         for line in bed2add_fh:
             bed_entry = BedEntry(line)
             if bed_entry.annot is None:
-                bed_entry.annot = fourth_col
+                bed_entry.annot = fourth_col_default
             print(bed_entry, file=out_fh)
 
 
