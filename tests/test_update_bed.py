@@ -4,7 +4,7 @@ from pathlib import Path
 
 # sys.path.insert(0, str(Path(__file__).resolve().parent / 'bin'))
 
-from src.update_bed import write_base, append_to_bed
+from src.update_bed import write_base, append_to_bed, compare_clinvar, read_clinvar, Variant
 
 mock_gtf_content = '''\
 # Example GTF file
@@ -99,34 +99,61 @@ chr2\t5000\t6000\tdefault_annot
     out_bed_path = tmp_path / 'out_bed.bed'
     bed2add_path = tmp_path / 'bed2add.bed'
 
+    out_bed_path.write_text(base_bed_content)
     bed2add_path.write_text(mock_bed_content)
 
     fourth_col_default = 'default_annot'
-
     append_to_bed(str(out_bed_path), str(bed2add_path), fourth_col_default)
-
     result = out_bed_path.read_text()
 
     assert result == expected_output, f'Output was: {result}'
 
-# def test_full(tmp_path: str):
-#     print("Test")
-#     script_path = os.path.abspath('bin/reference_tools/update_bed.py')
-#     args = [
-#         script_path,
-#         '--old', 'data/testdata/clinvar38_20231230.vcf',
-#         '--new', 'data/testdata/clinvar38_20240624.vcf',
-#         '--release', '108',
-#         '--clinvardate', '2024-01-01',
-#         '--ensembl', os.path.abspath('Homo_sapiens.GRCh38.108.gtf'),
-#         '--skip_download',
-#         '--out_dir', 'testout'
-#     ]
 
-#     result = subprocess.run(['python3'] + args, cwd=tmp_path, capture_output=True, text=True)
-#     print(result)
-#     # assert result.returncode == 0
+# FIXME: Investigate the CLNSIG, CLNSIGCONF, CLNSIGINCL combinations in real ClinVar data
+def test_read_clinvar(tmp_path: Path):
 
-#     # expected_output_files = ['output1.bed', 'output2.bed']
-#     # for file_name in expected_output_files:
-#     #     assert os.path.exists(tmp_path / file_name)
+    mock_vcf_content = """\
+##fileformat=VCFv4.2
+##source=ClinVar
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO
+chr1\t12345\t.\tA\tG\t.\t.\tCLNSIG=Pathogenic;CLNSIGCONF=Conflicting_interpretations_of_pathogenicity;CLNSIGINCL=athogenic
+chr1\t54321\t.\tC\tT\t.\t.\tCLNSIG=Benign
+chr2\t12345\t.\tG\tA\t.\t.\tCLNSIG=Likely_pathogenic
+"""
+
+    clinvar_vcf_path = tmp_path / 'tmp.vcf'
+    clinvar_vcf_path.write_text(mock_vcf_content)
+
+    clinvar_variants, benign_clinvar_variants = read_clinvar(str(clinvar_vcf_path))
+
+    expected_clinvar_reasons = {
+        'chr1:12345_A_G': 'Pathogenic',
+        'chr2:12345_G_A': 'Likely_pathogenic'
+    }
+    expected_benign_clinvar_reasons = {
+        'chr1:54321_C_T': None
+    }
+
+    for key, variant in clinvar_variants.items():
+        assert key in expected_clinvar_reasons
+        assert expected_clinvar_reasons[key] == variant.reason
+
+    for key, variant in benign_clinvar_variants.items():
+        assert key in expected_benign_clinvar_reasons
+        assert expected_benign_clinvar_reasons[key] == variant.reason
+
+    # print(clinvar_variants)
+    # print(benign_clinvar_variants)
+
+
+
+# def test_compare_clinvar(tmp_path: Path):
+
+#     new_clinvar = {}
+#     old_clinvar = {}
+#     final_bed_fp = ''
+#     out_dir = ''
+
+#     compare_clinvar(
+        
+#     )

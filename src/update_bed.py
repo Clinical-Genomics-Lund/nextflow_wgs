@@ -44,7 +44,10 @@ def main():
     (clinvar_old, old_benign) = read_clinvar(clinvar_vcf_old)
 
     clinvar_final_bed_fp = f'clinvar_{clinvardate}.bed'
-    (new_to_add, old_to_remove) = compare_clinvar(clinvar_new, clinvar_old, clinvar_final_bed_fp, out_dir)
+    (new_to_add, old_to_remove) = compare_clinvar(clinvar_new, clinvar_old, clinvar_final_bed_fp, out_dir, small_pad)
+
+
+    # sort_merge_output()
 
 
 
@@ -67,7 +70,9 @@ def parse_arguments():
 
 class Variant:
     def __init__(self, vcf_line):
+        vcf_line = vcf_line.rstrip()
         fields = vcf_line.split('\t')
+        self.fields = fields
         self.chr = fields[0]
         self.pos = int(fields[1])
         self.ref = fields[3]
@@ -87,6 +92,9 @@ class Variant:
         self.key = 'FIXME'
         # clnacc = self.info['CLNACC'] if self.info.get('CLNACC') is not None else ""
         # self.fourth = '~'.join([self.key, self.reason, clnacc])
+    
+    def __str__(self):
+        return '\t'.join(self.fields)
 
         
 
@@ -122,7 +130,7 @@ class GtfEntry:
 
 
 def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
-    # FIXME: Use Viktor's module here?
+    # FIXME: Use Viktor's VCF module here?
     clinvar_variants = {}
     benign_clinvar_variants = {}
 
@@ -152,18 +160,22 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
             keep = False
             reason = None
 
-            if sig.find('Pathogenic') != -1 or sig.find('Likely_pathogenic') != -1:
+            # print("New entry")
+            # FIXME: Look over this part
+            if 'Pathogenic' in sig or 'Likely_pathogenic' in sig:
+                # print('First hit')
                 keep = True
                 reason = sig
-            elif sig.find('Conflicting_interpretations_of_pathogenicity'):
-                if confidence.find('Pathogenic') != -1 or confidence.find('Likely_pathogenic'):
+            elif sig in 'Conflicting_interpretations_of_pathogenicity':
+                if 'Pathogenic' in confidence or 'Likely_pathogenic' in confidence:
+                    # print('Second hit')
                     keep = True
                     reason = confidence
             # FIXME: What is 'athogenic'
-            elif haplo.find('athogenic'):
+            elif 'athogenic' in haplo:
+                # print('Third hit')
                 keep = True
                 reason = haplo
-
 
             key = f'{variant.chr}:{variant.pos}_{variant.ref}_{variant.alt}'
             if keep:
@@ -216,7 +228,7 @@ def append_to_bed(out_bed_fp: str, bed2add_fp: str, fourth_col_default: str):
             print(bed_entry, file=out_fh)
 
 
-def write_sorted_merged_output(bed_fp: str):
+def sort_merge_output(bed_fp: str):
     tmp_bed_fp = 'tmp.sort.bed'
     sort_cmd = f'bedtools sort -i {bed_fp} > {tmp_bed_fp}'
     merge_cmd = f'bedtools merge -i {tmp_bed_fp} -c4 -o collapse > {bed_fp}'
@@ -225,12 +237,11 @@ def write_sorted_merged_output(bed_fp: str):
     os.remove(tmp_bed_fp)
 
 
-def compare_clinvar(new_clinvar: dict[str, Variant], old_clinvar: dict[str, Variant], final_bed_fp: str, out_dir: str) -> tuple[list[str], list[str]]:
+def compare_clinvar(new_clinvar: dict[str, Variant], old_clinvar: dict[str, Variant], final_bed_fp: str, out_dir: str, padding: int) -> tuple[list[str], list[str]]:
     
     new_bed_fp = f'{out_dir}/clinvar_new.bed'
     old_bed_fp = f'{out_dir}/clinvar_old.bed'
     clinvar_in_common = set()
-    padding = 5
     with open(new_bed_fp, 'w') as new_fh, open(old_bed_fp, 'w') as old_fh:
         for key, variant in new_clinvar.items():
             if old_clinvar.get(key) is not None:
