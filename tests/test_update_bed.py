@@ -16,6 +16,16 @@ mock_gtf_content = '''\
 3\tENSEMBL\texon\t4400\t4500\t.\t+\t.\tgene_id "gene3"; transcript_id "transcript3";
 '''
 
+mock_chr_gtf_content = '''\
+# Example GTF file
+chr1\tENSEMBL\ttranscript\t1000\t2000\t.\t+\t.\tgene_id "gene1"; transcript_biotype "protein_coding";
+chr1\tENSEMBL\texon\t1100\t1200\t.\t+\t.\tgene_id "gene1"; transcript_id "transcript1";
+chr2\tENSEMBL\ttranscript\t3000\t4000\t.\t+\t.\tgene_id "gene2"; transcript_biotype "non_coding";
+chr2\tENSEMBL\texon\t3100\t3200\t.\t+\t.\tgene_id "gene2"; transcript_id "transcript2";
+chr3\tENSEMBL\ttranscript\t4000\t5000\t.\t+\t.\tgene_id "gene3"; transcript_biotype "protein_coding";
+chr3\tENSEMBL\texon\t4400\t4500\t.\t+\t.\tgene_id "gene3"; transcript_id "transcript3";
+'''
+
 def get_file_string(rows: list[list[str]]) -> str:
     """
     Convert 
@@ -33,25 +43,33 @@ def get_file_string(rows: list[list[str]]) -> str:
 
 def test_write_base(tmp_path: str):
 
-    ensembl_path = tmp_path / 'test.gtf'
     release = "108"
     skip_download = True
     padding = 20
     out_path = tmp_path / 'output.bed'
 
-    ensembl_path.write_text(mock_gtf_content)
-    write_base(str(ensembl_path), str(out_path), release, skip_download, padding)
-
+    # Non-chr based reference
+    ensembl_nonchr_path = tmp_path / 'test_nonchr.gtf'
+    ensembl_nonchr_path.write_text(mock_gtf_content)
+    write_base(str(ensembl_nonchr_path), str(out_path), release, skip_download, padding)
     output_content = out_path.read_text()
-
-    print(f"Content: {output_content}")
-
     row_fields = [
         ['1', '1080', '1220'],
         ['3', '4380', '4520']
     ]
     expected_output = get_file_string(row_fields)
+    assert output_content == expected_output, f'Output was: {output_content}'
 
+    # Chr based reference
+    ensembl_chr_path = tmp_path / 'test_chr.gtf'
+    ensembl_chr_path.write_text(mock_chr_gtf_content)
+    write_base(str(ensembl_chr_path), str(out_path), release, skip_download, padding)
+    output_content = out_path.read_text()
+    row_fields = [
+        ['chr1', '1080', '1220'],
+        ['chr3', '4380', '4520']
+    ]
+    expected_output = get_file_string(row_fields)
     assert output_content == expected_output, f'Output was: {output_content}'
 
 # def test_full(tmp_path: str):

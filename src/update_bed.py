@@ -4,6 +4,7 @@ import argparse
 import subprocess
 import os
 from pathlib import Path
+import re
 
 
 def main():
@@ -194,10 +195,10 @@ def write_base(ensembl_fp: str|None, out_fp: str, release: str, skip_download: b
                 continue
             gtf_entry = GtfEntry(line)
 
-            print(f'Looping with line: {line}')
-
-            # FIXME: Guess this filters away non regular chromosomes?
-            if len(gtf_entry.chr) > 2:
+            # Filter out non chr chromosomes
+            # Added "replace" to allow "chr" based reference
+            chrom = re.sub("^chr", "", gtf_entry.chr)
+            if len(chrom) > 2:
                 continue
             if gtf_entry.molecule == 'transcript':
                 keep = gtf_entry.annotation.find('transcript_biotype "protein_coding"') != -1
