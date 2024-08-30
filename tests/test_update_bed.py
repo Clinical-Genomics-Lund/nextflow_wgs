@@ -1,7 +1,7 @@
 from unittest.mock import patch
 from pathlib import Path
 
-from src.update_bed import write_base, append_to_bed, compare_clinvar, read_clinvar, Variant
+from src.update_bed import write_base, append_to_bed, compare_clinvar, read_clinvar, Variant, main
 
 # FIXME: OUTSTANDING QUESTIONS
 # What is up with the extra annotation values
@@ -187,4 +187,21 @@ chr2\t5000\t6000\tdefault_annot
 
     print(new_to_add)
     print(old_to_remove)
+
+
+def test_main(tmp_path: Path):
+
+    new = tmp_path / 'clinvar_new.vcf'
+    old = tmp_path / 'clinvar_old.vcf'
+    clinvardate = 'clinvardate'
+    out_dir = tmp_path / 'out_dir'
+    release = 'release'
+    ensembl = tmp_path / 'ensembl.gtf'
+
+    ensembl.write_text(mock_gtf_content)
+
+    skip_download = True
+    incl_bed = []
+
+    main(new, old, clinvardate, out_dir, release, ensembl, skip_download, incl_bed)
 

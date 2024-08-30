@@ -7,34 +7,33 @@ from pathlib import Path
 import re
 
 
-def main():
-    args = parse_arguments()
+def main(clinvar_new: Path, clinvar_old: Path, clinvardate: str, out_dir: Path, release: str, ensembl: str, skip_download: bool, incl_bed: list[str]):
 
-    clinvar_vcf = args.new
-    clinvar_vcf_old = args.old
-    clinvardate = args.clinvardate
-    out_dir = Path(args.out_dir)
+    clinvar_vcf = clinvar_new
+    clinvar_vcf_old = clinvar_old
+    clinvardate = clinvardate
+    out_dir = Path(out_dir)
     
     if not out_dir.exists():
-        out_dir.mkdir(out_dir, parents=True, exist_ok=True)
+        out_dir.mkdir(parents=True, exist_ok=True)
 
-    release = args.release
+    release = release
     # gtf_fp = f'Homo_sapiens.GRCh38.{release}.gtf.gz'
     out_base_fp = f'{out_dir}/exons_hg38_{release}.bed'
     
     small_pad = 5
     pad = 20
     print("Write initial base")
-    write_base(args.ensembl, out_base_fp, release, args.skip_download, pad)
+    write_base(ensembl, out_base_fp, release, skip_download, pad)
 
-    final_bed_path = Path(f'exons_{release}.padded{pad}bp_clinvar-{args.clinvardate}padded{small_pad}bp.bed')
+    final_bed_path = Path(f'exons_{release}.padded{pad}bp_clinvar-{clinvardate}padded{small_pad}bp.bed')
     if final_bed_path.exists() and final_bed_path.is_file():
         print(f'Removing file: {final_bed_path}')
         final_bed_path.unlink()
 
-    if args.incl_bed is not None:
-        print(f'Include {args.incl_bed}')
-        for bed_fp in args.incl_bed:
+    if incl_bed is not None:
+        print(f'Include {incl_bed}')
+        for bed_fp in incl_bed:
             suffix = bed_fp
             append_to_bed(final_bed_path, bed_fp, suffix)
     else:
@@ -42,6 +41,8 @@ def main():
 
     (clinvar_new, new_benign) = read_clinvar(clinvar_vcf)
     (clinvar_old, old_benign) = read_clinvar(clinvar_vcf_old)
+
+    clinvar_all = {**clinvar_new, **clinvar_old}
 
     clinvar_final_bed_fp = f'clinvar_{clinvardate}.bed'
     (new_to_add, old_to_remove) = compare_clinvar(clinvar_new, clinvar_old, clinvar_final_bed_fp, out_dir, small_pad)
@@ -51,9 +52,11 @@ def main():
     clinvar_log_path.unlink()
     clinvar_final_bed_path.unlink()
 
-    log_clinvar_bed_and_info(new_to_add, 'new', clinvar_log_path, new_benign)
-    log_clinvar_bed_and_info(old_to_remove, 'old', clinvar_log_path, new_benign)
-    log_clinvar_bed_and_info(new_to_add, 'bed', clinvar_final_bed_fp, new_benign)
+    log_changes(clinvar_log_path, clinvar_all, clinvar_new, clinvar_old)
+
+    # log_clinvar_bed_and_info(new_to_add, 'new', clinvar_log_path, new_benign)
+    # log_clinvar_bed_and_info(old_to_remove, 'old', clinvar_log_path, new_benign)
+    # log_clinvar_bed_and_info(new_to_add, 'bed', clinvar_final_bed_fp, new_benign)
 
     append_to_bed(final_bed_path, clinvar_final_bed_fp, '.')
 
@@ -130,6 +133,12 @@ class Variant:
         clndn = self.info['CLNDN'] if self.info.get('CLNDN') is not None else 'Undefined'
         return f'{self.chrom}:{self.pos}_{self.ref}_{self.alt}~{reason}~{clnacc}~{clndn}'
 
+    def get_clnsig(self) -> str:
+        clnsig = self.info.get('CLNSIG')
+        if clnsig != None:
+            return clnsig
+        else:
+            return 'MISSING'
         
 
 #     fourth = [key, variant.reason, variant.info['CLNACC']]
@@ -221,7 +230,7 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
     return (clinvar_variants, benign_clinvar_variants)
 
 
-def write_base(ensembl_fp: str|None, out_fp: str, release: str, skip_download: bool, padding: int):
+def write_base(ensembl_fp: str, out_fp: str, release: str, skip_download: bool, padding: int):
     
     if not skip_download:
         gtf_request = f'https://ftp.ensembl.org/pub/release-{release}/gtf/homo_sapiens/Homo_sapiens.GRCh38.{release}.gtf.gz'
@@ -320,12 +329,52 @@ def get_bed_intersect(clinvar: str, bed: str) -> list[str]:
     return intersected_regions
 
 
-def log_clinvar_bed_and_info(clinvar: dict[str, Variant], new_or_old: dict[str, Variant], clinvar_log: str):
-    with open(clinvar_log, 'a') as log_fh:
-        for key, variant in clinvar.items():
-            clinvarreason = variant.reason
-            
+def log_changes(log_fp: str, clinvar_all: dict[str, Variant], added_keys: set[str], removed_keys: set[str], new_benign: dict[str, Variant]):
+    '''
+    Log variants added and removed between clinvar versions
+    Check if part of latest ClinVar with benign status if removed
+    '''
+    with open(log_fp, 'w') as log_fh:
+        for clin_key, clin_var in clinvar_all.items():
+            if clin_key in added_keys:
+                clnsig = 'MISSING'
+                if clin_key in new_benign:
+                    clnsig = new_benign[clin_key].get_clnsig()
+                print(f'REMOVED: {clin_var.pos} reason[2] reason[1] => {clnsig}', file=log_fh)
+                
+            elif clin_key in removed_keys:
+                print(f'ADDED: {clin_var.pos} reason[2] reason[1]', file=log_fh)
+
+
+def append_clinvar_to_bed(bed_fp: str, clinvar_new: dict[str, Variant]):
+    with open(bed_fp, 'w') as bed_fh:
+        for clin_var in clinvar_new.values():
+            print(f'{clin_var.chrom}\t{clin_var.pos}\t{clin_var.pos}\tCLINVAR-{clin_var.get_clnsig()}', file=bed_fh)
+
 
 if __name__ == "__main__":
-    main()
+    args = parse_arguments()
+    main(
+        clinvar_new=Path(args.new),
+        clinvar_old=Path(args.old),
+        clinvardate=args.clinvardate,
+        out_dir=Path(args.out_dir),
+        release=args.release,
+        ensembl=args.ensembl,
+        skip_download=args.skip_download,
+        incl_bed=args.incl_bed
+    )
 
+
+    # parser.add_argument('--old', required=True)
+    # parser.add_argument('--new', required=True)
+    # parser.add_argument('--release', required=True)
+    # parser.add_argument('--clinvardate', required=True)
+
+    # parser.add_argument('--out_dir', required=True)
+
+    # parser.add_argument('--ensembl')
+
+    # parser.add_argument('--incl_bed', nargs="*")
+    # parser.add_argument('--skip_download', action="store_true")
+# def main(new: str, old: str, clinvardate: str, out_dir: str, release: str, ensembl: str, skip_download: bool, incl_bed: list[str]):
