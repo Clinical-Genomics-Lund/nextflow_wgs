@@ -19,14 +19,13 @@ def main():
 
     release = args.release
     # gtf_fp = f'Homo_sapiens.GRCh38.{release}.gtf.gz'
-    gtf_request = f'https://ftp.ensembl.org/pub/release-{release}/gtf/homo_sapiens/Homo_sapiens.GRCh38.{release}.gtf.gz'
     out_base_fp = f'{out_dir}/exons_hg38_{release}.bed'
     
-    print("Write initial base")
-    write_base(gtf_request, args.ensembl, out_base_fp, release, args.skip_download)
-
-    pad = 20
     small_pad = 5
+    pad = 20
+    print("Write initial base")
+    write_base(args.ensembl, out_base_fp, release, args.skip_download, pad)
+
     final_bed_path = Path(f'exons_{release}.padded{pad}bp_clinvar-{args.clinvardate}padded{small_pad}bp.bed')
     if final_bed_path.exists() and final_bed_path.is_file():
         print(f'Removing file: {final_bed_path}')
@@ -85,7 +84,8 @@ class Variant:
             self.clndn = self.info['CLNDN']
         
         self.key = 'FIXME'
-        self.fourth = '~'.join(self.key, self.reason, self.info['CLNACC'])
+        # clnacc = self.info['CLNACC'] if self.info.get('CLNACC') is not None else ""
+        # self.fourth = '~'.join([self.key, self.reason, clnacc])
 
         
 
@@ -174,13 +174,12 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
     return (clinvar_variants, benign_clinvar_variants)
 
 
-def write_base(gtf_req: str, ensembl_fp: str|None, out_fp: str, release: str, skip_download: bool):
+def write_base(ensembl_fp: str|None, out_fp: str, release: str, skip_download: bool, padding: int):
     
-    padding = 20
-
     if not skip_download:
+        gtf_request = f'https://ftp.ensembl.org/pub/release-{release}/gtf/homo_sapiens/Homo_sapiens.GRCh38.{release}.gtf.gz'
         tmp_fp = 'tmp.gtf.gz'
-        download_gtf_cmd = ['wget', gtf_req, '-O', tmp_fp]
+        download_gtf_cmd = ['wget', gtf_request, '-O', tmp_fp]
         subprocess.run(download_gtf_cmd, check=True)
         gunzip_cmd = ['gunzip', 'tmp.gtf.gz']
         subprocess.run(gunzip_cmd, check=True)
@@ -195,13 +194,15 @@ def write_base(gtf_req: str, ensembl_fp: str|None, out_fp: str, release: str, sk
                 continue
             gtf_entry = GtfEntry(line)
 
+            print(f'Looping with line: {line}')
+
             # FIXME: Guess this filters away non regular chromosomes?
             if len(gtf_entry.chr) > 2:
                 continue
             if gtf_entry.molecule == 'transcript':
                 keep = gtf_entry.annotation.find('transcript_biotype "protein_coding"') != -1
             if gtf_entry.molecule == 'exon' and keep:
-                out_line = f'{gtf_entry.chr}\t{gtf_entry.start_pos - padding}\t{gtf_entry.end_pos + padding}\n'
+                out_line = f'{gtf_entry.chr}\t{gtf_entry.start_pos - padding}\t{gtf_entry.end_pos + padding}'
                 print(out_line, file=out_fh)
 
 
