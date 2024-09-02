@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from bin.reference_tools.update_bed import (
-    write_base,
+    write_ensembl,
     append_to_bed,
     compare_clinvar,
     read_clinvar,
@@ -41,7 +41,7 @@ def get_file_string(rows: list[list[str]]) -> str:
     to
     'chr1\t1\t2\nchr2\t2\t3'
     """
-    row_strs = []
+    row_strs: list[str] = []
     for row in rows:
         row_str = "\t".join(row)
         row_strs.append(row_str)
@@ -59,7 +59,9 @@ def test_write_base(tmp_path: Path):
     # Non-chr based reference
     ensembl_nonchr_path = tmp_path / "test_nonchr.gtf"
     ensembl_nonchr_path.write_text(mock_gtf_content)
-    write_base(str(ensembl_nonchr_path), str(out_path), release, skip_download, padding)
+    write_ensembl(
+        str(ensembl_nonchr_path), str(out_path), release, skip_download, padding
+    )
     output_content = out_path.read_text()
     row_fields = [["1", "1080", "1220"], ["3", "4380", "4520"]]
     expected_output = get_file_string(row_fields)
@@ -68,7 +70,7 @@ def test_write_base(tmp_path: Path):
     # Chr based reference
     ensembl_chr_path = tmp_path / "test_chr.gtf"
     ensembl_chr_path.write_text(mock_chr_gtf_content)
-    write_base(str(ensembl_chr_path), str(out_path), release, skip_download, padding)
+    write_ensembl(str(ensembl_chr_path), str(out_path), release, skip_download, padding)
     output_content = out_path.read_text()
     row_fields = [["chr1", "1080", "1220"], ["chr3", "4380", "4520"]]
     expected_output = get_file_string(row_fields)
@@ -182,11 +184,11 @@ chr2\t5000\t6000\tdefault_annot
 
     final_bed_path.write_text(bed_test_content)
 
-    out_dir = str(tmp_path)
+    out_dir = tmp_path
     padding = 5
 
     new_to_add, old_to_remove = compare_clinvar(
-        new_clinvar, old_clinvar, final_bed_path, padding, out_dir
+        new_clinvar, old_clinvar, str(final_bed_path), padding, out_dir
     )
 
     print(new_to_add)
@@ -225,6 +227,15 @@ chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
     ensembl.write_text(mock_gtf_content)
 
     skip_download = True
-    incl_bed = []
+    incl_bed: list[str] = []
 
-    main(new, old, clinvardate, out_dir, release, ensembl, skip_download, incl_bed)
+    main(
+        new,
+        old,
+        str(clinvardate),
+        out_dir,
+        release,
+        str(ensembl),
+        skip_download,
+        incl_bed,
+    )

@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 import re
 
+# import pdb
+
 
 def main(
     clinvar_vcf_path: Path,
@@ -18,27 +20,30 @@ def main(
     incl_bed: list[str],
 ):
 
-    clinvardate = clinvardate
     out_dir = Path(out_dir)
 
     if not out_dir.exists():
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    release = release
     # gtf_fp = f'Homo_sapiens.GRCh38.{release}.gtf.gz'
-    out_base_fp = f"{out_dir}/exons_hg38_{release}.bed"
+    ensembl_bed_fp = f"{out_dir}/exons_hg38_{release}.bed"
 
+    # FIXME: What is the difference here?
     small_pad = 5
     pad = 20
     print("Write initial base")
-    write_base(ensembl, out_base_fp, release, skip_download, pad)
+    write_ensembl(ensembl, ensembl_bed_fp, release, skip_download, pad)
 
     final_bed_path = Path(
         f"exons_{release}.padded{pad}bp_clinvar-{clinvardate}padded{small_pad}bp.bed"
     )
+
     if final_bed_path.exists() and final_bed_path.is_file():
         print(f"Removing file: {final_bed_path}")
         final_bed_path.unlink()
+    final_bed_path.write_text("")
+
+    append_to_bed(str(final_bed_path), ensembl_bed_fp, f"EXONS-{release}")
 
     if len(incl_bed) > 0:
         print(f"Include {incl_bed}")
@@ -53,15 +58,17 @@ def main(
 
     clinvar_all: dict[str, Variant] = {**clinvar_new, **clinvar_old}
 
-    clinvar_final_bed_fp = f"clinvar_{clinvardate}.bed"
+    # clinvar_final_bed_fp = f"clinvar_{clinvardate}.bed"
     (new_to_add, old_to_remove) = compare_clinvar(
-        clinvar_new, clinvar_old, clinvar_final_bed_fp, small_pad, out_dir
+        clinvar_new, clinvar_old, str(final_bed_path), small_pad, out_dir
     )
 
-    clinvar_log_path = Path("{out_dir}/clinvar_{clinvardate}.log")
-    clinvar_final_bed_path = Path("{out_dir}/clinvar_{clinvardate}.bed")
-    clinvar_log_path.unlink()
-    clinvar_final_bed_path.unlink()
+    clinvar_log_path = Path(f"{out_dir}/clinvar_{clinvardate}.log")
+    # clinvar_final_bed_path = Path(f"{out_dir}/clinvar_{clinvardate}.bed")
+    if clinvar_log_path.exists():
+        clinvar_log_path.unlink()
+    # if clinvar_final_bed_path.exists():
+    #     clinvar_final_bed_path.unlink()
 
     log_changes(
         str(clinvar_log_path), clinvar_all, new_to_add, old_to_remove, new_benign
@@ -71,7 +78,7 @@ def main(
     # log_clinvar_bed_and_info(old_to_remove, 'old', clinvar_log_path, new_benign)
     # log_clinvar_bed_and_info(new_to_add, 'bed', clinvar_final_bed_fp, new_benign)
 
-    append_to_bed(str(final_bed_path), clinvar_final_bed_fp, ".")
+    # append_to_bed(str(final_bed_path), str(clinvar_final_bed_path), ".")
 
     sort_merge_output(str(final_bed_path))
 
@@ -247,7 +254,7 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
     return (clinvar_variants, benign_clinvar_variants)
 
 
-def write_base(
+def write_ensembl(
     ensembl_fp: str, out_fp: str, release: str, skip_download: bool, padding: int
 ):
 
@@ -296,7 +303,7 @@ def append_to_bed(out_bed_fp: str, bed2add_fp: str, fourth_col_default: str):
 def sort_merge_output(bed_fp: str):
     tmp_bed_fp = "tmp.sort.bed"
     sort_cmd = f"bedtools sort -i {bed_fp} > {tmp_bed_fp}"
-    merge_cmd = f"bedtools merge -i {tmp_bed_fp} -c4 -o collapse > {bed_fp}"
+    merge_cmd = f"bedtools merge -i {tmp_bed_fp} -c 4 -o collapse > {bed_fp}"
     subprocess.call(sort_cmd, shell=True)
     subprocess.call(merge_cmd, shell=True)
     os.remove(tmp_bed_fp)
@@ -351,8 +358,17 @@ def compare_clinvar(
     return (new_to_add, old_to_remove)
 
 
-def get_bed_intersect(clinvar: str, bed: str) -> set[str]:
-    not_in_bed_cmd = ["bedtools", "intersect", "-a", clinvar, "-b", bed, "-v"]
+def get_bed_intersect(original_bed: str, updated_bed: str) -> set[str]:
+    # not_in_bed_cmd = ["bedtools", "intersect", "-h"]
+    not_in_bed_cmd = [
+        "bedtools",
+        "intersect",
+        "-a",
+        original_bed,
+        "-b",
+        updated_bed,
+        "-v",
+    ]
     # FIXME: How to gather and return results
     result = subprocess.run(not_in_bed_cmd, capture_output=True, text=True, check=True)
     intersected_regions = result.stdout.strip().splitlines()
