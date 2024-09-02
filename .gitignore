@@ -15,3 +15,4 @@ bin/reference_tools/*.log
 bin/reference_tools/*.bed
 *.orig
 data/
+.vscode/
