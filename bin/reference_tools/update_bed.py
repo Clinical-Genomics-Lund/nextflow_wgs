@@ -8,6 +8,15 @@ import re
 
 # import pdb
 
+"""
+CLNSIG:      Clinical significance of variant
+CLNSIGINCL:  Clinical significance for a haplotype or genotype that includes
+                this variant. Reported as pairs (VariantID:ClinSig).
+CLNSIGCONF:  Reviewer certainty
+CLNDN:       ClinVar preferred disease name
+CLNACC:      ClinVar accession (deprecated? https://github.com/Clinical-Genomics/scout/issues/695)
+"""
+
 CLNSIG = "CLNSIG"
 CLNACC = "CLNACC"
 CLNDN = "CLNDN"
@@ -38,13 +47,15 @@ def main(
     write_ensembl(ensembl_bed_fp, release, skip_download, exon_pad)
 
     final_bed_path = Path(
-        f"exons_{release}.padded{exon_pad}bp_clinvar-{clinvardate}padded{variant_pad}bp.bed"
+        f"{out_dir}/exons_{release}padded{exon_pad}bp_clinvar-{clinvardate}padded{variant_pad}bp.bed"
     )
 
     if final_bed_path.exists() and final_bed_path.is_file():
         print(f"Removing previous result file: {final_bed_path}")
         final_bed_path.unlink()
     final_bed_path.write_text("")
+
+    # final_bed_path.write_text(ensembl_bed_path, mode='a')
 
     append_to_bed(str(final_bed_path), ensembl_bed_fp, f"EXONS-{release}")
 
@@ -66,7 +77,6 @@ def main(
 
     clinvar_all: dict[str, Variant] = {**clinvar_new, **clinvar_old}
 
-    # clinvar_final_bed_fp = f"clinvar_{clinvardate}.bed"
     (new_to_add, old_to_remove) = compare_clinvar(
         clinvar_new, clinvar_old, str(final_bed_path), variant_pad, out_dir
     )
@@ -92,8 +102,6 @@ def parse_arguments():
     parser.add_argument("--clinvardate", required=True)
 
     parser.add_argument("--out_dir", required=True)
-
-    parser.add_argument("--ensembl")
 
     parser.add_argument("--incl_bed", nargs="*")
     parser.add_argument("--skip_download", action="store_true")
@@ -140,7 +148,7 @@ class Variant:
         self.key = "FIXME"
 
     def get_bed_str(self, padding: int) -> str:
-        return f"{self.chrom}\t{self.pos - padding}\t{self.pos + padding}\t<INFO PLACEHOLDER>"
+        return f"{self.chrom}\t{self.pos - padding}\t{self.pos + padding}\t{self.get_bed_annot()}"
 
     def get_bed_annot(self):
         reason = self.reason
@@ -159,23 +167,6 @@ class Variant:
 
 
 # FIXME: Needed?
-class BedEntry:
-    def __init__(self, line: str):
-        line = line.rstrip()
-        fields = line.split("\t")
-        self.chr = fields[0]
-        self.start = int(fields[1])
-        self.end = int(fields[2])
-        self.annot = None if len(fields) == 3 else fields[3]
-
-    def __str__(self) -> str:
-        out_fields = [self.chr, str(self.start), str(self.end)]
-        if self.annot is not None:
-            out_fields.append(self.annot)
-        return "\t".join(out_fields)
-
-
-# FIXME: Needed?
 class GtfEntry:
     def __init__(self, line: str):
         line = line.rstrip()
@@ -189,12 +180,9 @@ class GtfEntry:
 
 def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
     """
-    CLNSIG:      Clinical significance of variant
-    CLNSIGINCL:  Clinical significance for a haplotype or genotype that includes
-                 this variant. Reported as pairs (VariantID:ClinSig).
-    CLNSIGCONF:  Reviewer certainty
+    FIXME: Steps
 
-    - 
+    -
     - Mitochondria variants are not included
     """
 
@@ -208,7 +196,7 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
 
     with open(vcf_fp, "r") as vcf_fh:
         for line in vcf_fh:
-            if line.startswith("#") or line.startswith("MT\t"):
+            if line.startswith("#"):
                 continue
             variant = Variant.from_line(line)
 
@@ -249,17 +237,19 @@ def read_clinvar(vcf_fp: str) -> tuple[dict[str, Variant], dict[str, Variant]]:
                 reason = haplo
                 branch3_hits += 1
 
+            # FIXME: Multiple variants have the same key, so the last will be used
+            # Is this something we should think about?
             key = f"{variant.chrom}:{variant.pos}_{variant.ref}_{variant.alt}"
             if keep:
+                # FIXME: Unsure if relevant to keep these for benign
+                # This is how it was done in the pl script
+                if variant.chrom == "MT":
+                    continue
                 variant.reason = reason
-                # if key in clinvar_variants:
-                # print(f"I am already in clinvar_variants: {key}")
                 clinvar_variants[key] = variant
             else:
                 variant.reason = reason
                 benign_clinvar_variants[key] = variant
-                # if key in benign_clinvar_variants:
-                # print(f"I am already in benign_clinvar_variants: {key}")
 
     print(f"Nbr skipped: {nbr_skipped}")
     print(f"Branch 1: {branch1_hits}")
@@ -308,19 +298,24 @@ def write_ensembl(out_fp: str, release: str, skip_download: bool, exon_padding: 
                 print(out_line, file=out_fh)
 
 
-def append_to_bed(out_bed_fp: str, bed2add_fp: str, fourth_col_default: str):
+def append_to_bed(out_bed_fp: str, bed2add_fp: str, bed_annot_default: str):
     with open(bed2add_fp, "r") as bed2add_fh, open(out_bed_fp, "a") as out_fh:
         for line in bed2add_fh:
-            bed_entry = BedEntry(line)
-            if bed_entry.annot is None:
-                bed_entry.annot = fourth_col_default
-            print(bed_entry, file=out_fh)
+            line = line.rstrip()
+            fields = line.split("\t")
+            if len(fields) > 3:
+                print(line, file=out_fh)
+            else:
+                out_fields = fields + [bed_annot_default]
+                print("\t".join(out_fields), file=out_fh)
 
 
 def sort_merge_output(bed_fp: str):
     tmp_bed_fp = "tmp.sort.bed"
     sort_cmd = f"bedtools sort -i {bed_fp} > {tmp_bed_fp}"
-    merge_cmd = f"bedtools merge -i {tmp_bed_fp} -c 4 -o collapse > {bed_fp}"
+    # Annotation column is concatenated together
+    # "distinct" means the same value won't be reused multiple times
+    merge_cmd = f"bedtools merge -i {tmp_bed_fp} -c 4 -o distinct > {bed_fp}"
     subprocess.call(sort_cmd, shell=True)
     subprocess.call(merge_cmd, shell=True)
     os.remove(tmp_bed_fp)
@@ -334,8 +329,8 @@ def compare_clinvar(
     tmp_dir: Path,
 ) -> tuple[set[str], set[str]]:
 
-    new_bed_path = tmp_dir / "clinvar_new.bed"
-    old_bed_path = tmp_dir / "clinvar_old.bed"
+    new_bed_path = tmp_dir / "clinvar_new_python.bed"
+    old_bed_path = tmp_dir / "clinvar_old_python.bed"
     clinvar_in_common: set[str] = set()
     with open(str(new_bed_path), "w") as new_fh:
         for key, variant in new_clinvar.items():
@@ -361,10 +356,14 @@ def compare_clinvar(
                 # FIXME: Write this to old BED
                 print(old_var.get_bed_str(padding), file=old_fh)
 
+    print(f"final_bed_fp: {final_bed_fp}")
+    print(f"new_bed_fp: {new_bed_path}")
+    print(f"old_bed_fp: {old_bed_path}")
+
     new_to_add = get_bed_intersect(str(new_bed_path), final_bed_fp)
     old_to_remove = get_bed_intersect(str(old_bed_path), final_bed_fp)
-    new_bed_path.unlink()
-    old_bed_path.unlink()
+    # new_bed_path.unlink()
+    # old_bed_path.unlink()
 
     print(f"Clinvar in common between versions: {len(clinvar_in_common)}")
     print(f"Added new (unique targets): {len(clinvar_new_added)} ({len(new_to_add)})")
