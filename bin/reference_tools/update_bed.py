@@ -69,18 +69,17 @@ def main(
     print(f"Number new benign: {len(new_benign)}")
     print(f"Number old benign: {len(_old_benign)}")
 
-    clinvar_all: dict[str, ClinVarVariant] = {**clinvar_new, **clinvar_old}
-
-    (new_to_add_clinvar_bed_rows, old_to_remove_clinvar_bed_rows) = compare_clinvar(
-        clinvar_new, clinvar_old, final_bed_path, VARIANT_PAD, out_dir
+    (new_to_add_clinvar_bed_rows, new_added_clinvar_keys, old_removed_clinvar_keys) = (
+        compare_clinvar(clinvar_new, clinvar_old, final_bed_path, VARIANT_PAD, out_dir)
     )
 
     clinvar_log_path = ensure_new_empty(f"{out_dir}/clinvar_{clinvardate}.log")
     log_changes(
         clinvar_log_path,
-        clinvar_all,
-        new_to_add_clinvar_bed_rows,
-        old_to_remove_clinvar_bed_rows,
+        clinvar_old,
+        clinvar_new,
+        new_added_clinvar_keys,
+        old_removed_clinvar_keys,
         new_benign,
     )
 
@@ -94,7 +93,7 @@ def main(
 def ensure_new_empty(filepath: str) -> Path:
     path = Path(filepath)
     if path.exists():
-        print(f"Removing old file: {filepath}")
+        print(f"Removing existing file: {filepath}")
         path.unlink()
     path.write_text("")
     return path
@@ -316,7 +315,7 @@ def compare_clinvar(
     final_bed_path: Path,
     variant_padding: int,
     tmp_dir: Path,
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], set[str], set[str]]:
     """
     1. Generate bed files for padded ClinVar variants
     2. Add info about pathogenicity as the fourth column
@@ -348,11 +347,11 @@ def compare_clinvar(
     new_clinvar_tmp_bed = tmp_dir / "clinvar_new_python.bed"
     write_tmp_bed(new_clinvar_tmp_bed, new_clinvar, set())
     old_clinvar_tmp_bed = tmp_dir / "clinvar_old_python.bed"
-    clinvar_old_removed = old_clinvar_keys.difference(new_clinvar_keys)
-    write_tmp_bed(old_clinvar_tmp_bed, old_clinvar, clinvar_old_removed)
+    clinvar_old_removed_keys = old_clinvar_keys.difference(new_clinvar_keys)
+    write_tmp_bed(old_clinvar_tmp_bed, old_clinvar, clinvar_old_removed_keys)
 
     clinvar_in_common = new_clinvar_keys.intersection(old_clinvar_keys)
-    clinvar_new_added = new_clinvar_keys.difference(old_clinvar_keys)
+    clinvar_new_added_keys = new_clinvar_keys.difference(old_clinvar_keys)
 
     new_to_add_bed_rows = get_bed_intersect(
         str(new_clinvar_tmp_bed), str(final_bed_path)
@@ -365,13 +364,13 @@ def compare_clinvar(
 
     print(f"Clinvar in common between versions: {len(clinvar_in_common)}")
     print(
-        f"Added new (unique targets): {len(clinvar_new_added)} ({len(new_to_add_bed_rows)})"
+        f"Added new (unique targets): {len(clinvar_new_added_keys)} ({len(new_to_add_bed_rows)})"
     )
     print(
-        f"Removed old (unique targets): {len(clinvar_old_removed)} ({len(old_to_remove_bed_rows)})"
+        f"Removed old (unique targets): {len(clinvar_old_removed_keys)} ({len(old_to_remove_bed_rows)})"
     )
 
-    return (new_to_add_bed_rows, old_to_remove_bed_rows)
+    return (new_to_add_bed_rows, clinvar_new_added_keys, clinvar_old_removed_keys)
 
 
 def get_bed_intersect(left_bed: str, right_bed: str) -> list[str]:
@@ -385,7 +384,6 @@ def get_bed_intersect(left_bed: str, right_bed: str) -> list[str]:
         right_bed,
         "-v",
     ]
-    print(f"Running command: {' '.join(not_in_bed_cmd)}")
     result = subprocess.run(not_in_bed_cmd, capture_output=True, text=True, check=True)
     intersected_regions = result.stdout.strip().splitlines()
     # FIXME: This differs from the Perl script, and gives subtly differences in unique targets
@@ -396,9 +394,10 @@ def get_bed_intersect(left_bed: str, right_bed: str) -> list[str]:
 
 def log_changes(
     log_path: Path,
-    clinvar_all: dict[str, ClinVarVariant],
-    added_keys: list[str],
-    removed_keys: list[str],
+    clinvar_old: dict[str, ClinVarVariant],
+    clinvar_new: dict[str, ClinVarVariant],
+    added_keys: set[str],
+    removed_keys: set[str],
     new_benign: dict[str, ClinVarVariant],
 ):
     """
@@ -406,35 +405,29 @@ def log_changes(
     Check if part of latest ClinVar with benign status if removed
     """
     with log_path.open("w") as log_fh:
-        for clin_key, clin_var in clinvar_all.items():
-            if clin_key in added_keys:
-                clnsig = "MISSING"
-                if clin_key in new_benign:
-                    clnsig = new_benign[clin_key].CLNSIG
-                print(
-                    f"REMOVED: {clin_var.pos} reason[2] reason[1] => {clnsig}",
-                    file=log_fh,
-                )
 
-            elif clin_key in removed_keys:
-                print(f"ADDED: {clin_var.pos} reason[2] reason[1]", file=log_fh)
+        for new_key in added_keys:
 
+            new_variant = clinvar_new.get(new_key)
+            if new_variant is None:
+                raise ValueError(f"New variant should be present for key {new_key}")
 
-# def append_clinvar_to_bed(bed_fp: str, clinvar_new: dict[str, Variant]):
-#     with open(bed_fp, "w") as bed_fh:
-#         for clin_var in clinvar_new.values():
-#             print(
-#                 f"{clin_var.chrom}\t{clin_var.pos}\t{clin_var.pos}\tCLINVAR-{clin_var.get_clnsig()}",
-#                 file=bed_fh,
-#             )
+            print(
+                f"ADDED: {new_variant.chrom}:{new_variant.pos}:{new_variant.CLNDN}:{new_variant.CLNSIG}",
+                file=log_fh,
+            )
 
-
-# def write_clinvar_bed(
-#     clinvar_out_path: Path, bed_rows: list[str], variant_padding: int
-# ):
-#     with clinvar_out_path.open("a") as out_fh:
-#         for variant in clinvar_new:
-#             print(variant.get_tmp_bed_str_fixme(variant_padding), file=out_fh)
+        for old_key in removed_keys:
+            reason_for_removal = "MISSING"
+            if old_key in new_benign:
+                reason_for_removal = new_benign[old_key].CLNSIG
+            old_variant = clinvar_old.get(old_key)
+            if old_variant is None:
+                raise ValueError(f"New variant should be present for key {old_key}")
+            print(
+                f"REMOVED: {old_variant.chrom}:{old_variant.pos}:{old_variant.CLNDN}:{old_variant.CLNSIG} => {reason_for_removal}",
+                file=log_fh,
+            )
 
 
 if __name__ == "__main__":

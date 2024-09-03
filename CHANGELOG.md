@@ -1,12 +1,16 @@
 # CHANGELOG
 
+### TBD
+* Extend the update_bed.pl script to handle multiple input files
+* Rewrite to Python and add tests
+
 ### 3.9.8
-* reverted removed code in genepanel matches, caused missing gene panels for onco samples
+* Reverted removed code in gene panel matches, caused missing gene panels for onco samples
 
 ### 3.9.7
 * Solved trio eklipse image being wrongly added to yaml
-* removed outdated regex matches for genepanel, woudl remove important genepanels
-* general clean-up of create_yml.pl
+* Removed outdated regex matches for genepanel, would remove important gene panels
+* General clean-up of create_yml.pl
 
 ### 3.9.6
 * Fix bug where wrong tuple value unpacked as group and sample id in `bqsr` when starting run from bam
@@ -21,7 +25,7 @@
 ### 3.9.3
 
 * Re-optimized profiles wgs and onco. More memory allocations
-* added flag for reanalyze for bjorn to hook into
+* Added flag for reanalyze for bjorn to hook into
 
 ### 3.9.2
 
