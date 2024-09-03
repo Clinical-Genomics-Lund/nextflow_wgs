@@ -9,10 +9,6 @@ from bin.reference_tools.update_bed import (
     main,
 )
 
-# FIXME: OUTSTANDING QUESTIONS
-# What is up with the extra annotation values
-# When all is up, what is required to get the same results as the Perl script
-
 mock_gtf_content = """\
 # Example GTF file
 1\tENSEMBL\ttranscript\t1000\t2000\t.\t+\t.\tgene_id "gene1"; transcript_biotype "protein_coding";
@@ -235,5 +231,5 @@ chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
         release,
         skip_download,
         incl_bed,
-        keep_tmp=False
+        keep_tmp=False,
     )
