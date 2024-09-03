@@ -56,23 +56,22 @@ def test_write_base(tmp_path: Path):
     padding = 20
     out_path = tmp_path / "output.bed"
 
+    print("Write base")
+
     # Non-chr based reference
-    ensembl_nonchr_path = tmp_path / "test_nonchr.gtf"
-    ensembl_nonchr_path.write_text(mock_gtf_content)
-    write_ensembl_bed(
-        str(ensembl_nonchr_path), str(out_path), release, skip_download, padding
-    )
+    ensembl_tmp_gtf = tmp_path / "tmp.gtf"
+    ensembl_tmp_gtf.write_text(mock_gtf_content)
+    print(f"skip_download {skip_download}")
+    write_ensembl_bed(out_path, release, skip_download, padding)
     output_content = out_path.read_text()
     row_fields = [["1", "1080", "1220"], ["3", "4380", "4520"]]
     expected_output = get_file_string(row_fields)
     assert output_content == expected_output, f"Output was: {output_content}"
 
     # Chr based reference
-    ensembl_chr_path = tmp_path / "test_chr.gtf"
-    ensembl_chr_path.write_text(mock_chr_gtf_content)
-    write_ensembl_bed(
-        str(ensembl_chr_path), str(out_path), release, skip_download, padding
-    )
+    ensembl_tmp_gtf.unlink()
+    ensembl_tmp_gtf.write_text(mock_chr_gtf_content)
+    write_ensembl_bed(out_path, release, skip_download, padding)
     output_content = out_path.read_text()
     row_fields = [["chr1", "1080", "1220"], ["chr3", "4380", "4520"]]
     expected_output = get_file_string(row_fields)
@@ -107,7 +106,7 @@ chr2\t5000\t6000\tdefault_annot
     bed2add_path.write_text(mock_bed_content)
 
     fourth_col_default = "default_annot"
-    append_to_bed(str(out_bed_path), str(bed2add_path), fourth_col_default)
+    append_to_bed(out_bed_path, bed2add_path, fourth_col_default)
     result = out_bed_path.read_text()
 
     assert result == expected_output, f"Output was: {result}"
@@ -128,7 +127,7 @@ chr2\t12345\t.\tG\tA\t.\t.\tCLNSIG=Likely_pathogenic
     clinvar_vcf_path = tmp_path / "tmp.vcf"
     clinvar_vcf_path.write_text(mock_vcf_content)
 
-    clinvar_variants, benign_clinvar_variants = read_clinvar(str(clinvar_vcf_path))
+    clinvar_variants, benign_clinvar_variants = read_clinvar(clinvar_vcf_path)
 
     expected_clinvar_reasons = {
         "chr1:12345_A_G": "Pathogenic",
@@ -190,7 +189,7 @@ chr2\t5000\t6000\tdefault_annot
     padding = 5
 
     new_to_add, old_to_remove = compare_clinvar(
-        new_clinvar, old_clinvar, str(final_bed_path), padding, out_dir
+        new_clinvar, old_clinvar, final_bed_path, padding, out_dir, keep_tmp=False
     )
 
     print(new_to_add)
@@ -217,27 +216,25 @@ chr2\t3000\t.\tC\tT\t.\t.\tCLNSIG=Likely_pathogenic
 chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
 """
 
-    old = tmp_path / "clinvar_old.vcf"
-    old.write_text(old_clinvar_content)
-    new = tmp_path / "clinvar_new.vcf"
-    new.write_text(new_clinvar_content)
+    old_clinvar = tmp_path / "clinvar_old.vcf"
+    old_clinvar.write_text(old_clinvar_content)
+    new_clinvar = tmp_path / "clinvar_new.vcf"
+    new_clinvar.write_text(new_clinvar_content)
     clinvardate = "clinvardate"
     out_dir = tmp_path / "out_dir"
     release = "release"
-    ensembl = tmp_path / "ensembl.gtf"
-
-    ensembl.write_text(mock_gtf_content)
+    ensembl_tmp = tmp_path / "tmp.gtf"
+    ensembl_tmp.write_text(mock_gtf_content)
 
     skip_download = True
     incl_bed: list[str] = []
 
     main(
-        new,
-        old,
+        new_clinvar,
+        old_clinvar,
         str(clinvardate),
         out_dir,
         release,
-        str(ensembl),
         skip_download,
         incl_bed,
     )

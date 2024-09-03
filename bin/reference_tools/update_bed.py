@@ -249,10 +249,10 @@ def write_ensembl_bed(
 ):
     """Print padded exons for protein coding transcripts"""
 
-    ensembl_tmp_gz_fp = Path("tmp.gtf.gz")
-    ensembl_tmp_fp = Path("tmp.gtf")
+    ensembl_tmp_gz_fp = out_path / "tmp.gtf.gz"
+    ensembl_tmp_fp = out_path / "tmp.gtf"
 
-    if not skip_download:
+    if skip_download:
         gtf_request = get_gtf_request(release)
         download_gtf_cmd = ["wget", gtf_request, "-O", ensembl_tmp_gz_fp]
         subprocess.run(download_gtf_cmd, check=True)
