@@ -38,6 +38,7 @@ def main(
     release: str,
     skip_download: bool,
     incl_bed: list[str],
+    keep_tmp: bool,
 ):
     if not out_dir.exists():
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -49,7 +50,7 @@ def main(
     ensembl_bed_path = Path(f"{out_dir}/exons_hg38_{release}.bed")
 
     print("Write initial base (ENSEMBL exons)")
-    write_ensembl_bed(ensembl_bed_path, release, skip_download, EXON_PAD)
+    write_ensembl_bed(out_dir, ensembl_bed_path, release, skip_download, EXON_PAD)
 
     if len(incl_bed) > 0:
         for bed_fp in incl_bed:
@@ -64,13 +65,8 @@ def main(
     (clinvar_new, new_benign) = read_clinvar(clinvar_vcf_path)
     (clinvar_old, _old_benign) = read_clinvar(clinvar_vcf_old_path)
 
-    print(f"Number new: {len(clinvar_new)}")
-    print(f"Number old: {len(clinvar_old)}")
-    print(f"Number new benign: {len(new_benign)}")
-    print(f"Number old benign: {len(_old_benign)}")
-
     (new_to_add_clinvar_bed_rows, old_to_remove_clinvar_bed_rows) = compare_clinvar(
-        clinvar_new, clinvar_old, final_bed_path, VARIANT_PAD, out_dir, args.keep_tmp
+        clinvar_new, clinvar_old, final_bed_path, VARIANT_PAD, out_dir, keep_tmp
     )
 
     new_to_remove_keys = [bed_row[4] for bed_row in new_to_add_clinvar_bed_rows]
@@ -92,7 +88,7 @@ def main(
     )
 
     append_to_bed(final_bed_path, new_clinvar_to_add_path, ".")
-    sort_merge_output(out_dir, final_bed_path, args.keep_tmp)
+    sort_merge_output(out_dir, final_bed_path, keep_tmp)
 
 
 def ensure_new_empty(filepath: str) -> Path:
@@ -101,23 +97,6 @@ def ensure_new_empty(filepath: str) -> Path:
         path.unlink()
     path.write_text("")
     return path
-
-
-def parse_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--old", required=True)
-    parser.add_argument("--new", required=True)
-    parser.add_argument("--release", required=True)
-    parser.add_argument("--clinvardate", required=True)
-
-    parser.add_argument("--out_dir", required=True)
-    parser.add_argument("--incl_bed", nargs="*")
-    parser.add_argument("--skip_download", action="store_true")
-    parser.add_argument(
-        "--keep_tmp", action="store_true", help="Don't remove tmp files for debugging"
-    )
-    args = parser.parse_args()
-    return args
 
 
 class ClinVarVariant:
@@ -245,14 +224,14 @@ def read_clinvar(
 
 
 def write_ensembl_bed(
-    out_path: Path, release: str, skip_download: bool, exon_padding: int
+    out_dir: Path, out_bed: Path, release: str, skip_download: bool, exon_padding: int
 ):
     """Print padded exons for protein coding transcripts"""
 
-    ensembl_tmp_gz_fp = out_path / "tmp.gtf.gz"
-    ensembl_tmp_fp = out_path / "tmp.gtf"
+    ensembl_tmp_gz_fp = out_dir / "tmp.gtf.gz"
+    ensembl_tmp_fp = out_dir / "tmp.gtf"
 
-    if skip_download:
+    if not skip_download:
         gtf_request = get_gtf_request(release)
         download_gtf_cmd = ["wget", gtf_request, "-O", ensembl_tmp_gz_fp]
         subprocess.run(download_gtf_cmd, check=True)
@@ -264,7 +243,7 @@ def write_ensembl_bed(
                 f"To skip download, the ENSEMBL GTF needs to be present at the location: {ensembl_tmp_fp}"
             )
 
-    with ensembl_tmp_fp.open("r") as gtf_fh, out_path.open("w") as out_fh:
+    with ensembl_tmp_fp.open("r") as gtf_fh, out_bed.open("w") as out_fh:
         keep = False
         for line in gtf_fh:
             line = line.rstrip()
@@ -439,6 +418,23 @@ def log_changes(
             )
 
 
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--old", required=True)
+    parser.add_argument("--new", required=True)
+    parser.add_argument("--release", required=True)
+    parser.add_argument("--clinvardate", required=True)
+
+    parser.add_argument("--out_dir", required=True)
+    parser.add_argument("--incl_bed", nargs="*")
+    parser.add_argument("--skip_download", action="store_true")
+    parser.add_argument(
+        "--keep_tmp", action="store_true", help="Don't remove tmp files for debugging"
+    )
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == "__main__":
     args = parse_arguments()
     incl_bed: list[str] | None = args.incl_bed
@@ -450,4 +446,5 @@ if __name__ == "__main__":
         release=args.release,
         skip_download=args.skip_download,
         incl_bed=incl_bed if incl_bed is not None else [],
+        keep_tmp=args.keep_tmp,
     )

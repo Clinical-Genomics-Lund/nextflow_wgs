@@ -49,30 +49,29 @@ def get_file_string(rows: list[list[str]]) -> str:
     return "\n".join(row_strs) + "\n"
 
 
-def test_write_base(tmp_path: Path):
+def test_write_ensembl_bed(tmp_path: Path):
 
     release = "108"
     skip_download = True
     padding = 20
-    out_path = tmp_path / "output.bed"
-
-    print("Write base")
+    out_bed = tmp_path / "output.bed"
 
     # Non-chr based reference
     ensembl_tmp_gtf = tmp_path / "tmp.gtf"
     ensembl_tmp_gtf.write_text(mock_gtf_content)
     print(f"skip_download {skip_download}")
-    write_ensembl_bed(out_path, release, skip_download, padding)
-    output_content = out_path.read_text()
+    write_ensembl_bed(tmp_path, out_bed, release, skip_download, padding)
+    output_content = out_bed.read_text()
     row_fields = [["1", "1080", "1220"], ["3", "4380", "4520"]]
     expected_output = get_file_string(row_fields)
     assert output_content == expected_output, f"Output was: {output_content}"
 
     # Chr based reference
+    out_bed2 = tmp_path / "output2.bed"
     ensembl_tmp_gtf.unlink()
     ensembl_tmp_gtf.write_text(mock_chr_gtf_content)
-    write_ensembl_bed(out_path, release, skip_download, padding)
-    output_content = out_path.read_text()
+    write_ensembl_bed(tmp_path, out_bed2, release, skip_download, padding)
+    output_content = out_bed2.read_text()
     row_fields = [["chr1", "1080", "1220"], ["chr3", "4380", "4520"]]
     expected_output = get_file_string(row_fields)
     assert output_content == expected_output, f"Output was: {output_content}"
@@ -133,7 +132,7 @@ chr2\t12345\t.\tG\tA\t.\t.\tCLNSIG=Likely_pathogenic
         "chr1:12345_A_G": "Pathogenic",
         "chr2:12345_G_A": "Likely_pathogenic",
     }
-    expected_benign_clinvar_reasons = {"chr1:54321_C_T": None}
+    expected_benign_clinvar_reasons = {"chr1:54321_C_T": "Undefined"}
 
     for key, variant in clinvar_variants.items():
         assert key in expected_clinvar_reasons
@@ -221,7 +220,6 @@ chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
     new_clinvar = tmp_path / "clinvar_new.vcf"
     new_clinvar.write_text(new_clinvar_content)
     clinvardate = "clinvardate"
-    out_dir = tmp_path / "out_dir"
     release = "release"
     ensembl_tmp = tmp_path / "tmp.gtf"
     ensembl_tmp.write_text(mock_gtf_content)
@@ -233,8 +231,9 @@ chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
         new_clinvar,
         old_clinvar,
         str(clinvardate),
-        out_dir,
+        tmp_path,
         release,
         skip_download,
         incl_bed,
+        keep_tmp=False
     )
