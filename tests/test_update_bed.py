@@ -1,11 +1,11 @@
 from pathlib import Path
 
 from bin.reference_tools.update_bed import (
-    write_ensembl,
+    write_ensembl_bed,
     append_to_bed,
     compare_clinvar,
     read_clinvar,
-    Variant,
+    ClinVarVariant,
     main,
 )
 
@@ -59,7 +59,7 @@ def test_write_base(tmp_path: Path):
     # Non-chr based reference
     ensembl_nonchr_path = tmp_path / "test_nonchr.gtf"
     ensembl_nonchr_path.write_text(mock_gtf_content)
-    write_ensembl(
+    write_ensembl_bed(
         str(ensembl_nonchr_path), str(out_path), release, skip_download, padding
     )
     output_content = out_path.read_text()
@@ -70,7 +70,9 @@ def test_write_base(tmp_path: Path):
     # Chr based reference
     ensembl_chr_path = tmp_path / "test_chr.gtf"
     ensembl_chr_path.write_text(mock_chr_gtf_content)
-    write_ensembl(str(ensembl_chr_path), str(out_path), release, skip_download, padding)
+    write_ensembl_bed(
+        str(ensembl_chr_path), str(out_path), release, skip_download, padding
+    )
     output_content = out_path.read_text()
     row_fields = [["chr1", "1080", "1220"], ["chr3", "4380", "4520"]]
     expected_output = get_file_string(row_fields)
@@ -149,25 +151,25 @@ chr2\t12345\t.\tG\tA\t.\t.\tCLNSIG=Likely_pathogenic
 def test_compare_clinvar(tmp_path: Path):
 
     new_clinvar = {
-        "chr1:1000_A_G": Variant(
+        "chr1:1000_A_G": ClinVarVariant(
             "chr1", 1000, "A", "G", {"CLDN": "CLDN", "CLNACC": "CLNACC"}
         ),
-        "chr2:3000_C_T": Variant(
+        "chr2:3000_C_T": ClinVarVariant(
             "chr2", 3000, "C", "T", {"CLDN": "CLDN", "CLNACC": "CLNACC"}
         ),
-        "chr3:5000_G_A": Variant(
+        "chr3:5000_G_A": ClinVarVariant(
             "chr3", 5000, "G", "A", {"CLDN": "CLDN", "CLNACC": "CLNACC"}
         ),
     }
 
     old_clinvar = {
-        "chr1:1000_A_G": Variant(
+        "chr1:1000_A_G": ClinVarVariant(
             "chr1", 1000, "A", "G", {"CLDN": "CLDN", "CLNACC": "CLNACC"}
         ),
-        "chr2:2000_A_G": Variant(
+        "chr2:2000_A_G": ClinVarVariant(
             "chr2", 2000, "A", "G", {"CLDN": "CLDN", "CLNACC": "CLNACC"}
         ),
-        "chr2:5000_C_T": Variant(
+        "chr2:5000_C_T": ClinVarVariant(
             "chr2", 5000, "C", "T", {"CLDN": "CLDN", "CLNACC": "CLNACC"}
         ),
     }

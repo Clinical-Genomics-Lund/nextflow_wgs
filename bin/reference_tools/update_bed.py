@@ -2,11 +2,8 @@
 
 import argparse
 import subprocess
-import os
 from pathlib import Path
 import re
-
-# import pdb
 
 """
 CLNSIG:      Clinical significance of variant
@@ -28,9 +25,9 @@ CLNSIGCONF = "CLNSIGCONF"
 VARIANT_PAD = 5
 EXON_PAD = 20
 
-# Testing steps
-# 1. Are the base exons files identical?
-# 2.
+
+def get_gtf_request(release: str) -> str:
+    return f"https://ftp.ensembl.org/pub/release-{release}/gtf/homo_sapiens/Homo_sapiens.GRCh38.{release}.gtf.gz"
 
 
 def main(
@@ -52,7 +49,7 @@ def main(
     ensembl_bed_path = Path(f"{out_dir}/exons_hg38_{release}.bed")
 
     print("Write initial base (ENSEMBL exons)")
-    write_ensembl(ensembl_bed_path, release, skip_download, EXON_PAD)
+    write_ensembl_bed(ensembl_bed_path, release, skip_download, EXON_PAD)
 
     if len(incl_bed) > 0:
         for bed_fp in incl_bed:
@@ -72,9 +69,9 @@ def main(
     print(f"Number new benign: {len(new_benign)}")
     print(f"Number old benign: {len(_old_benign)}")
 
-    clinvar_all: dict[str, Variant] = {**clinvar_new, **clinvar_old}
+    clinvar_all: dict[str, ClinVarVariant] = {**clinvar_new, **clinvar_old}
 
-    (new_bed_path, new_clinvar_bed_rows, old_clinvar_bed_rows) = compare_clinvar(
+    (new_to_add_clinvar_bed_rows, old_to_remove_clinvar_bed_rows) = compare_clinvar(
         clinvar_new, clinvar_old, final_bed_path, VARIANT_PAD, out_dir
     )
 
@@ -82,14 +79,16 @@ def main(
     log_changes(
         clinvar_log_path,
         clinvar_all,
-        new_clinvar_bed_rows,
-        old_clinvar_bed_rows,
+        new_to_add_clinvar_bed_rows,
+        old_to_remove_clinvar_bed_rows,
         new_benign,
     )
 
-    append_to_bed(final_bed_path, new_bed_path, ".")
+    new_clinvar_to_add_path = Path(f"{out_dir}/new_clinvar_to_add.bed")
+    new_clinvar_to_add_path.write_text("\n".join(new_to_add_clinvar_bed_rows) + "\n")
 
-    sort_merge_output(str(final_bed_path))
+    append_to_bed(final_bed_path, new_clinvar_to_add_path, ".")
+    sort_merge_output(final_bed_path)
 
 
 def ensure_new_empty(filepath: str) -> Path:
@@ -116,10 +115,10 @@ def parse_arguments():
     return args
 
 
-class Variant:
+class ClinVarVariant:
 
     @staticmethod
-    def from_line(vcf_line: str) -> "Variant":
+    def from_line(vcf_line: str) -> "ClinVarVariant":
 
         vcf_line = vcf_line.rstrip()
         fields = vcf_line.split("\t")
@@ -134,7 +133,7 @@ class Variant:
             (key, val) = info_field.split("=")
             info[key] = val
 
-        return Variant(chrom, pos, ref, alt, info)
+        return ClinVarVariant(chrom, pos, ref, alt, info)
 
     def __init__(
         self, chrom: str, pos: int, ref: str, alt: str, info: dict[str, str] = {}
@@ -146,58 +145,46 @@ class Variant:
         self.alt = alt
         self.info = info
 
-        self.reason: str | None = None
+        self.reason = "Undefined"
 
-        self.clndn = "Undefined"
-        if self.info.get("CLNDN") is not None:
-            self.clndn = self.info["CLNDN"]
+        self.CLNDN = (
+            self.info[CLNDN] if self.info.get(CLNDN) is not None else "Undefined"
+        )
+        self.CLNSIG = self.info[CLNSIG] if self.info.get(CLNSIG) else "Undefined"
 
-        self.key = "FIXME"
+    def set_reason(self, reason: str):
+        self.reason = reason
 
     def get_key(self) -> str:
         return f"{self.chrom}:{self.pos}_{self.ref}_{self.alt}"
 
-    def get_padded_bed(self, padding: int, annot: str | None = None) -> str:
-        out_fields = [self.chrom, str(self.pos - padding), str(self.pos + padding)]
-        if annot is not None:
-            out_fields.append(annot)
+    def get_padded_bed(self, padding: int) -> str:
+        out_fields = [
+            self.chrom,
+            str(self.pos - padding),
+            str(self.pos + padding),
+            f"CLINVAR-{self.reason}",
+        ]
         return "\t".join(out_fields)
 
-    def get_tmp_bed_str_fixme(self, padding: int) -> str:
-        return f"{self.chrom}\t{self.pos - padding}\t{self.pos + padding}\t{self.get_tmp_bed_annot_fixme()}"
 
-    def get_tmp_bed_annot_fixme(self):
-        reason = self.reason
-        clnacc = self.info[CLNACC] if self.info.get(CLNACC) is not None else "Undefined"
-        clndn = self.info[CLNDN] if self.info.get(CLNDN) is not None else "Undefined"
-        return (
-            f"{self.chrom}:{self.pos}_{self.ref}_{self.alt}~{reason}~{clnacc}~{clndn}"
-        )
-
-    def get_clnsig(self) -> str:
-        clnsig = self.info.get(CLNSIG)
-        if clnsig != None:
-            return clnsig
-        else:
-            return "MISSING"
-
-
-def read_clinvar(vcf_path: Path) -> tuple[dict[str, Variant], dict[str, Variant]]:
+def read_clinvar(
+    vcf_path: Path,
+) -> tuple[dict[str, ClinVarVariant], dict[str, ClinVarVariant]]:
     """
-    FIXME: Steps
-
-    -
-    - Mitochondria variants are not included
+    1. Given a ClinVar VCF file
+    2. Retrieve ClinVar significance (CLNSIG), significance when co-occuring (CLNSIGINCL)
+       and reviewer confidence (CLNSIGCONF)
     """
 
-    clinvar_variants: dict[str, Variant] = {}
-    benign_clinvar_variants: dict[str, Variant] = {}
+    clinvar_variants: dict[str, ClinVarVariant] = {}
+    benign_clinvar_variants: dict[str, ClinVarVariant] = {}
 
     with vcf_path.open("r") as vcf_fh:
         for line in vcf_fh:
             if line.startswith("#"):
                 continue
-            variant = Variant.from_line(line)
+            variant = ClinVarVariant.from_line(line)
 
             sig = ""
             confidence = ""
@@ -240,22 +227,28 @@ def read_clinvar(vcf_path: Path) -> tuple[dict[str, Variant], dict[str, Variant]
                 # This is how it was done in the pl script
                 if variant.chrom == "MT":
                     continue
-                variant.reason = reason
+
+                if reason is not None:
+                    variant.set_reason(reason)
                 clinvar_variants[key] = variant
             else:
-                variant.reason = reason
+                if reason is not None:
+                    variant.set_reason(reason)
                 benign_clinvar_variants[key] = variant
 
     return (clinvar_variants, benign_clinvar_variants)
 
 
-def write_ensembl(out_path: Path, release: str, skip_download: bool, exon_padding: int):
+def write_ensembl_bed(
+    out_path: Path, release: str, skip_download: bool, exon_padding: int
+):
+    """Print padded exons for protein coding transcripts"""
 
     ensembl_tmp_gz_fp = Path("tmp.gtf.gz")
     ensembl_tmp_fp = Path("tmp.gtf")
 
     if not skip_download:
-        gtf_request = f"https://ftp.ensembl.org/pub/release-{release}/gtf/homo_sapiens/Homo_sapiens.GRCh38.{release}.gtf.gz"
+        gtf_request = get_gtf_request(release)
         download_gtf_cmd = ["wget", gtf_request, "-O", ensembl_tmp_gz_fp]
         subprocess.run(download_gtf_cmd, check=True)
         gunzip_cmd = ["gunzip", ensembl_tmp_gz_fp]
@@ -281,8 +274,7 @@ def write_ensembl(out_path: Path, release: str, skip_download: bool, exon_paddin
 
             # Filter out non chr chromosomes
             # Added "replace" to allow "chr" based reference
-            chrom = re.sub("^chr", "", chrom)
-            if len(chrom) > 2:
+            if len(re.sub("^chr", "", chrom)) > 2:
                 continue
             if molecule == "transcript":
                 keep = annotation.find('transcript_biotype "protein_coding"') != -1
@@ -305,27 +297,28 @@ def append_to_bed(out_bed_fp: Path, bed2add_fp: Path, bed_annot_default: str):
                 print("\t".join(out_fields), file=out_fh)
 
 
-def sort_merge_output(bed_fp: str):
-    tmp_bed_fp = "tmp.sort.bed"
-    sort_cmd = f"bedtools sort -i {bed_fp} > {tmp_bed_fp}"
+def sort_merge_output(bed_fp: Path):
+    tmp_bed_path = Path("tmp.sort.bed")
+    sort_cmd = f"bedtools sort -i {str(bed_fp)} > {str(tmp_bed_path)}"
     # Annotation column is concatenated together
     # "distinct" means the same value won't be reused multiple times
-    merge_cmd = f"bedtools merge -i {tmp_bed_fp} -c 4 -o collapse > {bed_fp}"
-    # merge_cmd = f"bedtools merge -i {tmp_bed_fp} -c 4 -o distinct > {bed_fp}"
+    merge_cmd = (
+        f"bedtools merge -i {str(tmp_bed_path)} -c 4 -o distinct > {str(bed_fp)}"
+    )
     subprocess.call(sort_cmd, shell=True)
     subprocess.call(merge_cmd, shell=True)
-    os.remove(tmp_bed_fp)
+    tmp_bed_path.unlink()
 
 
 def compare_clinvar(
-    new_clinvar: dict[str, Variant],
-    old_clinvar: dict[str, Variant],
+    new_clinvar: dict[str, ClinVarVariant],
+    old_clinvar: dict[str, ClinVarVariant],
     final_bed_path: Path,
     variant_padding: int,
     tmp_dir: Path,
-) -> tuple[Path, list[str], list[str]]:
+) -> tuple[list[str], list[str]]:
     """
-    1. Generate bed files for ClinVar variants (pos +/- padding)
+    1. Generate bed files for padded ClinVar variants
     2. Add info about pathogenicity as the fourth column
     Returns lists of chrom:pos_ref_alt keys
     """
@@ -334,18 +327,21 @@ def compare_clinvar(
     old_clinvar_keys = set(old_clinvar.keys())
 
     def write_tmp_bed(
-        path: Path, variant_dict: dict[str, Variant], filter_keys: set[str]
+        path: Path, variant_dict: dict[str, ClinVarVariant], filter_keys: set[str]
     ):
         subset_dict = {
             key: val
             for (key, val) in variant_dict.items()
             if key in filter_keys or len(filter_keys) == 0
         }
-        bed_text = "\n".join(
-            [
-                variant.get_padded_bed(variant_padding, annot=var_key)
-                for (var_key, variant) in subset_dict.items()
-            ]
+        bed_text = (
+            "\n".join(
+                [
+                    variant.get_padded_bed(variant_padding)
+                    for variant in subset_dict.values()
+                ]
+            )
+            + "\n"
         )
         path.write_text(bed_text)
 
@@ -358,20 +354,24 @@ def compare_clinvar(
     clinvar_in_common = new_clinvar_keys.intersection(old_clinvar_keys)
     clinvar_new_added = new_clinvar_keys.difference(old_clinvar_keys)
 
-    new_bed_rows = get_bed_intersect(str(new_clinvar_tmp_bed), str(final_bed_path))
-    old_bed_rows = get_bed_intersect(str(old_clinvar_tmp_bed), str(final_bed_path))
-    # new_clinvar_tmp_bed.unlink()
-    # old_clinvar_tmp_bed.unlink()
-
-    # new_bed_keys = [row.split("\t")[] for row in new_bed_rows]
+    new_to_add_bed_rows = get_bed_intersect(
+        str(new_clinvar_tmp_bed), str(final_bed_path)
+    )
+    old_to_remove_bed_rows = get_bed_intersect(
+        str(old_clinvar_tmp_bed), str(final_bed_path)
+    )
+    new_clinvar_tmp_bed.unlink()
+    old_clinvar_tmp_bed.unlink()
 
     print(f"Clinvar in common between versions: {len(clinvar_in_common)}")
-    print(f"Added new (unique targets): {len(clinvar_new_added)} ({len(new_bed_rows)})")
     print(
-        f"Removed old (unique targets): {len(clinvar_old_removed)} ({len(old_bed_rows)})"
+        f"Added new (unique targets): {len(clinvar_new_added)} ({len(new_to_add_bed_rows)})"
+    )
+    print(
+        f"Removed old (unique targets): {len(clinvar_old_removed)} ({len(old_to_remove_bed_rows)})"
     )
 
-    return (new_clinvar_tmp_bed, new_bed_rows, old_bed_rows)
+    return (new_to_add_bed_rows, old_to_remove_bed_rows)
 
 
 def get_bed_intersect(left_bed: str, right_bed: str) -> list[str]:
@@ -396,10 +396,10 @@ def get_bed_intersect(left_bed: str, right_bed: str) -> list[str]:
 
 def log_changes(
     log_path: Path,
-    clinvar_all: dict[str, Variant],
+    clinvar_all: dict[str, ClinVarVariant],
     added_keys: list[str],
     removed_keys: list[str],
-    new_benign: dict[str, Variant],
+    new_benign: dict[str, ClinVarVariant],
 ):
     """
     Log variants added and removed between clinvar versions
@@ -410,7 +410,7 @@ def log_changes(
             if clin_key in added_keys:
                 clnsig = "MISSING"
                 if clin_key in new_benign:
-                    clnsig = new_benign[clin_key].get_clnsig()
+                    clnsig = new_benign[clin_key].CLNSIG
                 print(
                     f"REMOVED: {clin_var.pos} reason[2] reason[1] => {clnsig}",
                     file=log_fh,
