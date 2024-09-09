@@ -53,7 +53,7 @@ def main(
     clinvar_vcf_old_path: Path,
     clinvardate: str,
     out_dir: Path,
-    release: str,
+    ensembl_release: str,
     skip_download: bool,
     incl_bed: list[str],
     keep_tmp: bool,
@@ -62,13 +62,15 @@ def main(
         out_dir.mkdir(parents=True, exist_ok=True)
 
     final_bed_path = ensure_new_empty(
-        f"{out_dir}/exons_{release}padded{EXON_PAD}bp_clinvar-{clinvardate}padded{VARIANT_PAD}bp.bed"
+        f"{out_dir}/exons_{ensembl_release}padded{EXON_PAD}bp_clinvar-{clinvardate}padded{VARIANT_PAD}bp.bed"
     )
 
-    ensembl_bed_path = Path(f"{out_dir}/exons_hg38_{release}.bed")
+    ensembl_bed_path = Path(f"{out_dir}/exons_hg38_{ensembl_release}.bed")
 
     LOG.info("Write initial base (ENSEMBL exons)")
-    write_ensembl_bed(out_dir, ensembl_bed_path, release, skip_download, EXON_PAD)
+    write_ensembl_bed(
+        out_dir, ensembl_bed_path, ensembl_release, skip_download, EXON_PAD
+    )
 
     if len(incl_bed) > 0:
         for bed_fp in incl_bed:
@@ -78,7 +80,7 @@ def main(
     else:
         LOG.info("No extra BED files to include")
 
-    append_to_bed(final_bed_path, ensembl_bed_path, f"EXONS-{release}")
+    append_to_bed(final_bed_path, ensembl_bed_path, f"EXONS-{ensembl_release}")
 
     (clinvar_new, new_benign) = read_clinvar(clinvar_vcf_path)
     (clinvar_old, _old_benign) = read_clinvar(clinvar_vcf_old_path)
@@ -449,15 +451,33 @@ def log_changes(
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--old", required=True)
-    parser.add_argument("--new", required=True)
-    parser.add_argument("--release", required=True)
-    parser.add_argument("--clinvardate", required=True)
+    parser = argparse.ArgumentParser(
+        description="Generate bed file with intervals relevant for annotation and scoring, based on exons, ClinVar variants and custom beds"
+    )
+    parser.add_argument("--old", required=True, help="Old ClinVar, for comparison")
+    parser.add_argument(
+        "--new",
+        required=True,
+        help="New ClinVar, used to build the relevant intervals bed",
+    )
+    parser.add_argument(
+        "--ensembl_release",
+        required=True,
+        help="Ensembl version from which exons are retrieved for the bed",
+    )
+    parser.add_argument(
+        "--clinvardate",
+        required=True,
+        help="Date of the new ClinVar - used for output filename",
+    )
 
-    parser.add_argument("--out_dir", required=True)
-    parser.add_argument("--incl_bed", nargs="*")
-    parser.add_argument("--skip_download", action="store_true")
+    parser.add_argument("--out_dir", required=True, help="Location of the output files")
+    parser.add_argument("--incl_bed", nargs="*", help="Additional bed files to include")
+    parser.add_argument(
+        "--skip_download",
+        action="store_true",
+        help="Don't download the ENSEMBL GTF (requires a 'tmp.gtf.gz' present in the output folder)",
+    )
     parser.add_argument(
         "--keep_tmp", action="store_true", help="Don't remove tmp files for debugging"
     )
@@ -473,7 +493,7 @@ if __name__ == "__main__":
         clinvar_vcf_old_path=Path(args.old),
         clinvardate=args.clinvardate,
         out_dir=Path(args.out_dir),
-        release=args.release,
+        ensembl_release=args.ensembl_release,
         skip_download=args.skip_download,
         incl_bed=incl_bed if incl_bed is not None else [],
         keep_tmp=args.keep_tmp,

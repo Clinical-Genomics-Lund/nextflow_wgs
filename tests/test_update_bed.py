@@ -226,7 +226,7 @@ chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
     new_clinvar = tmp_path / "clinvar_new.vcf"
     new_clinvar.write_text(new_clinvar_content)
     clinvardate = "clinvardate"
-    release = "release"
+    ensembl_release = "release"
     ensembl_tmp = tmp_path / "tmp.gtf"
     ensembl_tmp.write_text(mock_gtf_content)
 
@@ -238,7 +238,7 @@ chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
         old_clinvar,
         str(clinvardate),
         tmp_path,
-        release,
+        ensembl_release,
         skip_download,
         incl_bed,
         keep_tmp=False,
