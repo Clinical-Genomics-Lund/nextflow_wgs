@@ -230,7 +230,9 @@ def read_clinvar(
                 if "Pathogenic" in confidence or "Likely_pathogenic" in confidence:
                     keep = True
                     reason = confidence
-            # FIXME: Investigate
+            # FIXME: 240909 This is inherited from update_bed.py
+            # It is likely a check for both Pathogenic and Likely_pathogenic
+            # This should be clarified and then if possible updated to a narrower test
             elif "athogenic" in haplo:
                 keep = True
                 reason = haplo
