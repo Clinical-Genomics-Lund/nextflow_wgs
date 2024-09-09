@@ -1,4 +1,5 @@
 from pathlib import Path
+import gzip
 
 from bin.reference_tools.update_bed import (
     write_ensembl_bed,
@@ -45,10 +46,19 @@ def get_file_string(rows: list[list[str]]) -> str:
     return "\n".join(row_strs) + "\n"
 
 
+def write_tmp_gtf_gz(tmp_dir: Path, content: str):
+    ensembl_tmp_gtf = tmp_dir / "tmp.gtf.gz"
+    ensembl_tmp_gtf.unlink(missing_ok=True)
+    with gzip.open(ensembl_tmp_gtf, "wt") as fh:
+        fh.write(content)
+
+
 def test_write_ensembl_bed(tmp_path: Path):
     """
     Checks that exons are extracted and padded correctly
     Here, a pre-downloaded GTF is provided
+
+    Checks both GTF with chromosomes chr1, chr2, chr2 syntax and 1, 2, 3
     """
 
     release = "108"
@@ -57,8 +67,9 @@ def test_write_ensembl_bed(tmp_path: Path):
     out_bed = tmp_path / "output.bed"
 
     # Non-chr based reference
-    ensembl_tmp_gtf = tmp_path / "tmp.gtf"
-    ensembl_tmp_gtf.write_text(mock_gtf_content)
+    write_tmp_gtf_gz(tmp_path, mock_gtf_content)
+
+    # ensembl_tmp_gtf.write_text(mock_gtf_content)
     print(f"skip_download {skip_download}")
     write_ensembl_bed(tmp_path, out_bed, release, skip_download, padding)
     output_content = out_bed.read_text()
@@ -68,8 +79,7 @@ def test_write_ensembl_bed(tmp_path: Path):
 
     # Chr based reference
     out_bed2 = tmp_path / "output2.bed"
-    ensembl_tmp_gtf.unlink()
-    ensembl_tmp_gtf.write_text(mock_chr_gtf_content)
+    write_tmp_gtf_gz(tmp_path, mock_chr_gtf_content)
     write_ensembl_bed(tmp_path, out_bed2, release, skip_download, padding)
     output_content = out_bed2.read_text()
     row_fields = [["chr1", "1080", "1220"], ["chr3", "4380", "4520"]]
@@ -227,8 +237,7 @@ chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
     new_clinvar.write_text(new_clinvar_content)
     clinvardate = "clinvardate"
     ensembl_release = "release"
-    ensembl_tmp = tmp_path / "tmp.gtf"
-    ensembl_tmp.write_text(mock_gtf_content)
+    write_tmp_gtf_gz(tmp_path, mock_gtf_content)
 
     skip_download = True
     incl_bed: list[str] = []

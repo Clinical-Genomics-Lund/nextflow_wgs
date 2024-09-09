@@ -61,7 +61,7 @@ def main(
     if not out_dir.exists():
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    final_bed_path = ensure_new_empty(
+    final_bed_path = ensure_new_empty_file(
         f"{out_dir}/exons_{ensembl_release}padded{EXON_PAD}bp_clinvar-{clinvardate}padded{VARIANT_PAD}bp.bed"
     )
 
@@ -92,8 +92,8 @@ def main(
     new_to_remove_keys = [bed_row[4] for bed_row in new_to_add_clinvar_bed_rows]
     old_to_remove_keys = [bed_row[4] for bed_row in old_to_remove_clinvar_bed_rows]
 
-    clinvar_log_path = ensure_new_empty(f"{out_dir}/clinvar_{clinvardate}.log")
-    log_changes(
+    clinvar_log_path = ensure_new_empty_file(f"{out_dir}/clinvar_{clinvardate}.log")
+    log_clinvar_changes(
         clinvar_log_path,
         clinvar_old,
         clinvar_new,
@@ -111,7 +111,7 @@ def main(
     sort_merge_output(out_dir, final_bed_path, keep_tmp)
 
 
-def ensure_new_empty(filepath: str) -> Path:
+def ensure_new_empty_file(filepath: str) -> Path:
     path = Path(filepath)
     if path.exists():
         path.unlink()
@@ -406,13 +406,10 @@ def get_bed_intersect(left_bed: str, right_bed: str) -> list[list[str]]:
     ]
     result = subprocess.run(not_in_bed_cmd, capture_output=True, text=True, check=True)
     intersected_regions = result.stdout.strip().splitlines()
-    # FIXME: This differs from the Perl script, and gives subtly differences in unique targets
-    # In this case 1270 vs 1274 (i.e. four are duplicated)
     return [row.split("\t") for row in intersected_regions]
-    # return set(intersected_regions)
 
 
-def log_changes(
+def log_clinvar_changes(
     log_path: Path,
     clinvar_old: dict[str, ClinVarVariant],
     clinvar_new: dict[str, ClinVarVariant],
