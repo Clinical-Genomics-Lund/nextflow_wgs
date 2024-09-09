@@ -1,9 +1,23 @@
 #!/usr/bin/env python3
 
+"""
+This script calculates the so-called "intersect bed", which contains the intervals relevant for annotation
+and scoring in the wgs pipeline.
+
+It is based on ENSEMBL exons which are downloaded and padded
+It is extended with ClinVar variants, also padded
+It compares with an older ClinVar version and provides a summary of what has been added / removed
+Further custom bed files can be provided as well with
+
+The final output is a sorted and merged bed file with regions based on the steps above
+"""
+
 import argparse
 import subprocess
 from pathlib import Path
 import re
+import gzip
+import requests
 
 """
 CLNSIG:      Clinical significance of variant
@@ -21,12 +35,13 @@ CLNACC = "CLNACC"
 CLNDN = "CLNDN"
 CLNSIGINCL = "CLNSIGINCL"
 CLNSIGCONF = "CLNSIGCONF"
+UNDEFINED = "Undefined"
 
 VARIANT_PAD = 5
 EXON_PAD = 20
 
 
-def get_gtf_request(release: str) -> str:
+def get_gtf_url(release: str) -> str:
     return f"https://ftp.ensembl.org/pub/release-{release}/gtf/homo_sapiens/Homo_sapiens.GRCh38.{release}.gtf.gz"
 
 
@@ -95,7 +110,7 @@ def ensure_new_empty(filepath: str) -> Path:
     path = Path(filepath)
     if path.exists():
         path.unlink()
-    path.write_text("")
+    path.touch()
     return path
 
 
@@ -129,17 +144,22 @@ class ClinVarVariant:
         self.alt = alt
         self.info = info
 
-        self.reason = "Undefined"
+        self.reason = UNDEFINED
 
-        self.CLNDN = (
-            self.info[CLNDN] if self.info.get(CLNDN) is not None else "Undefined"
+        self.CLNDN = self.info[CLNDN] if self.info.get(CLNDN) is not None else UNDEFINED
+        self.CLNSIG = (
+            self.info[CLNSIG] if self.info.get(CLNSIG) is not None else UNDEFINED
         )
-        self.CLNSIG = self.info[CLNSIG] if self.info.get(CLNSIG) else "Undefined"
 
-    def set_reason(self, reason: str):
-        self.reason = reason
+    @property
+    def reason(self):
+        return self._reason
 
-    def get_key(self) -> str:
+    @reason.setter
+    def reason(self, value: str):
+        self._reason = value
+
+    def generate_key(self) -> str:
         return f"{self.chrom}:{self.pos}_{self.ref}_{self.alt}"
 
     def get_padded_bed(self, padding: int) -> str:
@@ -199,6 +219,7 @@ def read_clinvar(
                 if "Pathogenic" in confidence or "Likely_pathogenic" in confidence:
                     keep = True
                     reason = confidence
+            # FIXME: Investigate
             elif "athogenic" in haplo:
                 keep = True
                 reason = haplo
@@ -213,11 +234,11 @@ def read_clinvar(
                     continue
 
                 if reason is not None:
-                    variant.set_reason(reason)
+                    variant.reason = reason
                 clinvar_variants[key] = variant
             else:
                 if reason is not None:
-                    variant.set_reason(reason)
+                    variant.reason = reason
                 benign_clinvar_variants[key] = variant
 
     return (clinvar_variants, benign_clinvar_variants)
@@ -228,22 +249,28 @@ def write_ensembl_bed(
 ):
     """Print padded exons for protein coding transcripts"""
 
-    ensembl_tmp_gz_fp = out_dir / "tmp.gtf.gz"
-    ensembl_tmp_fp = out_dir / "tmp.gtf"
+    ensembl_tmp_path = out_dir / "tmp.gtf.gz"
 
     if not skip_download:
-        gtf_request = get_gtf_request(release)
-        download_gtf_cmd = ["wget", gtf_request, "-O", ensembl_tmp_gz_fp]
-        subprocess.run(download_gtf_cmd, check=True)
-        gunzip_cmd = ["gunzip", ensembl_tmp_gz_fp]
-        subprocess.run(gunzip_cmd, check=True)
+        gtf_url = get_gtf_url(release)
+        requests.get(gtf_url, stream=True)
+
+        # FIXME: Cleanup
+        # download_gtf_cmd = ["wget", gtf_request, "-O", ensembl_tmp_fp]
+        # subprocess.run(download_gtf_cmd, check=True)
+        # gunzip_cmd = ["gunzip", ensembl_tmp_gz_fp]
+        # subprocess.run(gunzip_cmd, check=True)
     else:
-        if not Path(ensembl_tmp_fp).exists():
+        if not Path(ensembl_tmp_path).exists():
             raise ValueError(
-                f"To skip download, the ENSEMBL GTF needs to be present at the location: {ensembl_tmp_fp}"
+                f"To skip download, the ENSEMBL GTF needs to be present at the location: {ensembl_tmp_path}"
             )
 
-    with ensembl_tmp_fp.open("r") as gtf_fh, out_bed.open("w") as out_fh:
+    def is_valid_chromosome(chr: str) -> bool:
+        chr_stripped_chr = re.sub("^chr", "", chr)
+        return len(chr_stripped_chr) > 2
+
+    with gzip.open(str(ensembl_tmp_path), "rt") as gtf_fh, out_bed.open("w") as out_fh:
         keep = False
         for line in gtf_fh:
             line = line.rstrip()
@@ -258,7 +285,7 @@ def write_ensembl_bed(
 
             # Filter out non chr chromosomes
             # Added "replace" to allow "chr" based reference
-            if len(re.sub("^chr", "", chrom)) > 2:
+            if is_valid_chromosome(chrom):
                 continue
             if molecule == "transcript":
                 keep = annotation.find('transcript_biotype "protein_coding"') != -1

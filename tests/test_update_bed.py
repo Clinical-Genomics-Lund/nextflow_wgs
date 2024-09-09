@@ -46,6 +46,10 @@ def get_file_string(rows: list[list[str]]) -> str:
 
 
 def test_write_ensembl_bed(tmp_path: Path):
+    """
+    Checks that exons are extracted and padded correctly
+    Here, a pre-downloaded GTF is provided
+    """
 
     release = "108"
     skip_download = True
@@ -74,6 +78,7 @@ def test_write_ensembl_bed(tmp_path: Path):
 
 
 def test_append_to_bed(tmp_path: Path):
+    """Checks that additional bed content is appended correctly"""
 
     base_bed_content = """\
 chr1\t1\t5\told_annot
@@ -107,8 +112,11 @@ chr2\t5000\t6000\tdefault_annot
     assert result == expected_output, f"Output was: {result}"
 
 
-# FIXME: Investigate the CLNSIG, CLNSIGCONF, CLNSIGINCL combinations in real ClinVar data
 def test_read_clinvar(tmp_path: Path):
+    """
+    Given a minimal VCF, check that the 'read_clinvar' function successfully separates
+    the pathogenic and non-pathogenic variants
+    """
 
     mock_vcf_content = """\
 ##fileformat=VCFv4.2
@@ -143,6 +151,7 @@ chr2\t12345\t.\tG\tA\t.\t.\tCLNSIG=Likely_pathogenic
 
 
 def test_compare_clinvar(tmp_path: Path):
+    """Given mock entries with different sets of clinvar variants, check what is added, removed and retained"""
 
     new_clinvar = {
         "chr1:1000_A_G": ClinVarVariant(
@@ -186,12 +195,13 @@ chr2\t5000\t6000\tdefault_annot
     new_to_add, old_to_remove = compare_clinvar(
         new_clinvar, old_clinvar, final_bed_path, padding, out_dir, keep_tmp=False
     )
-
     print(new_to_add)
     print(old_to_remove)
+    assert False, "Add the final checks here"
 
 
 def test_main(tmp_path: Path):
+    """Check that the full script runs and check that outputs are present with correct information"""
 
     old_clinvar_content = """\
 ##fileformat=VCFv4.2
