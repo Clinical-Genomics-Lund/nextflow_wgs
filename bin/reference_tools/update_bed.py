@@ -18,6 +18,9 @@ from pathlib import Path
 import re
 import gzip
 import requests
+import logging
+
+LOG = logging.getLogger(__name__)
 
 """
 CLNSIG:      Clinical significance of variant
@@ -64,16 +67,16 @@ def main(
 
     ensembl_bed_path = Path(f"{out_dir}/exons_hg38_{release}.bed")
 
-    print("Write initial base (ENSEMBL exons)")
+    LOG.info("Write initial base (ENSEMBL exons)")
     write_ensembl_bed(out_dir, ensembl_bed_path, release, skip_download, EXON_PAD)
 
     if len(incl_bed) > 0:
         for bed_fp in incl_bed:
-            print(f"Additional included BED file: {bed_fp}")
+            LOG.info(f"Additional included BED file: {bed_fp}")
             suffix = bed_fp
             append_to_bed(final_bed_path, Path(bed_fp), suffix)
     else:
-        print("No extra BED files to include")
+        LOG.info("No extra BED files to include")
 
     append_to_bed(final_bed_path, ensembl_bed_path, f"EXONS-{release}")
 
@@ -378,11 +381,11 @@ def compare_clinvar(
         new_clinvar_tmp_bed.unlink()
         old_clinvar_tmp_bed.unlink()
 
-    print(f"Clinvar in common between versions: {len(clinvar_in_common)}")
-    print(
+    LOG.info(f"Clinvar in common between versions: {len(clinvar_in_common)}")
+    LOG.info(
         f"Added new (unique targets): {len(clinvar_new_added)} ({len(new_to_add_bed_rows)})"
     )
-    print(
+    LOG.info(
         f"Removed old (unique targets): {len(clinvar_old_removed)} ({len(old_to_remove_bed_rows)})"
     )
 
