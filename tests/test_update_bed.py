@@ -69,8 +69,6 @@ def test_write_ensembl_bed(tmp_path: Path):
     # Non-chr based reference
     write_tmp_gtf_gz(tmp_path, mock_gtf_content)
 
-    # ensembl_tmp_gtf.write_text(mock_gtf_content)
-    print(f"skip_download {skip_download}")
     write_ensembl_bed(tmp_path, out_bed, release, skip_download, padding)
     output_content = out_bed.read_text()
     row_fields = [["1", "1080", "1220"], ["3", "4380", "4520"]]
@@ -187,6 +185,14 @@ def test_compare_clinvar(tmp_path: Path):
         ),
     }
 
+    expected_new_to_add = [
+        ["chr2", "2995", "3005", "CLINVAR-Undefined", "chr2:3000_C_T"],
+        ["chr3", "4995", "5005", "CLINVAR-Undefined", "chr3:5000_G_A"],
+    ]
+    expected_old_to_remove = [
+        ["chr2", "1995", "2005", "CLINVAR-Undefined", "chr2:2000_A_G"]
+    ]
+
     final_bed_path = tmp_path / "final.bed"
 
     bed_test_content = """\
@@ -202,12 +208,12 @@ chr2\t5000\t6000\tdefault_annot
     out_dir = tmp_path
     padding = 5
 
-    new_to_add, old_to_remove = compare_clinvar(
+    current_new_to_add, current_old_to_remove = compare_clinvar(
         new_clinvar, old_clinvar, final_bed_path, padding, out_dir, keep_tmp=False
     )
-    print(new_to_add)
-    print(old_to_remove)
-    assert False, "Add the final checks here"
+
+    assert current_new_to_add == expected_new_to_add
+    assert current_old_to_remove == expected_old_to_remove
 
 
 def test_main(tmp_path: Path):
@@ -217,18 +223,26 @@ def test_main(tmp_path: Path):
 ##fileformat=VCFv4.2
 ##source=ClinVar
 #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO
-chr1\t1000\t.\tA\tG\t.\t.\tCLNSIG=Pathogenic;CLNSIGCONF=Conflicting_interpretations_of_pathogenicity
-chr2\t2000\t.\tA\tG\t.\t.\tCLNSIG=Benign
-chr3\t3000\t.\tC\tT\t.\t.\tCLNSIG=Likely_benign
+1\t1000\t.\tA\tG\t.\t.\tCLNSIG=Pathogenic;CLNSIGCONF=Conflicting_interpretations_of_pathogenicity
+2\t2000\t.\tA\tG\t.\t.\tCLNSIG=Benign
+3\t3000\t.\tC\tT\t.\t.\tCLNSIG=Likely_benign
 """
 
     new_clinvar_content = """\
 ##fileformat=VCFv4.2
 ##source=ClinVar
 #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO
-chr1\t1000\t.\tA\tG\t.\t.\tCLNSIG=Pathogenic;CLNSIGCONF=Conflicting_interpretations_of_pathogenicity
-chr2\t3000\t.\tC\tT\t.\t.\tCLNSIG=Likely_pathogenic
-chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
+1\t1000\t.\tA\tG\t.\t.\tCLNSIG=Pathogenic;CLNSIGCONF=Conflicting_interpretations_of_pathogenicity
+2\t3000\t.\tC\tT\t.\t.\tCLNSIG=Likely_pathogenic
+3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
+3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
+"""
+
+    expected_results = """1\t995\t1005\tCLINVAR-Pathogenic
+1\t1080\t1220\tEXONS-release
+2\t2995\t3005\tCLINVAR-Likely_pathogenic
+3\t4380\t4520\tEXONS-release
+3\t4995\t5005\tCLINVAR-Pathogenic
 """
 
     old_clinvar = tmp_path / "clinvar_old.vcf"
@@ -252,3 +266,13 @@ chr3\t5000\t.\tG\tA\t.\t.\tCLNSIG=Pathogenic
         incl_bed,
         keep_tmp=False,
     )
+
+    exon_pad = 20
+    variant_pad = 5
+    final_bed = (
+        tmp_path
+        / f"exons_{ensembl_release}padded{exon_pad}bp_clinvar-{clinvardate}padded{variant_pad}bp.bed"
+    )
+
+    assert final_bed is not None
+    assert final_bed.read_text() == expected_results

@@ -89,8 +89,9 @@ def main(
         clinvar_new, clinvar_old, final_bed_path, VARIANT_PAD, out_dir, keep_tmp
     )
 
-    new_to_remove_keys = [bed_row[4] for bed_row in new_to_add_clinvar_bed_rows]
-    old_to_remove_keys = [bed_row[4] for bed_row in old_to_remove_clinvar_bed_rows]
+    id_col = 4
+    new_to_remove_keys = [bed_row[id_col] for bed_row in new_to_add_clinvar_bed_rows]
+    old_to_remove_keys = [bed_row[id_col] for bed_row in old_to_remove_clinvar_bed_rows]
 
     clinvar_log_path = ensure_new_empty_file(f"{out_dir}/clinvar_{clinvardate}.log")
     log_clinvar_changes(
@@ -103,8 +104,13 @@ def main(
     )
 
     new_clinvar_to_add_path = Path(f"{out_dir}/new_clinvar_to_add.bed")
+    annot_col = 3
+    # Slice to keep chrom, start, end and annotation, skip variant keys
     new_clinvar_to_add_path.write_text(
-        "\n".join(["\t".join(row[0:3]) for row in new_to_add_clinvar_bed_rows]) + "\n"
+        "\n".join(
+            ["\t".join(row[0 : annot_col + 1]) for row in new_to_add_clinvar_bed_rows]
+        )
+        + "\n"
     )
 
     append_to_bed(final_bed_path, new_clinvar_to_add_path, ".")
@@ -259,12 +265,6 @@ def write_ensembl_bed(
     if not skip_download:
         gtf_url = get_gtf_url(release)
         requests.get(gtf_url, stream=True)
-
-        # FIXME: Cleanup
-        # download_gtf_cmd = ["wget", gtf_request, "-O", ensembl_tmp_fp]
-        # subprocess.run(download_gtf_cmd, check=True)
-        # gunzip_cmd = ["gunzip", ensembl_tmp_gz_fp]
-        # subprocess.run(gunzip_cmd, check=True)
     else:
         if not Path(ensembl_tmp_path).exists():
             raise ValueError(
@@ -302,8 +302,8 @@ def write_ensembl_bed(
 
 
 def append_to_bed(out_bed_fp: Path, bed_to_add_path: Path, bed_annot_default: str):
-    with bed_to_add_path.open("r") as bed2add_fh, out_bed_fp.open("a") as out_fh:
-        for line in bed2add_fh:
+    with bed_to_add_path.open("r") as bed_to_add_fh, out_bed_fp.open("a") as out_fh:
+        for line in bed_to_add_fh:
             line = line.rstrip()
             fields = line.split("\t")
             if len(fields) > 3:
