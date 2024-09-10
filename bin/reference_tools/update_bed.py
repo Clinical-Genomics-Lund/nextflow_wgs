@@ -20,6 +20,7 @@ import gzip
 import requests
 import logging
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOG = logging.getLogger(__name__)
 
 """
@@ -162,14 +163,6 @@ class ClinVarVariant:
             self.info[CLNSIG] if self.info.get(CLNSIG) is not None else UNDEFINED
         )
 
-    @property
-    def reason(self):
-        return self._reason
-
-    @reason.setter
-    def reason(self, value: str):
-        self._reason = value
-
     def generate_key(self) -> str:
         return f"{self.chrom}:{self.pos}_{self.ref}_{self.alt}"
 
@@ -195,7 +188,7 @@ def read_clinvar(
     clinvar_variants: dict[str, ClinVarVariant] = {}
     benign_clinvar_variants: dict[str, ClinVarVariant] = {}
 
-    with vcf_path.open("r") as vcf_fh:
+    with gzip.open(vcf_path, "rt") as vcf_fh:
         for line in vcf_fh:
             if line.startswith("#"):
                 continue
@@ -266,7 +259,22 @@ def write_ensembl_bed(
 
     if not skip_download:
         gtf_url = get_gtf_url(release)
-        requests.get(gtf_url, stream=True)
+        response = requests.get(gtf_url)
+        response.raise_for_status()
+
+        with open(ensembl_tmp_path, "wb") as gtf_download_fh:
+            LOG.info(f"Fetching {gtf_url}, might take a while")
+
+            # Write file chunk-wise to keep memory consumption low
+            # Works together with the stream=True argument
+            # for chunk in response.iter_content(chunk_size=8192):
+            #     if chunk:
+            # for chunk in response.raw.stream(1024, decode_content=False):
+            #     if chunk:
+            #         gtf_download_fh.write(chunk)
+            gtf_download_fh.write(response.content)
+
+            # gtf_download_fh.write(response.content)
     else:
         if not Path(ensembl_tmp_path).exists():
             raise ValueError(
