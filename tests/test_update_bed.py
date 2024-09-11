@@ -153,9 +153,6 @@ chr2\t12345\t.\tG\tA\t.\t.\tCLNSIG=Likely_pathogenic
         assert key in expected_benign_clinvar_reasons
         assert expected_benign_clinvar_reasons[key] == variant.reason
 
-    # print(clinvar_variants)
-    # print(benign_clinvar_variants)
-
 
 def test_compare_clinvar(tmp_path: Path):
     """Given mock entries with different sets of clinvar variants, check what is added, removed and retained"""
