@@ -50,7 +50,7 @@ def get_gtf_url(release: str) -> str:
 
 
 def main(
-    clinvar_vcf_path: Path,
+    clinvar_vcf_new_path: Path,
     clinvar_vcf_old_path: Path,
     clinvardate: str,
     out_dir: Path,
@@ -83,18 +83,25 @@ def main(
 
     append_to_bed(final_bed_path, ensembl_bed_path, f"EXONS-{ensembl_release}")
 
-    (clinvar_new, new_benign) = read_clinvar(clinvar_vcf_path)
-    (clinvar_old, _old_benign) = read_clinvar(clinvar_vcf_old_path)
+    LOG.info("Reading old ClinVar (%s)", str(clinvar_vcf_old_path))
+    (clinvar_old, old_benign) = read_clinvar(clinvar_vcf_old_path)
+    LOG.info("%s pathogenic and %s benign loaded", len(clinvar_old), len(old_benign))
+    LOG.info("Reading new ClinVar (%s)", str(clinvar_vcf_new_path))
+    (clinvar_new, new_benign) = read_clinvar(clinvar_vcf_new_path)
+    LOG.info("%s pathogenic and %s benign loaded", len(clinvar_new), len(new_benign))
 
+    LOG.info("Calculating ClinVar differences")
     (new_to_add_clinvar_bed_rows, old_to_remove_clinvar_bed_rows) = compare_clinvar(
         clinvar_new, clinvar_old, final_bed_path, VARIANT_PAD, out_dir, keep_tmp
     )
+    LOG.info("%s new BED entries found, %s BED entries to remove", len(new_to_add_clinvar_bed_rows), len(old_to_remove_clinvar_bed_rows))
 
     id_col = 4
     new_to_remove_keys = [bed_row[id_col] for bed_row in new_to_add_clinvar_bed_rows]
     old_to_remove_keys = [bed_row[id_col] for bed_row in old_to_remove_clinvar_bed_rows]
 
     clinvar_log_path = ensure_new_empty_file(f"{out_dir}/clinvar_{clinvardate}.log")
+    LOG.info("Writing log to %s", str(clinvar_log_path))
     log_clinvar_changes(
         clinvar_log_path,
         clinvar_old,
@@ -105,6 +112,7 @@ def main(
     )
 
     new_clinvar_to_add_path = Path(f"{out_dir}/new_clinvar_to_add.bed")
+    LOG.info("Adding ClinVar ranges to final bed")
     annot_col = 3
     # Slice to keep chrom, start, end and annotation, skip variant keys
     new_clinvar_to_add_path.write_text(
@@ -115,7 +123,9 @@ def main(
     )
 
     append_to_bed(final_bed_path, new_clinvar_to_add_path, ".")
+    LOG.info("Sort and merge output")
     sort_merge_output(out_dir, final_bed_path, keep_tmp)
+    LOG.info("Done")
 
 
 def ensure_new_empty_file(filepath: str) -> Path:
@@ -259,7 +269,7 @@ def write_ensembl_bed(
 
     if not skip_download:
         gtf_url = get_gtf_url(release)
-        response = requests.get(gtf_url)
+        response = requests.get(gtf_url, stream=True)
         response.raise_for_status()
 
         with open(ensembl_tmp_path, "wb") as gtf_download_fh:
@@ -267,12 +277,9 @@ def write_ensembl_bed(
 
             # Write file chunk-wise to keep memory consumption low
             # Works together with the stream=True argument
-            # for chunk in response.iter_content(chunk_size=8192):
-            #     if chunk:
-            # for chunk in response.raw.stream(1024, decode_content=False):
-            #     if chunk:
-            #         gtf_download_fh.write(chunk)
-            gtf_download_fh.write(response.content)
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    gtf_download_fh.write(chunk)
 
             # gtf_download_fh.write(response.content)
     else:
@@ -496,7 +503,7 @@ if __name__ == "__main__":
     args = parse_arguments()
     incl_bed: list[str] | None = args.incl_bed
     main(
-        clinvar_vcf_path=Path(args.new),
+        clinvar_vcf_new_path=Path(args.new),
         clinvar_vcf_old_path=Path(args.old),
         clinvardate=args.clinvardate,
         out_dir=Path(args.out_dir),
