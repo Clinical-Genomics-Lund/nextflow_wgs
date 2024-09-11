@@ -94,7 +94,11 @@ def main(
     (new_to_add_clinvar_bed_rows, old_to_remove_clinvar_bed_rows) = compare_clinvar(
         clinvar_new, clinvar_old, final_bed_path, VARIANT_PAD, out_dir, keep_tmp
     )
-    LOG.info("%s new BED entries found, %s BED entries to remove", len(new_to_add_clinvar_bed_rows), len(old_to_remove_clinvar_bed_rows))
+    LOG.info(
+        "%s new BED entries found, %s BED entries to remove",
+        len(new_to_add_clinvar_bed_rows),
+        len(old_to_remove_clinvar_bed_rows),
+    )
 
     id_col = 4
     new_to_remove_keys = [bed_row[id_col] for bed_row in new_to_add_clinvar_bed_rows]
@@ -280,8 +284,6 @@ def write_ensembl_bed(
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     gtf_download_fh.write(chunk)
-
-            # gtf_download_fh.write(response.content)
     else:
         if not Path(ensembl_tmp_path).exists():
             raise ValueError(
