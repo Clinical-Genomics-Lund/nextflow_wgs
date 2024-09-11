@@ -46,10 +46,9 @@ def get_file_string(rows: list[list[str]]) -> str:
     return "\n".join(row_strs) + "\n"
 
 
-def write_tmp_gtf_gz(tmp_dir: Path, content: str):
-    ensembl_tmp_gtf = tmp_dir / "tmp.gtf.gz"
-    ensembl_tmp_gtf.unlink(missing_ok=True)
-    with gzip.open(ensembl_tmp_gtf, "wt") as fh:
+def write_gz(path: Path, content: str):
+    path.unlink(missing_ok=True)
+    with gzip.open(path, "wt") as fh:
         fh.write(content)
 
 
@@ -67,7 +66,7 @@ def test_write_ensembl_bed(tmp_path: Path):
     out_bed = tmp_path / "output.bed"
 
     # Non-chr based reference
-    write_tmp_gtf_gz(tmp_path, mock_gtf_content)
+    write_gz(tmp_path / "tmp.gtf.gz", mock_gtf_content)
 
     write_ensembl_bed(tmp_path, out_bed, release, skip_download, padding)
     output_content = out_bed.read_text()
@@ -77,7 +76,7 @@ def test_write_ensembl_bed(tmp_path: Path):
 
     # Chr based reference
     out_bed2 = tmp_path / "output2.bed"
-    write_tmp_gtf_gz(tmp_path, mock_chr_gtf_content)
+    write_gz(tmp_path / "tmp.gtf.gz", mock_chr_gtf_content)
     write_ensembl_bed(tmp_path, out_bed2, release, skip_download, padding)
     output_content = out_bed2.read_text()
     row_fields = [["chr1", "1080", "1220"], ["chr3", "4380", "4520"]]
@@ -136,7 +135,7 @@ chr2\t12345\t.\tG\tA\t.\t.\tCLNSIG=Likely_pathogenic
 """
 
     clinvar_vcf_path = tmp_path / "tmp.vcf"
-    clinvar_vcf_path.write_text(mock_vcf_content)
+    write_gz(clinvar_vcf_path, mock_vcf_content)
 
     clinvar_variants, benign_clinvar_variants = read_clinvar(clinvar_vcf_path)
 
@@ -246,12 +245,12 @@ def test_main(tmp_path: Path):
 """
 
     old_clinvar = tmp_path / "clinvar_old.vcf"
-    old_clinvar.write_text(old_clinvar_content)
+    write_gz(old_clinvar, old_clinvar_content)
     new_clinvar = tmp_path / "clinvar_new.vcf"
-    new_clinvar.write_text(new_clinvar_content)
+    write_gz(new_clinvar, new_clinvar_content)
     clinvardate = "clinvardate"
     ensembl_release = "release"
-    write_tmp_gtf_gz(tmp_path, mock_gtf_content)
+    write_gz(tmp_path / "tmp.gtf.gz", mock_gtf_content)
 
     skip_download = True
     incl_bed: list[str] = []
