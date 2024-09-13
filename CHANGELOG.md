@@ -1,6 +1,6 @@
 # CHANGELOG
 
-### TBD
+### 3.9.9
 * Extend the update_bed.pl script to handle multiple input files
 * Rewrite to Python and add tests
 
