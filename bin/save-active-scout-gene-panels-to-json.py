@@ -114,15 +114,23 @@ def main() -> None:
     LOG.info("All done.")
     LOG.info("Bye.")
 
-def set_read_permissions(remote_filepath: str):
+def set_read_permissions(remote_filepath: str) -> None:
+    """
+    Make JSON readable by everyone. Otherwise the JSON is copied over
+    with the restricted permissions of the NamedTemporaryFile
+    """
     set_read_permissions_everyone = [
         "ssh",
         REMOTE_HOST,
         "chmod a+r",
+        remote_filepath,
+        "&&"
+        "chmod a-w",
         remote_filepath
     ]
 
     try:
+        LOG.info("Setting permissions a+r, a-r for %s", remote_filepath)
         subprocess.run(set_read_permissions_everyone, check=True)
     except subprocess.CalledProcessError as e:
         LOG.error("Error occurred when setting permissions: %s", e)
