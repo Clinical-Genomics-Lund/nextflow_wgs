@@ -108,10 +108,25 @@ def main() -> None:
         LOG.debug("final remote_filepath: %s", remote_filepath)
 
         copy_panel_dump_to_remote(temp_file.name, remote_filepath)
+        set_read_permissions(remote_filepath)
 
     symlink_to_latest(remote_filepath)
     LOG.info("All done.")
     LOG.info("Bye.")
+
+def set_read_permissions(remote_filepath: str):
+    set_read_permissions_everyone = [
+        "ssh",
+        REMOTE_HOST,
+        "chmod a+r",
+        remote_filepath
+    ]
+
+    try:
+        subprocess.run(set_read_permissions_everyone, check=True)
+    except subprocess.CalledProcessError as e:
+        LOG.error("Error occurred when setting permissions: %s", e)
+        sys.exit(1)
 
 
 def copy_panel_dump_to_remote(temp_filepath: str, remote_filepath: str) -> None:
