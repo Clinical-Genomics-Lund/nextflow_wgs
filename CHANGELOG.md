@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 3.9.10
+* Use reduced gene_panel JSON to avoid adding dead/archived panels to new scout cases 
+* Add lennart-side script/worker CRON job to generate new gene panel JSON
+
 ### 3.9.9
 * Extend the update_bed.pl script to handle multiple input files
 * Rewrite to Python and add tests
