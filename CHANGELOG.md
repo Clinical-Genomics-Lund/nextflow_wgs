@@ -1,7 +1,8 @@
 # CHANGELOG
 
-### TBD
+### 3.10.1
 * Update config for bed intersect
+* Some fixes to the logging of the bed intersect script
 
 ### 3.9.10
 * Use reduced gene_panel JSON to avoid adding dead/archived panels to new scout cases 
