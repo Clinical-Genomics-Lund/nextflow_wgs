@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.9.11
+* Fix mito QC stats JSON conversion for samples started from old bams with updated sample ids. 
+
 ### 3.9.10
 * Use reduced gene_panel JSON to avoid adding dead/archived panels to new scout cases 
 * Add lennart-side script/worker CRON job to generate new gene panel JSON
