@@ -23,6 +23,8 @@ import logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOG = logging.getLogger(__name__)
 
+BED = list[list[str]]
+
 """
 CLNSIG:      Clinical significance of variant
 CLNSIGINCL:  Clinical significance for a haplotype or genotype that includes
@@ -91,18 +93,17 @@ def main(
     LOG.info("%s pathogenic and %s benign loaded", len(clinvar_new), len(new_benign))
 
     LOG.info("Calculating ClinVar differences")
-    (new_to_add_clinvar_bed_rows, old_to_remove_clinvar_bed_rows) = compare_clinvar(
+    (
+        all_to_add_bed_rows,
+        new_clinvar_bed_rows,
+        old_removed_clinvar_bed_rows,
+    ) = compare_clinvar(
         clinvar_new, clinvar_old, final_bed_path, VARIANT_PAD, out_dir, keep_tmp
-    )
-    LOG.info(
-        "%s new BED entries found, %s BED entries to remove",
-        len(new_to_add_clinvar_bed_rows),
-        len(old_to_remove_clinvar_bed_rows),
     )
 
     id_col = 4
-    new_to_remove_keys = [bed_row[id_col] for bed_row in new_to_add_clinvar_bed_rows]
-    old_to_remove_keys = [bed_row[id_col] for bed_row in old_to_remove_clinvar_bed_rows]
+    new_to_remove_keys = [bed_row[id_col] for bed_row in new_clinvar_bed_rows]
+    old_to_remove_keys = [bed_row[id_col] for bed_row in old_removed_clinvar_bed_rows]
 
     clinvar_log_path = ensure_new_empty_file(f"{out_dir}/clinvar_{clinvardate}.log")
     LOG.info("Writing log to %s", str(clinvar_log_path))
@@ -120,15 +121,13 @@ def main(
     annot_col = 3
     # Slice to keep chrom, start, end and annotation, skip variant keys
     new_clinvar_to_add_path.write_text(
-        "\n".join(
-            ["\t".join(row[0 : annot_col + 1]) for row in new_to_add_clinvar_bed_rows]
-        )
+        "\n".join(["\t".join(row[0 : annot_col + 1]) for row in all_to_add_bed_rows])
         + "\n"
     )
 
     append_to_bed(final_bed_path, new_clinvar_to_add_path, ".")
     LOG.info("Sort and merge output")
-    sort_merge_output(out_dir, final_bed_path, keep_tmp)
+    sort_merge_bed(final_bed_path, keep_tmp)
     LOG.info("Done")
 
 
@@ -332,13 +331,13 @@ def append_to_bed(out_bed_fp: Path, bed_to_add_path: Path, bed_annot_default: st
                 print("\t".join(out_fields), file=out_fh)
 
 
-def sort_merge_output(out_dir: Path, bed_fp: Path, keep_tmp: bool):
-    tmp_bed_path = Path(out_dir / "tmp.sort.bed")
-    sort_cmd = f"bedtools sort -i {str(bed_fp)} > {str(tmp_bed_path)}"
+def sort_merge_bed(bed_path: Path, keep_tmp: bool):
+    tmp_bed_path = bed_path.parent / (bed_path.name + ".tmp")
+    sort_cmd = f"bedtools sort -i {str(bed_path)} > {str(tmp_bed_path)}"
     # Annotation column is concatenated together
     # "distinct" means the same value won't be reused multiple times
     merge_cmd = (
-        f"bedtools merge -i {str(tmp_bed_path)} -c 4 -o distinct > {str(bed_fp)}"
+        f"bedtools merge -i {str(tmp_bed_path)} -c 4 -o distinct > {str(bed_path)}"
     )
     subprocess.call(sort_cmd, shell=True)
     subprocess.call(merge_cmd, shell=True)
@@ -353,12 +352,13 @@ def compare_clinvar(
     variant_padding: int,
     out_dir: Path,
     keep_tmp: bool,
-) -> tuple[list[list[str]], list[list[str]]]:
+) -> tuple[BED, BED, BED]:
     """
     1. Check what variants are new / kept / removed among keys
     2. Generate bed files for padded ClinVar variants to run "bedtools intersect"
     3. Keep info about pathogenicity as the fourth column and variant key (chr:pos_ref_alt) in fifth
-    4. Return bed field lists
+    4. Log info about changes / what will be included in the bed based on the ClinVar
+    5. Return bed field lists
     """
 
     new_clinvar_keys = set(new_clinvar.keys())
@@ -383,37 +383,50 @@ def compare_clinvar(
         )
         path.write_text(bed_text)
 
-    new_clinvar_tmp_bed = out_dir / "clinvar_new_python.bed"
-    write_tmp_bed(new_clinvar_tmp_bed, new_clinvar, set())
-    old_clinvar_tmp_bed = out_dir / "clinvar_old_python.bed"
-    clinvar_old_removed = old_clinvar_keys.difference(new_clinvar_keys)
-    write_tmp_bed(old_clinvar_tmp_bed, old_clinvar, clinvar_old_removed)
-
+    # First we check what ClinVar variants differs between the ClinVar VCFs
     clinvar_in_common = new_clinvar_keys.intersection(old_clinvar_keys)
     clinvar_new_added = new_clinvar_keys.difference(old_clinvar_keys)
+    clinvar_old_removed = old_clinvar_keys.difference(new_clinvar_keys)
 
-    new_to_add_bed_rows = get_bed_intersect(
-        str(new_clinvar_tmp_bed), str(final_bed_path)
+    # Write bed files with padded ClinVar variants
+    new_clinvar_added_bed = out_dir / "clinvar_new_added.bed"
+    write_tmp_bed(new_clinvar_added_bed, new_clinvar, clinvar_new_added)
+    old_clinvar_removed_bed = out_dir / "clinvar_old_removed.bed"
+    write_tmp_bed(old_clinvar_removed_bed, old_clinvar, clinvar_old_removed)
+    new_clinvar_all_bed = out_dir / "clinvar_new_all.bed"
+    write_tmp_bed(new_clinvar_all_bed, new_clinvar, set())
+
+    # Check the following regions:
+    # Newly added old ClinVar -> new ClinVar
+    newly_added_bed_rows = get_bed_intersect(
+        str(new_clinvar_added_bed),
+        str(final_bed_path),
     )
-    old_to_remove_bed_rows = get_bed_intersect(
-        str(old_clinvar_tmp_bed), str(final_bed_path)
+    all_added_bed_rows = get_bed_intersect(
+        str(new_clinvar_all_bed), str(final_bed_path)
+    )
+    old_previously_present_bed_rows = get_bed_intersect(
+        str(old_clinvar_removed_bed),
+        str(final_bed_path),
     )
     if not keep_tmp:
-        new_clinvar_tmp_bed.unlink()
-        old_clinvar_tmp_bed.unlink()
+        new_clinvar_added_bed.unlink()
+        old_clinvar_removed_bed.unlink()
+        new_clinvar_all_bed.unlink()
 
     LOG.info(f"Clinvar in common between versions: {len(clinvar_in_common)}")
     LOG.info(
-        f"Added new (unique targets): {len(clinvar_new_added)} ({len(new_to_add_bed_rows)})"
+        f"New ClinVar variants (total added ClinVar sites) (new ClinVar sites): {len(clinvar_new_added)} ({len(all_added_bed_rows)}) ({len(newly_added_bed_rows)})"
     )
     LOG.info(
-        f"Removed old (unique targets): {len(clinvar_old_removed)} ({len(old_to_remove_bed_rows)})"
+        f"Removed ClinVar variants (old removed ClinVar sites): {len(clinvar_old_removed)} ({len(old_previously_present_bed_rows)})"
     )
+    LOG.info("Note - the numbers above are before sorting and merging intervals")
 
-    return (new_to_add_bed_rows, old_to_remove_bed_rows)
+    return (all_added_bed_rows, newly_added_bed_rows, old_previously_present_bed_rows)
 
 
-def get_bed_intersect(left_bed: str, right_bed: str) -> list[list[str]]:
+def get_bed_intersect(left_bed: str, right_bed: str) -> BED:
     not_in_bed_cmd = [
         "bedtools",
         "intersect",
