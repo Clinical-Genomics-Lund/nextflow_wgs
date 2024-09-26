@@ -12,11 +12,13 @@ container/*.sif
 *.html
 *#
 *.orig
+*.tbi
 
 # Folders
 __pycache__/
 work/
 data/
+output/
 .vscode/
 
 # Ref tools
