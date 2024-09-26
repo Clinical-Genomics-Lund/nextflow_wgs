@@ -1496,7 +1496,7 @@ process build_mitochondrial_qc_json {
     
 	script:
 		"""
-                mito_tsv_to_json.py ${mito_qc_file} > "${id}_mito_qc.json"       
+		mito_tsv_to_json.py ${mito_qc_file} > "${id}_mito_qc.json"
 		"""
 	stub:
 		"""
