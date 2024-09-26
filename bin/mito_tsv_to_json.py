@@ -35,11 +35,17 @@ def extract_value_by_suffix(row: Dict[str, str], key_suffix: str) -> str:
     TSV containing multiple samples, which would require a more precise
     dict access.
     """
-    for key, value in row.items():
-        if key.endswith(key_suffix):
-            return value
 
-    raise KeyError(f"No field in coverage TSV with suffix {key_suffix}.")
+    keys_with_matching_suffix = [key for key in row.keys() if key.endswith(key_suffix)]
+
+    if len(keys_with_matching_suffix) == 0:
+        raise KeyError(f"No field in coverage TSV with suffix {key_suffix}.")
+    if len(keys_with_matching_suffix) > 1:
+        raise KeyError(
+            f"Multiple fields in row with suffix {key_suffix}: {keys_with_matching_suffix}"
+        )
+
+    return row[keys_with_matching_suffix[0]]
 
 
 # Extract relevant data for correct sample:
