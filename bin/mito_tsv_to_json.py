@@ -18,7 +18,6 @@ PCT_ABOVE_500X_FIELD_SUFFIX = "_%_above_500"
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description=SCRIPT_DESCRIPTION)
 parser.add_argument("mito_coverage_tsv", help="Path to the input TSV file")
-parser.add_argument("--sample_id", help="Sample ID to extract data for", required=False)
 args = parser.parse_args()
 
 
