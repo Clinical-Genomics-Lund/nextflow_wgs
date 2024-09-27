@@ -1484,20 +1484,19 @@ def sentieon_mitochondrial_qc_version(task) {
 }
 
 process build_mitochondrial_qc_json {
-	memory '1 GB'
+    memory '1 GB'
     cpus 2
     tag "$id"
     time "1h"
 
     input:
         set group, id, file(mito_qc_file) from qc_mito
-
     output:
         set group, id, file("${id}_mito_qc.json") into qc_mito_json
     
 	script:
 		"""
-		mito_tsv_to_json.py ${mito_qc_file} ${id} > "${id}_mito_qc.json"
+		mito_tsv_to_json.py ${mito_qc_file} > "${id}_mito_qc.json"
 		"""
 	stub:
 		"""
