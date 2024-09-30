@@ -3416,22 +3416,23 @@ process add_to_loqusdb {
 		!params.noupload && !params.reanalyze
 
 	input:
-		set group, type, file(vcf), file(tbi), type, file(ped), file(svvcf) from vcf_loqus.join(ped_loqus).join(loqusdb_sv.mix(loqusdb_sv_panel))
+		set group, type, file(vcf), file(tbi), type, file(ped) from vcf_loqus.join(ped_loqus)
+                set group, file(svvcf) from loqusdb_sv.mix(loqusdb_sv_panel, dummy_svvcf_ch)
 
 	output:
 		file("${group}*.loqus") into loqusdb_done
 
 	script:
-		if (params.assay == "wgs") {
-			"""
-			echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}.loqus
-			"""
-		}
-		else {
-			"""
-			echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} --sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}" > ${group}.loqus
-			"""
-		}
+                """
+                sv_variants=""
+                nbr_svvcf_records=\$(grep -v '^#' ${svvcf} | wc -l)
+
+                if (( \$nbr_svvcf_records > 0 )); then
+                   sv_variants = "--sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}"
+                fi
+
+		echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} \$sv_variants" > ${group}.loqus
+                """
 
 	stub:
 		"""
