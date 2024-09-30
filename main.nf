@@ -124,6 +124,12 @@ bam_bqsr_choice.map {
 // 	split_vep_choice;
 // }
 
+Channel
+	.fromPath(params.csv)
+	.splitCsv(header:true)
+	.map{ row-> tuple(row.group, row.assay) }
+        .set{ meta_loqusdb_no_sv_calling }
+
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
@@ -3378,6 +3384,25 @@ def svdb_merge_version(task) {
 	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
 	END_VERSIONS	
 	"""
+}
+
+process dummy_svvcf_for_loqusdb {
+        cpus 1
+        tag "$group"
+        memory '10 MB'
+        time '10m'
+
+        when:
+                !params.sv
+        input:
+                set group, assay from meta_loqusdb_no_sv_calling
+        output:
+                set group, file("${group}.merged.vcf") into dummy_svvcf_ch
+
+        script:
+        """
+        touch ${group}.merged.vcf
+        """
 }
 
 process add_to_loqusdb {
