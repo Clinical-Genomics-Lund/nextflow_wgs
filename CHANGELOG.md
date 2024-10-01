@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.9.11
+* Add workaround to enable loqusdb export for runs where SV calling is disabled
+* Rename myeloid_const loqusdb to `loqusdb_myeloid_const`
+* Disable artefact scoring in `myeloid_const` rank models
+	
 ### 3.9.10
 * Use reduced gene_panel JSON to avoid adding dead/archived panels to new scout cases 
 * Add lennart-side script/worker CRON job to generate new gene panel JSON
