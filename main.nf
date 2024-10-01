@@ -3427,7 +3427,7 @@ process add_to_loqusdb {
 
 	input:
 		set group, type, file(vcf), file(tbi), type, file(ped) from vcf_loqus.join(ped_loqus)
-                set group, file(svvcf) from loqusdb_sv.mix(loqusdb_sv_panel, dummy_svvcf_ch)
+		set group, file(svvcf) from loqusdb_sv.mix(loqusdb_sv_panel, dummy_svvcf_ch)
 
 	output:
 		file("${group}*.loqus") into loqusdb_done
