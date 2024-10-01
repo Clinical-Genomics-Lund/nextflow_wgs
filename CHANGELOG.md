@@ -1,10 +1,17 @@
 # CHANGELOG
 
-### 3.9.11
+### 3.10.3
 * Add workaround to enable loqusdb export for runs where SV calling is disabled
 * Rename myeloid_const loqusdb to `loqusdb_myeloid_const`
 * Disable artefact scoring in `myeloid_const` rank models
 	
+### 3.10.2
+* Fix mito QC stats JSON conversion for samples started from old bams with updated sample ids. 
+
+### 3.10.1
+* Update config for bed intersect
+* Some fixes to the logging of the bed intersect script
+
 ### 3.9.10
 * Use reduced gene_panel JSON to avoid adding dead/archived panels to new scout cases 
 * Add lennart-side script/worker CRON job to generate new gene panel JSON
