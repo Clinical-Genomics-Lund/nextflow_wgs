@@ -3397,7 +3397,7 @@ process dummy_svvcf_for_loqusdb {
         input:
                 set group, assay from meta_loqusdb_no_sv_calling
         output:
-                set group, file("${group}.merged.vcf") into dummy_svvcf_ch
+                set group, file("${group}.dummy.sv.vcf") into dummy_svvcf_ch
 
         script:
         """
