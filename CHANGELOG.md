@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.10.3
+* Add workaround to enable loqusdb export for runs where SV calling is disabled
+* Rename myeloid_const loqusdb to `loqusdb_myeloid_const`
+* Disable artefact scoring in `myeloid_const` rank models
+	
 ### 3.10.2
 * Fix mito QC stats JSON conversion for samples started from old bams with updated sample ids. 
 
