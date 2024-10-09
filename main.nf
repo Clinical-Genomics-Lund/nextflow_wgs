@@ -3534,7 +3534,8 @@ process vep_sv {
 			--dir_plugins $params.VEP_PLUGINS \\
 			--max_sv_size $params.VEP_MAX_SV_SIZE \\
 			--distance $params.VEP_TRANSCRIPT_DISTANCE \\
-			-cache
+			-cache \\
+			--format vcf
 
 		# Re-enable SVTYPE:
 		sed -i 's/BAZBAZ=/SVTYPE=/' ${group}.vep.vcf
