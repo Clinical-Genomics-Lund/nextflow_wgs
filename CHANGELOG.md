@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.10.4
+* Added --format vcf to `vep_sv` to fix for cases where vcf file carries no variants. 
+ 
 ### 3.10.3
 * Add workaround to enable loqusdb export for runs where SV calling is disabled
 * Rename myeloid_const loqusdb to `loqusdb_myeloid_const`
