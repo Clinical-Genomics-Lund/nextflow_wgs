@@ -107,7 +107,8 @@ bam_choice.into{
 	bam_qc_choice;
 	dedup_dummy_choice;
 	bam_bqsr_choice;
-	bam_gatk_choice }
+	bam_gatk_choice;
+        verifybamid2_bam_choice }
 
 // bqsr expects sample_id to come first, instead of group_id
 bam_bqsr_choice.map {
@@ -399,7 +400,7 @@ process markdup {
 		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
 
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, verifybamid2_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
 		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
@@ -644,6 +645,67 @@ def d4_coverage_version(task) {
 	    d4tools: \$(echo \$( d4tools 2>&1 | head -1 ) | sed "s/.*version: //" | sed "s/)//" )
 	END_VERSIONS
 	"""
+}
+
+process verifybamid2 {
+        cpus 16
+        memory '10 GB'
+        // publishDir "${OUTDIR}/contamination", mode: 'copy', overwrite: 'true', pattern: '*.selfSM'
+        tag "$id"
+        container = "${params.container_verifybamid2}"
+
+        input:
+                set group, id, file(bam), file(bai) from verifybamid2_bam
+
+        output:
+                file("${id}.result.selfSM")
+                file("${id}.result.Ancestry")
+                set group, file("*versions.yml") into ch_verifybamid2_versions
+
+        script:
+
+                if ( params.antype == "wgs") {
+                         """
+                         verifybamid2 \
+                         --SVDPrefix ${params.svdprefix} \
+                         --Reference $genome_file \
+                         --BamFile ${bam}
+
+                         mv result.selfSM ${id}.result.selfSM
+                         mv result.Ancestry ${id}.result.Ancestry
+                         ${verifybamid2_version(task)}
+                         """
+                }
+                else {
+                         """
+                         verifybamid2 \
+                         --DisableSanityCheck \
+                         --SVDPrefix ${params.svdprefix} \
+                         --Reference $genome_file \
+                         --BamFile ${bam}
+
+                         mv result.selfSM ${id}.result.selfSM
+                         mv result.Ancestry ${id}.result.Ancestry
+                         ${verifybamid2_version(task)}
+                         """
+                }
+
+
+        stub:
+                """
+                touch "${id}.result.selfSM"
+                touch "${id}.result.Ancestry"
+
+                ${verifybamid2_version(task)}
+                """
+}
+def verifybamid2_version(task) {
+        """
+        cat <<-END_VERSIONS > ${task.process}_versions.yml
+        ${task.process}:
+            VerifyBamID2: \$( echo \$( verifybamid2 --help 2>&1 | grep Version ) | sed "s/^.*Version://" )
+        END_VERSIONS
+        """
 }
 
 // Calculate coverage for paneldepth
@@ -3931,6 +3993,7 @@ process combine_versions {
 			ch_bqsr_versions.first(),
 			ch_sentieon_qc_versions.first(),
 			ch_d4_coverage_versions.first(),
+                        ch_verifybamid2_versions.first(),
 			ch_smn_copy_number_caller_versions.first(),
 			ch_expansionhunter_versions.first(),
 			ch_stranger_versions.first(),
