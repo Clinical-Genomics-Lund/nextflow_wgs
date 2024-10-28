@@ -3178,6 +3178,7 @@ def cnvkit_panel_version(task) {
 }
 
 process svdb_merge_panel {
+	container = "${params.container_svdb}"
 	cpus 2
 	cache 'deep'
 	tag "$group"
