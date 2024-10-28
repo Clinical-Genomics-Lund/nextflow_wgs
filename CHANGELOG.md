@@ -1,6 +1,6 @@
 # CHANGELOG
 
-### 3.10.5
+### 3.11.1
 * Add a process to get contamination values from verifybamid2 software.
 * Update configs/nextflow.hopper.config with a specific verifybamid2 container.
 * Update configs/nextflow.hopper.config with specific SVDPrefix files for panel and wgs.

@@ -667,8 +667,8 @@ process verifybamid2 {
                 if ( params.antype == "wgs") {
                          """
                          verifybamid2 \
-                         --SVDPrefix ${params.svdprefix} \
-                         --Reference $genome_file \
+                         --SVDPrefix ${params.verifybamid2_svdprefix} \
+                         --Reference ${genome_file} \
                          --BamFile ${bam}
 
                          mv result.selfSM ${id}.result.selfSM
@@ -680,8 +680,8 @@ process verifybamid2 {
                          """
                          verifybamid2 \
                          --DisableSanityCheck \
-                         --SVDPrefix ${params.svdprefix} \
-                         --Reference $genome_file \
+                         --SVDPrefix ${params.verifybamid2_svdprefix} \
+                         --Reference ${genome_file} \
                          --BamFile ${bam}
 
                          mv result.selfSM ${id}.result.selfSM
