@@ -2284,7 +2284,11 @@ process genmodscore {
 		if ( mode == "family" && params.antype == "wgs" ) {
 			"""
 			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.score1.vcf
-			genmod compound ${group_score}.score1.vcf > ${group_score}.score2.vcf
+			genmod compound \
+				--threshold ${params.genmod_compound_trio_threshold} \
+				--penalty ${params.genmod_compound_trio_penalty} \
+				-o ${group_score}.score2.vcf \
+				${group_score}.score1.vcf
 			sed 's/RankScore=${group}:/RankScore=${group_score}:/g' -i ${group_score}.score2.vcf
 			genmod sort -p -f $group_score ${group_score}.score2.vcf -o ${group_score}.scored.vcf
 
@@ -2294,7 +2298,18 @@ process genmodscore {
 		else {
 			"""
 			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.score1.vcf
-			genmod sort -p -f $group_score ${group_score}.score1.vcf -o ${group_score}.scored.vcf
+
+			// To get compounds without applying rank score penalty
+			genmod compound \
+				--penalty 0 \
+				-o ${group_score}.score1.with_compounds.vcf \
+				${group_score}.score1.vcf
+
+			genmod sort \
+				-p \
+				-f $group_score \
+				-o ${group_score}.scored.vcf \
+				${group_score}.score1.with_compounds.vcf
 
 			${genmodscore_version(task)}
 			"""
