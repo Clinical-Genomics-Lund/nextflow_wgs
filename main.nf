@@ -3346,8 +3346,8 @@ process svdb_merge {
 			prio = prio.join(',')
 			vcfs = vcfs.join(' ')
 			"""
-			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio > ${group}.merged_tmp.vcf
-			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
+			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio > ${group}.merged.vcf
+			# merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 			
 			${svdb_merge_version(task)}
@@ -3358,8 +3358,8 @@ process svdb_merge {
 			tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + gatkV.collect {it + ':gatk ' }
 			vcfs = tmp.join(' ')
 			"""
-			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,gatk > ${group}.merged_tmp.vcf
-			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
+			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,gatk > ${group}.merged.vcf
+			# merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 			
 			${svdb_merge_version(task)}
