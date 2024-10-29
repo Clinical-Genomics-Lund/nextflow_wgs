@@ -2181,7 +2181,7 @@ process add_cadd_scores_to_vcf {
 	tag "$group"
 	memory '1 GB'
 	time '5m'
-	container = '/fs1/resources/containers/genmod.sif'
+	container = "${params.container_genmod}"
 
 	input: 
 		set group, file(vcf), file(cadd_scores) from splice_marked.join(indel_cadd)
@@ -2227,7 +2227,7 @@ process inher_models {
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
-	container = '/fs1/resources/containers/genmod.sif'
+	container = "${params.container_genmod}"
 
 	input:
 		set group, file(vcf), type, file(ped) from base_vcf.mix(ma_vcf, fa_vcf).join(ped_inher.mix(ped_inher_ma,ped_inher_fa))
@@ -2266,7 +2266,7 @@ process genmodscore {
 	tag "$group"
 	memory '20 GB'
 	time '1h'
-	container = '/fs1/resources/containers/genmod.sif'
+	container = "${params.container_genmod}"
 
 	input:
 		set group, type, file(vcf) from inhermod
@@ -3685,7 +3685,7 @@ process score_sv {
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 	memory '10 GB'
 	time '2h'
-	container = '/fs1/resources/containers/genmod.sif'
+	container = "${params.container_genmod}"
 
 	input:
 		set group, type, file(vcf) from annotatedSV
