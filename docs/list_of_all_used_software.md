@@ -36,4 +36,3 @@
 | vcflib                 | 1.0.9        | Open-Source | https://github.com/vcflib/vcflib                       | https://github.com/vcflib/vcflib/issues                | Alexander Koc         | Parse and manipulate VCF files with python and zig bindings                               |
 | vep                    | 111.0        | Open-Source | https://www.ensembl.org/info/docs/tools/vep/index.html | https://github.com/Ensembl/ensembl-vep/issues          | Ram Sai Nanduri       | Predict functional effects of genomic variants                                            |
 | verifybamid2           | 2.0.1        | Open-Source | https://github.com/Griffan/VerifyBamID                 | https://github.com/Griffan/VerifyBamID/issues          | Paul Piccinelli       | Detecting and estimating inter-sample DNA contamination                                 |
- 
