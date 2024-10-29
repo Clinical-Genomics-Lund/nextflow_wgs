@@ -3230,7 +3230,6 @@ process svdb_merge_panel {
 			priority = tmpp.join(',')
 			
 			"""
-			source activate py3-env
 			svdb --merge --vcf $vcfs_svdb --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $priority > ${group}.merged.vcf
 			filter_panel_cnv.pl --mergedvcf ${group}.merged.vcf --callers $priority > ${group}.merged.filtered.vcf
 			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
@@ -3347,7 +3346,6 @@ process svdb_merge {
 			prio = prio.join(',')
 			vcfs = vcfs.join(' ')
 			"""
-			source activate py3-env
 			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio > ${group}.merged_tmp.vcf
 			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
@@ -3360,7 +3358,6 @@ process svdb_merge {
 			tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + gatkV.collect {it + ':gatk ' }
 			vcfs = tmp.join(' ')
 			"""
-			source activate py3-env
 			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,gatk > ${group}.merged_tmp.vcf
 			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
