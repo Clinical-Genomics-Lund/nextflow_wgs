@@ -3306,6 +3306,7 @@ def tiddit_version(task) {
 
 process svdb_merge {
 	cpus 2
+	container = "${params.container_svdb}"
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '2h'
