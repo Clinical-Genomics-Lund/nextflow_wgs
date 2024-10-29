@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.11.0
+* Rename `cleanVCF.py` -> `postprocess_vep_vcf.py`
+
 ### 3.10.4
 * Added --format vcf to `vep_sv` to fix for cases where vcf file carries no variants. 
  
