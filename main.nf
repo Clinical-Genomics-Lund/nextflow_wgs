@@ -3330,6 +3330,14 @@ process svdb_merge {
 			manta = []
 			tiddit = []
 			gatk = []
+
+                        // Order in which VCFs are merged matters when the merged SV
+                        // is annotated with final position/length, which affects 
+                        // artefact matching in loqusdb. //@alkc 2024-10-30
+                        mantaV.sort()
+                        gatkV.sort()
+                        tidditV.sort()
+
 			for (i = 1; i <= mantaV.size(); i++) {
 				tmp = mantaV[i-1] + ':manta' + "${i}"
 				tmp1 = tidditV[i-1] + ':tiddit' + "${i}"
@@ -3342,6 +3350,7 @@ process svdb_merge {
 				tiddit = tiddit + tt
 				gatk = gatk + ct
 			}
+
 			prio = manta + tiddit + gatk
 			prio = prio.join(',')
 			vcfs = vcfs.join(' ')
