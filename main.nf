@@ -818,10 +818,7 @@ process stranger {
 	memory '1 GB'
 	time '10m'
 	cpus 2
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
-	container = "/fs1/resources/containers/stranger_0.8.sif"
+	container = "${params.container_stranger}"
 
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
