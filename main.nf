@@ -2703,7 +2703,7 @@ process gatk_coverage {
 	cpus 2
 	memory '50GB'
 	time '2h'
-	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
+	container = "${params.container_gatk}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2761,7 +2761,7 @@ process gatk_call_ploidy {
 	cpus 10
 	memory '50GB'
 	time '2h'
-	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
+	container = "${params.container_gatk}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2816,7 +2816,7 @@ process gatk_call_cnv {
 	cpus 8
 	memory '50GB'
 	time '3h'
-	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
+	container = "${params.container_gatk}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2879,7 +2879,7 @@ process postprocessgatk {
 	cpus 5
 	memory '50GB'
 	time '3h'
-	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'	
+	container = "${params.container_gatk}"
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$id"
 
