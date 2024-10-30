@@ -861,7 +861,7 @@ process reviewer {
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
 	errorStrategy 'ignore'
-	container = "/fs1/resources/containers/REViewer_2021-06-07.sif"
+	container = "${params.container_reviewer}"
 	publishDir "${OUTDIR}/plots/reviewer/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.svg'
 	
 	input:
@@ -1021,7 +1021,7 @@ process melt_qc_val {
 process melt {
 	cpus 3
 	errorStrategy 'retry'
-	container = '/fs1/resources/containers/melt_2.2.2.sif'
+	container = "${params.container_melt}"
 	tag "$id"
 	// memory seems to scale with less number of reads?
 	memory '70 GB'
@@ -1272,7 +1272,7 @@ process madeline {
 	memory '1 GB'
 	time '1h'
 	cpus 2
-	container '/fs1/resources/containers/madeline.sif'
+	container = "${params.container_madeline}"
 
 	input:
 		set group, type, file(ped) from ped_mad.mix(ped_mad_ma,ped_mad_fa)
@@ -1324,7 +1324,7 @@ process freebayes {
 	cpus 1
 	time '2h'
 	memory '10 GB'
-	container = '${params.container_twist_myeloid}'
+	container = "${params.container_twist_myeloid}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2136,7 +2136,7 @@ def indel_vep_version(task) {
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
 	cpus 2
-	container = '/fs1/resources/containers/cadd_v1.6.sif'
+	container = "${params.container_cadd}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2369,9 +2369,10 @@ def vcf_completion_version(task) {
 }
 
 process peddy {
+
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.ped'
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.csv'
-	//container = '/fs1/resources/containers/wgs_20200115.sif'
+
 	cpus 4
 	tag "$group"
 	time '1h'
@@ -3456,7 +3457,7 @@ process add_to_loqusdb {
 }
 
 process annotsv {
-	container = '/fs1/resources/containers/annotsv.v2.3.sif'
+	container = "${params.container_annotsv}"
 	cpus 2
 	tag "$group"
 	publishDir "${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true', pattern: '*.tsv'
@@ -3864,7 +3865,7 @@ process svvcf_to_bed {
 }
 
 process plot_pod {
-	container = '/fs1/resources/containers/POD_2020-05-19.sif'
+	container = "${params.container_pod}"
 	publishDir "${OUTDIR}/pod", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	time '1h'
