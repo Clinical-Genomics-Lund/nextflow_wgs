@@ -3815,11 +3815,6 @@ def bgzip_score_sv_version(task) {
 	"""
 }
 
-// bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
-// bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
-// tabix ${group_score}.sv.scored.sorted.vcf.gz -f
-// echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
-
 process compound_finder {
 	cpus 2
 	tag "$group $mode"
