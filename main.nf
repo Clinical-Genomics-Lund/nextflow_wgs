@@ -3183,24 +3183,16 @@ process svdb_merge_panel {
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '1h'
 	memory '1 GB'
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
 
 	input:
-		//set group, id, file(mantaV), file(dellyV), file(melt), file(cnvkitV) \
-		//	from called_manta_panel.join(called_delly_panel, by:[0,1]).join(melt_vcf, by:[0,1]).join(called_cnvkit_panel, by:[0,1])
 		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_delly_panel,called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf)
 				
 	output:
 		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
-		//set group, id, file("${group}.merged.filtered.vcf") into annotsv_panel
 		set group, file("${group}.merged.filtered.melt.vcf") into loqusdb_sv_panel
 		set group, file("*versions.yml") into ch_svdb_merge_panel_versions
 
 	script:
-		//tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' } + cnvkitV.collect {it + ':cnvkit ' }
-		//vcfs = tmp.join(' ')
 		if (vcfs.size() > 1) {
 			// for each sv-caller add idx, find vcf and find priority, add in priority order! //
 			// index of vcfs added from mix //
