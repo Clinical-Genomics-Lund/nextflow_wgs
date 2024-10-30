@@ -1324,7 +1324,7 @@ process freebayes {
 	cpus 1
 	time '2h'
 	memory '10 GB'
-	container '/fs1/resources/containers/twistmyeloid_2020-06-17.sif'
+	container = '${params.container_twist_myeloid}'
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -3118,7 +3118,7 @@ def delly_panel_version(task) {
 
 process cnvkit_panel {
 	cpus = 5
-	container = '/fs1/resources/containers/twistmyeloid_active.sif'
+	container = "${params.container_twist_myeloid}"
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	publishDir "${OUTDIR}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
 	tag "$id"
