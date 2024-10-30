@@ -2175,6 +2175,42 @@ def calculate_indel_cadd_version(task) {
 	"""
 }
 
+process bgzip_indel_cadd {
+	cpus 4
+	tag "$group"
+	memory '1 GB'
+	time '5m'
+	container = "${params.container_bcftools}"
+
+	input:
+		set group, file(cadd_scores) from indel_cadd
+	
+	output:
+		set group, file("cadd.gz"), file("cadd.gz.tbi") into indel_cadd_bgzip
+	
+	script:
+		"""
+		gunzip -c ${cadd_scores} > cadd
+		bgzip -@ ${task.cpus} cadd
+		tabix -p vcf cadd.gz
+		"""
+	
+	stub:
+		"""
+		touch "${group}.cadd.FIXME"
+		${bgzip_indel_cadd_version(task)}
+		"""
+}
+def bgzip_indel_cadd_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	END_VERSIONS
+	"""
+}
+
 // Add the calculated indel CADDs to the vcf
 process add_cadd_scores_to_vcf {
 	cpus 4
@@ -2184,7 +2220,7 @@ process add_cadd_scores_to_vcf {
 	container = "${params.container_genmod}"
 
 	input: 
-		set group, file(vcf), file(cadd_scores) from splice_marked.join(indel_cadd)
+		set group, file(vcf), file(cadd_scores), file(cadd_scores_tbi) from splice_marked.join(indel_cadd_bgzip)
 
 	output:
 		set group, file("${group}.cadd.vcf") into ma_vcf, fa_vcf, base_vcf
@@ -2192,10 +2228,7 @@ process add_cadd_scores_to_vcf {
 
 	script:
 		"""
-		gunzip -c $cadd_scores > cadd
-		bgzip -@ ${task.cpus} cadd
-		tabix -p vcf cadd.gz
-		genmod annotate --cadd-file cadd.gz $vcf > ${group}.cadd.vcf
+		genmod annotate --cadd-file ${cadd_scores} ${vcf} > ${group}.cadd.vcf
 
 		${add_cadd_scores_to_vcf_version(task)}
 		"""
@@ -2210,10 +2243,8 @@ def add_cadd_scores_to_vcf_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
 	END_VERSIONS
-
 	"""
 }
 
@@ -3706,46 +3737,27 @@ process score_sv {
 		set group, type, file(vcf) from annotatedSV
 
 	output:
-		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore,sv_rescore_ma,sv_rescore_fa
-		set group, file("${group}_sv.INFO") into sv_INFO
-		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
+		set group, val(group_score), file(".sv.scored.vcf") into ch_scored_sv
 		set group, file("*versions.yml") into ch_score_sv_versions
 
 	script:
-		group_score = group
-		if ( type == "ma" || type == "fa") {
+		def model = (mode == "family" && params.antype == "wgs") ? params.svrank_model : params.svrank_model_s
+		def scoredVcfOutput = (mode == "family" && params.antype == "wgs") ? "${group_score}.sv.scored.vcf" : "${group_score}.sv.scored.vcf"
+		def group_score = group
+		if ( type == "ma" || type == "fa" ) {
 			group_score = group + "_" + type
 		}
 	
-		if (mode == "family" && params.antype == "wgs") {
-			"""
-			genmod score -i $group_score -c $params.svrank_model -r $vcf -o ${group_score}.sv.scored_tmp.vcf
-			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group_score}.sv.scored_tmp.vcf 
-			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
-			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
-			echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+		"""
+		genmod score -i ${group_score} -c ${model} -r ${vcf} -o ${group_score}.sv.scored.vcf
 
-			${score_sv_version(task)}
-			"""
-		}
-		else {
-			"""
-			genmod score -i $group_score -c $params.svrank_model_s -r $vcf -o ${group_score}.sv.scored.vcf
-			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
-			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
-			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
-			echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
-
-			${score_sv_version(task)}
-			"""
-		}
+		${score_sv_version(task)}
+		"""
 
 	stub:
 		group_score = group
 		"""
-		touch "${group_score}.sv.scored.sorted.vcf.gz"
-		touch "${group_score}.sv.scored.sorted.vcf.gz.tbi"
-		touch "${group}_sv.INFO"
+		touch "${group_score}.sv.scored.sorted.vcf"
 
 		${score_sv_version(task)}
 		"""
@@ -3754,12 +3766,59 @@ def score_sv_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
+	END_VERSIONS	
+	"""
+}
+
+process bgzip_scored_genmod {
+	cpus 4
+	tag "$group"
+	memory '1 GB'
+	time '5m'
+	container = "${params.container_bcftools}"
+
+	input:
+		set group, val(group_score), file(scored_sv_vcf) from ch_scored_sv
+	
+	output:
+		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore, sv_rescore_ma, sv_rescore_fa
+		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
+		set group, file("${group}_sv.INFO") into sv_INFO
+		set group, file("*versions.yml") into ch_score_sv_bgzip_versions
+
+	script:
+		"""
+			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${scored_sv_vcf}
+			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
+			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
+			echo "SV\t$type\t${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+
+			${bgzip_score_sv_version(task)}
+		"""
+	stub:
+		"""
+			touch "${group_score}.sv.scored.sorted.vcf.gz"
+			touch "${group_score}.sv.scored.sorted.vcf.gz.tbi"
+			touch "${group}_sv.INFO"
+
+			${bgzip_score_sv_version(task)}
+		"""
+}
+def bgzip_score_sv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
 	END_VERSIONS	
 	"""
 }
+
+// bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
+// bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
+// tabix ${group_score}.sv.scored.sorted.vcf.gz -f
+// echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
 
 process compound_finder {
 	cpus 2
