@@ -2330,7 +2330,7 @@ process genmodscore {
 			"""
 			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.score1.vcf
 
-			// To get compounds without applying rank score penalty
+			# To get compounds without applying rank score penalty
 			genmod compound \
 				--penalty 0 \
 				-o ${group_score}.score1.with_compounds.vcf \
