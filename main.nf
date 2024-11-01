@@ -4050,7 +4050,7 @@ process combine_versions {
  			ch_score_sv_versions.first(),
 			ch_compound_finder_versions.first(),
 			ch_bgzip_indel_cadd_versions.first(),
-			ch_bgzip_scored_genmod_versions()
+			ch_bgzip_scored_genmod_versions.first()
 		).groupTuple()
 	
 	output:
