@@ -3780,13 +3780,12 @@ process bgzip_scored_genmod {
 
 	input:
 		set group, val(group_score), file(scored_sv_vcf) from ch_scored_sv
-		set group, file("*versions.yml") into ch_bgzip_scored_genmod_versions
 	
 	output:
 		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore, sv_rescore_ma, sv_rescore_fa
 		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
 		set group, file("${group}_sv.INFO") into sv_INFO
-		set group, file("*versions.yml") into ch_score_sv_bgzip_versions
+		set group, file("*versions.yml") into ch_bgzip_scored_genmod_versions
 
 	script:
 		"""
