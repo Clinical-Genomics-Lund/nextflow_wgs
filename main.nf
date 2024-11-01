@@ -3728,28 +3728,27 @@ process prescore {
 process score_sv {
 	cpus 2
 	tag "$group $mode"
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	memory '10 GB'
 	time '2h'
 	container = "${params.container_genmod}"
 
 	input:
-		set group, type, file(vcf) from annotatedSV
+		set group, type, file(in_vcf) from annotatedSV
 
 	output:
-		set group, val(group_score), file(".sv.scored.vcf") into ch_scored_sv
+		set group, val(group_score), file("*.sv.scored.vcf") into ch_scored_sv
 		set group, file("*versions.yml") into ch_score_sv_versions
 
 	script:
 		def model = (mode == "family" && params.antype == "wgs") ? params.svrank_model : params.svrank_model_s
-		def scoredVcfOutput = (mode == "family" && params.antype == "wgs") ? "${group_score}.sv.scored.vcf" : "${group_score}.sv.scored.vcf"
 		def group_score = group
 		if ( type == "ma" || type == "fa" ) {
 			group_score = group + "_" + type
 		}
-	
+		def scoredVcfOutput = "${group_score}.sv.scored.vcf"
 		"""
-		genmod score -i ${group_score} -c ${model} -r ${vcf} -o ${group_score}.sv.scored.vcf
+		genmod score --family_id ${group_score} --score_config ${model} --rank_results --outfile ${scoredVcfOutput} ${in_vcf}
 
 		${score_sv_version(task)}
 		"""
@@ -3757,7 +3756,7 @@ process score_sv {
 	stub:
 		group_score = group
 		"""
-		touch "${group_score}.sv.scored.sorted.vcf"
+		touch "${group_score}.sv.scored.vcf"
 
 		${score_sv_version(task)}
 		"""
