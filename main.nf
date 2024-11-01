@@ -418,8 +418,8 @@ process copy_bam {
 
 	script:
 		"""
-		cp ${bam} "${id}_dedup.bam"
-		cp ${bai} "${id}_dedup.bam.bai"
+		cp ${bam} "${id}_dedup.copy.bam"
+		cp ${bai} "${id}_dedup.copy.bam.bai"
 		"""
 }
 
