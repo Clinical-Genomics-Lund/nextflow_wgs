@@ -420,8 +420,8 @@ process copy_bam {
 
 	script:
 		"""
-		rsync --bwlimit 40000 -a ${bam} "${id}_dedup.copy.bam"
-		rsync --bwlimit 40000 -a ${bai} "${id}_dedup.copy.bam.bai"
+		rsync --bwlimit 40000 -aL ${bam} "${id}_dedup.copy.bam"
+		rsync --bwlimit 40000 -aL ${bai} "${id}_dedup.copy.bam.bai"
 		"""
 }
 
