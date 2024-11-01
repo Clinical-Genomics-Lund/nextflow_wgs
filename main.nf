@@ -409,6 +409,8 @@ process copy_bam {
 	cpus 1
 	memory '2GB'
 	time '1h'
+	container "${params.container_rsync}"
+
 	input:
 		set group, id, file(bam), file(bai) from copy_bam_ch
 	
@@ -418,8 +420,8 @@ process copy_bam {
 
 	script:
 		"""
-		cp ${bam} "${id}_dedup.copy.bam"
-		cp ${bai} "${id}_dedup.copy.bam.bai"
+		rsync --bwlimit 40000 -a ${bam} "${id}_dedup.copy.bam"
+		rsync --bwlimit 40000 -a ${bai} "${id}_dedup.copy.bam.bai"
 		"""
 }
 
