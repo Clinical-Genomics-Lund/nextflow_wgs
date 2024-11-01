@@ -1,10 +1,15 @@
 # CHANGELOG
 
-### 3.11.0
+### 3.12.0
 * Rename `cleanVCF.py` -> `postprocess_vep_vcf.py`
 * Remove `merge_callsets.pl` from `svdb_merge` process
 * Move most container path specs into config
-* Ensure that input VCFs are always supplied in the same alphanumeric order to svdb (see [#172](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/172)
+* Ensure that input VCFs are always supplied in the same alphanumeric order to svdb (see [#172](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/172))
+
+### 3.11.1
+* Add a process to get contamination values from verifybamid2 software.
+* Update configs/nextflow.hopper.config with a specific verifybamid2 container.
+* Update configs/nextflow.hopper.config with specific SVDPrefix files for panel and wgs.
 
 ### 3.10.4
 * Added --format vcf to `vep_sv` to fix for cases where vcf file carries no variants. 
