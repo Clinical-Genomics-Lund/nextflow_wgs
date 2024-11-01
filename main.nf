@@ -2187,6 +2187,7 @@ process bgzip_indel_cadd {
 	
 	output:
 		set group, file("cadd.gz"), file("cadd.gz.tbi") into indel_cadd_bgzip
+		set group, file("*versions.yml") into ch_bgzip_indel_cadd_versions
 	
 	script:
 		"""
@@ -3779,6 +3780,7 @@ process bgzip_scored_genmod {
 
 	input:
 		set group, val(group_score), file(scored_sv_vcf) from ch_scored_sv
+		set group, file("*versions.yml") into ch_bgzip_scored_genmod_versions
 	
 	output:
 		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore, sv_rescore_ma, sv_rescore_fa
@@ -4047,7 +4049,9 @@ process combine_versions {
 			ch_postprocess_vep_versions.first(),
 			ch_artefact_versions.first(),
  			ch_score_sv_versions.first(),
-			ch_compound_finder_versions.first()
+			ch_compound_finder_versions.first(),
+			ch_bgzip_indel_cadd_versions.first(),
+			ch_bgzip_scored_genmod_versions()
 		).groupTuple()
 	
 	output:
