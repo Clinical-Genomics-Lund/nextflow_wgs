@@ -3570,7 +3570,7 @@ process vep_sv {
 		set group, id, file(vcf) from vcf_vep.mix(vep_sv_panel)
 
 	output:
-		set group, id, file("${group}.vep.vcf") into vep_vcf
+		set group, id, file("${group}.vep.vcf") into vep_sv_vcf
 		set group, file("*versions.yml") into ch_vep_sv_versions
 
 	script:
@@ -3621,36 +3621,37 @@ def vep_sv_version(task) {
 	"""
 }
 
-process postprocess_vep {
+process postprocess_vep_sv {
 	cpus = 2
 	memory '10GB'
 	time '1h'
 	tag "$group"
+	container = "${params.container_svdb}"
 
 	input:
-		set group, id, file(vcf) from vep_vcf
+		set group, id, file(vcf) from vep_sv_vcf
 
 	output:
-		set group, file("${group}.vep.clean.merge.omim.vcf") into artefact_vcf
+		set group, file("${group}.vep.clean.merge.vcf") into add_omim_vcf
 		set group, file("*versions.yml") into ch_postprocess_vep_versions
 	
 	script:
 		"""
+		# Filter variants with FILTER != . or PASS and variants missing CSQ field.
 		postprocess_vep_vcf.py $vcf > ${group}.vep.clean.vcf
 		svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
 		sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.vcf
 		sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
-		add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
 
-		${postprocess_vep_version(task)}
+		${postprocess_vep_sv_version(task)}
 		"""
 	stub:
 		"""
-		touch "${group}.vep.clean.merge.omim.vcf"
-		${postprocess_vep_version(task)}
+		touch "${group}.vep.clean.merge.vcf"
+		${postprocess_vep_sv_version(task)}
 		"""
 }
-def postprocess_vep_version(task) {
+def postprocess_vep_sv_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
@@ -3659,6 +3660,31 @@ def postprocess_vep_version(task) {
 	END_VERSIONS	
 	"""
 }
+
+process add_omim {
+	cpus = 2
+	memory '10GB'
+	time '1h'
+	tag "$group"
+
+	input:
+		set group, id, file(vcf) from vep_sv_vcf
+
+	output:
+		set group, file("${group}.vep.clean.merge.omim.vcf") into artefact_vcf
+		set group, file("*versions.yml") into ch_postprocess_vep_versions
+
+	script:
+		"""
+		add_omim.pl $vcf > ${group}.vep.clean.merge.omim.vcf
+		"""
+	stub:
+		"""
+		touch "${group}.vep.clean.merge.omim.vcf"
+		"""
+}
+
+
 
 // Query artefact db
 process artefact {
