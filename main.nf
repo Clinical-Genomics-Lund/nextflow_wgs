@@ -87,27 +87,8 @@ annotate_only.into{
 }
 
 bam_choice.into{ 
-	expansionhunter_bam_choice; 
-	dnascope_bam_choice;
-	bampath_start;
-	chanjo_bam_choice;
-	d4_bam_choice;
-	yaml_bam_choice; 
-	cov_bam_choice; 
-	bam_manta_choice; 
-	bam_nator_choice; 
-	bam_tiddit_choice; 
-	bam_mito_choice; 
-	bam_SMN_choice; 
-	bam_freebayes_choice;
-	bam_mantapanel_choice;
-	bam_cnvkitpanel_choice;
-	bam_dellypanel_choice;
-	bam_melt_choice;
-	bam_qc_choice;
-	dedup_dummy_choice;
-	bam_bqsr_choice;
-	bam_gatk_choice }
+	copy_bam_ch
+}
 
 // bqsr expects sample_id to come first, instead of group_id
 bam_bqsr_choice.map {
@@ -442,6 +423,25 @@ def markdup_versions(task) {
 	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
 	END_VERSIONS
 	"""
+}
+
+// Run in the start-by-bam mode to avoid multiple processes accessing the bam file directly at /fs1 or /fs2
+process copy_bam {
+
+	cpus 1
+	memory '2GB'
+	time '1h'
+	input:
+		set id, group, file(bam), file(bai) from copy_bam_ch
+	
+	output:
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco 
+
+	script:
+		"""
+		cp ${bam} "${id}_dedup.bam"
+		cp ${bai} "${id}_dedup.bam.bai}"
+		"""
 }
 
 process bqsr {
