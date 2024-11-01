@@ -5,7 +5,13 @@ use File::Basename qw( basename dirname );
 use File::Spec;
 use Data::Dumper;
 
-my $omim_db = File::Spec->rel2abs(dirname($0))."/omim_genes.txt";
+# This script annotates a VCF (Variant Call Format) file with gene information from the OMIM database.
+# It searches for gene IDs in the VCF's CSQ field, checks for matches in the OMIM database file,
+# and adds matching OMIM gene symbols as annotations in the VCF's INFO field under a new field called OMIM_GENES.
+
+# Usage:
+
+my $omim_db = shift @ARGV or die "Usage: $0 <path/to/omim_genes.txt> < input_file.vcf > output_file.vcf\n";
 my %omim = get_omim($omim_db);
 
 
