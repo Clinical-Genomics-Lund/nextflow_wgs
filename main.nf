@@ -4021,7 +4021,7 @@ process combine_versions {
 			ch_bqsr_versions.first(),
 			ch_sentieon_qc_versions.first(),
 			ch_d4_coverage_versions.first(),
-                        ch_verifybamid2_versions.first(),
+			ch_verifybamid2_versions.first(),
 			ch_smn_copy_number_caller_versions.first(),
 			ch_expansionhunter_versions.first(),
 			ch_stranger_versions.first(),
