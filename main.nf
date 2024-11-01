@@ -403,6 +403,7 @@ def markdup_versions(task) {
 	"""
 }
 
+// FIXME: Before merge, decide whether to use cp instead
 // Run in the start-by-bam mode to avoid multiple processes accessing the bam file directly at /fs1 or /fs2
 process copy_bam {
 
