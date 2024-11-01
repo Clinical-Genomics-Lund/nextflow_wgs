@@ -3675,7 +3675,7 @@ process add_omim {
 
 	script:
 		"""
-		add_omim.pl $vcf > ${group}.vep.clean.merge.omim.vcf
+		add_omim.pl $params.OMIM_GENES < $vcf > ${group}.vep.clean.merge.omim.vcf
 		"""
 	stub:
 		"""
