@@ -101,19 +101,7 @@ Channel
 	.map{ row-> tuple(row.group, row.assay) }
         .set{ meta_loqusdb_no_sv_calling }
 
-// For melt to work if started from bam-file.
-process dedupdummy {
-	when:
-		params.run_melt
 
-	input:
-		set id, group, file(bam), file(bai) from dedup_dummy_choice
-	output:
-		set id, file("dummy") into dedup_dummy
-	"""
-	echo test > dummy
-	"""
-}
 // Input channels for various meta information //
 Channel
 	.fromPath(params.csv)
@@ -444,7 +432,19 @@ bam_bqsr_choice.map {
 	def bai_path = input_tuple.get(3)
 	return tuple(sample_id, group_id, bam_path, bai_path)
 }.set{bam_bqsr_choice}
+// For melt to work if started from bam-file.
+process dedupdummy {
+	when:
+		params.run_melt
 
+	input:
+		set id, group, file(bam), file(bai) from dedup_dummy_choice
+	output:
+		set id, file("dummy") into dedup_dummy
+	"""
+	echo test > dummy
+	"""
+}
 
 
 process bqsr {
