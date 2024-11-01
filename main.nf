@@ -3380,19 +3380,19 @@ process svdb_merge {
 			tiddit = []
 			gatk = []
 
-                        /* 
-                           Order in which VCFs are merged matters when the merged SV
-                           is annotated with final position/length, which affects 
-                           artefact matching in loqusdb. 
-                        
-                           A possibly better way to sort here would be to sort the
-                           file by familial-relation (e.g. always sort proband-mother-father)
-                           this would ensure the same merge-order regardless of sample-id
-                        */
+			/*
+			 Order in which VCFs are merged matters when the merged SV
+			 is annotated with final position/length, which affects
+			 artefact matching in loqusdb.
 
-                        mantaV = mantaV.collect { it.toString() }.sort()
-                        gatkV = gatkV.collect { it.toString() }.sort()
-                        tidditV = tidditV.collect { it.toString() }.sort()
+			 A possibly better way to sort here would be to sort the
+			 file by familial-relation (e.g. always sort proband-mother-father)
+			 this would ensure the same merge-order regardless of sample-id
+			 */
+
+			mantaV = mantaV.collect { it.toString() }.sort()
+			gatkV = gatkV.collect { it.toString() }.sort()
+			tidditV = tidditV.collect { it.toString() }.sort()
 
 			for (i = 1; i <= mantaV.size(); i++) {
 				tmp = mantaV[i-1] + ':manta' + "${i}"
