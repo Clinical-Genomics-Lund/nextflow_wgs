@@ -2,6 +2,9 @@
 
 ### 3.11.0
 * Rename `cleanVCF.py` -> `postprocess_vep_vcf.py`
+* Remove `merge_callsets.pl` from `svdb_merge` process
+* Move most container path specs into config
+* Ensure that input VCFs are always supplied in the same alphanumeric order to svdb (see [#172](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/172)
 
 ### 3.10.4
 * Added --format vcf to `vep_sv` to fix for cases where vcf file carries no variants. 
