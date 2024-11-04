@@ -2385,7 +2385,7 @@ process vcf_completion {
 		set group, type, file(vcf) from scored_vcf
 
 	output:
-		set group, type, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf,snv_sv_vcf_ma,snv_sv_vcf_fa, vcf_loqus
+		set group, type, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf, snv_sv_vcf_ma, snv_sv_vcf_fa, vcf_loqus
 		set group, file("${group}_snv.INFO") into snv_INFO
 		set group, file("*versions.yml") into ch_vcf_completion_versions
 
@@ -2406,10 +2406,7 @@ process vcf_completion {
 		"""
 
 	stub:
-		group_score = group
-		if (type == "ma" || type == "fa") {
-			group_score = group + "_" + type
-		}
+		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		"""
 		touch "${group_score}.scored.vcf.gz"
@@ -3748,18 +3745,14 @@ process score_sv {
 		set group, type, file(in_vcf) from annotatedSV
 
 	output:
-		set group, val(group_score), file("*.sv.scored.vcf") into ch_scored_sv
+		set group, type, file("*.sv.scored.vcf") into ch_scored_sv
 		set group, file("*versions.yml") into ch_score_sv_versions
 
 	script:
 		def model = (mode == "family" && params.antype == "wgs") ? params.svrank_model : params.svrank_model_s
-		def group_score = group
-		if ( type == "ma" || type == "fa" ) {
-			group_score = group + "_" + type
-		}
-		def scoredVcfOutput = "${group_score}.sv.scored.vcf"
+		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 		"""
-		genmod score --family_id ${group_score} --score_config ${model} --rank_results --outfile ${scoredVcfOutput} ${in_vcf}
+		genmod score --family_id ${group_score} --score_config ${model} --rank_results --outfile "${group_score}.sv.scored.vcf" ${in_vcf}
 
 		${score_sv_version(task)}
 		"""
@@ -3789,15 +3782,16 @@ process bgzip_scored_genmod {
 	container = "${params.container_bcftools}"
 
 	input:
-		set group, val(group_score), file(scored_sv_vcf) from ch_scored_sv
+		set group, type, file(scored_sv_vcf) from ch_scored_sv
 	
 	output:
-		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore, sv_rescore_ma, sv_rescore_fa
-		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
+		set group, type, file("*.sv.scored.sorted.vcf.gz"), file("*.sv.scored.sorted.vcf.gz.tbi") into sv_rescore, sv_rescore_ma, sv_rescore_fa
+		set group, file("*.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
 		set group, file("${group}_sv.INFO") into sv_INFO
 		set group, file("*versions.yml") into ch_bgzip_scored_genmod_versions
 
 	script:
+		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 		"""
 			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${scored_sv_vcf}
 			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
