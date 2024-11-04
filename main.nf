@@ -2314,7 +2314,7 @@ process genmodscore {
 		set group, type, file(vcf) from inhermod
 
 	output:
-		set group, type, file("${group_score}.scored.vcf") into scored_vcf
+		set group, type, file("*.scored.vcf") into scored_vcf
 		set group, file("*versions.yml") into ch_genmodscore_versions
 
 	script:
