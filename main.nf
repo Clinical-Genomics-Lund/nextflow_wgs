@@ -426,6 +426,12 @@ process copy_bam {
 		ionice -c 2 -n 7 rsync --bwlimit ${params.bam_copy_speed_mbs} -aL ${bam} "${id}_dedup.copy.bam"
 		ionice -c 2 -n 7 rsync --bwlimit ${params.bam_copy_speed_mbs} -aL ${bai} "${id}_dedup.copy.bam.bai"
 		"""
+
+	stub:
+		"""
+		touch "${id}_dedup.copy.bam"
+		touch "${id}_dedup.copy.bam.bai"
+		"""
 }
 
 // bqsr expects sample_id to come first, instead of group_id
