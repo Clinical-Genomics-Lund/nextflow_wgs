@@ -403,15 +403,12 @@ def markdup_versions(task) {
 	"""
 }
 
-// FIXME: Before merge, decide whether to use cp instead
-// Run in the start-by-bam mode to avoid multiple processes accessing the bam file directly at /fs1 or /fs2
 process copy_bam {
 
+	tag "$id"
 	cpus 1
 	memory '2GB'
 	time '1h'
-	container "${params.container_rsync}"
-	tag "$id"
 
 	input:
 		set group, id, file(bam), file(bai) from copy_bam_ch
@@ -419,12 +416,10 @@ process copy_bam {
 	output:
 		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into expansionhunter_bam_choice, dnascope_bam_choice, bampath_start, cov_bam_choice, bam_manta_choice, bam_tiddit_choice, bam_mito_choice, bam_SMN_choice, bam_freebayes_choice, bam_mantapanel_choice, bam_cnvkitpanel_choice, bam_dellypanel_choice, bam_melt_choice, bam_qc_choice, dedup_dummy_choice, bam_bqsr_choice, bam_gatk_choice
 
-
 	script:
 		"""
-		# Ionice set to only copy when disk is available
-		ionice -c 2 -n 7 rsync --bwlimit ${params.bam_copy_speed_mbs} -aL ${bam} "${id}_dedup.copy.bam"
-		ionice -c 2 -n 7 rsync --bwlimit ${params.bam_copy_speed_mbs} -aL ${bai} "${id}_dedup.copy.bam.bai"
+		ionice -c 2 -n 7 cp ${bam} "${id}_dedup.copy.bam"
+		ionice -c 2 -n 7 cp ${bai} "${id}_dedup.copy.bam.bai"
 		"""
 
 	stub:
@@ -507,12 +502,9 @@ def bqsr_version(task) {
 //Collect various QC data: 
 process sentieon_qc {
 	cpus 52
-	memory '50 GB'
+	memory '30 GB'
 	tag "$id"
 	time '2h'
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
 	container = "${params.container_sentieon}"
 
 	input:
@@ -1716,6 +1708,7 @@ def run_haplogrep_version(task) {
 
 // use eKLIPse for detecting mitochondrial deletions
 process run_eklipse {
+
 	tag "$id"
 	cpus 2
 	// in rare cases with samples above 50 000x this can peak at 500+ GB of VMEM. Add downsampling!
@@ -2191,8 +2184,9 @@ def calculate_indel_cadd_version(task) {
 }
 
 process bgzip_indel_cadd {
-	cpus 4
+
 	tag "$group"
+	cpus 4
 	memory '1 GB'
 	time '5m'
 	container = "${params.container_bcftools}"
@@ -2201,7 +2195,7 @@ process bgzip_indel_cadd {
 		set group, file(cadd_scores) from indel_cadd
 	
 	output:
-		set group, file("*.cadd.gz"), file("*.cadd.gz.tbi") into indel_cadd_bgzip
+		set group, file("${group}.cadd.gz"), file("${group}.cadd.gz.tbi") into indel_cadd_bgzip
 		set group, file("*versions.yml") into ch_bgzip_indel_cadd_versions
 	
 	script:
@@ -2269,13 +2263,10 @@ def add_cadd_scores_to_vcf_version(task) {
 
 // # Annotating variant inheritance models:
 process inher_models {
+	tag "$group"
 	cpus 3
 	memory '80 GB'
-	tag "$group"
 	time '1h'
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
 	container = "${params.container_genmod}"
 
 	input:
@@ -2311,8 +2302,8 @@ def inher_models_version(task) {
 // Adjusting compound scores: 
 // Sorting VCF according to score: 
 process genmodscore {
-	cpus 2
 	tag "$group"
+	cpus 2
 	memory '20 GB'
 	time '1h'
 	container = "${params.container_genmod}"
@@ -2392,12 +2383,12 @@ process vcf_completion {
 		set group, type, file(vcf) from scored_vcf
 
 	output:
-		set group, type, file("*.scored.vcf.gz"), file("*.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf, snv_sv_vcf_ma, snv_sv_vcf_fa, vcf_loqus
+		set group, type, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf, snv_sv_vcf_ma, snv_sv_vcf_fa, vcf_loqus
 		set group, file("${group}_snv.INFO") into snv_INFO
 		set group, file("*versions.yml") into ch_vcf_completion_versions
 
 	script:
-		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		"""
 		sed 's/^MT/M/' -i $vcf
@@ -2410,7 +2401,7 @@ process vcf_completion {
 		"""
 
 	stub:
-		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		"""
 		touch "${group_score}.scored.vcf.gz"
@@ -3550,7 +3541,7 @@ process annotsv {
 }
 def annotsv_version(task) {
 	"""${task.process}:
-	    annotsv: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )"""
+        annotsv: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )"""
 }
 
 process vep_sv {
@@ -3738,23 +3729,23 @@ process prescore {
 }
 
 process score_sv {
-	cpus 2
 	tag "$group $mode"
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	cpus 2
 	memory '10 GB'
 	time '2h'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	container = "${params.container_genmod}"
 
 	input:
 		set group, type, file(in_vcf) from annotatedSV
 
 	output:
-		set group, type, file("*.sv.scored.vcf") into ch_scored_sv
+		set group, type, file("${group_score}.sv.scored.vcf") into ch_scored_sv
 		set group, file("*versions.yml") into ch_score_sv_versions
 
 	script:
 		def model = (mode == "family" && params.antype == "wgs") ? params.svrank_model : params.svrank_model_s
-		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 		"""
 		genmod score --family_id ${group_score} --score_config ${model} --rank_results --outfile "${group_score}.sv.scored.vcf" ${in_vcf}
 
@@ -3789,13 +3780,13 @@ process bgzip_scored_genmod {
 		set group, type, file(scored_sv_vcf) from ch_scored_sv
 	
 	output:
-		set group, type, file("*.sv.scored.sorted.vcf.gz"), file("*.sv.scored.sorted.vcf.gz.tbi") into sv_rescore, sv_rescore_ma, sv_rescore_fa
-		set group, file("*.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
+		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore, sv_rescore_ma, sv_rescore_fa
+		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
 		set group, file("${group}_sv.INFO") into sv_INFO
 		set group, file("*versions.yml") into ch_bgzip_scored_genmod_versions
 
 	script:
-		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 		"""
 			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${scored_sv_vcf}
 			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
@@ -3805,7 +3796,7 @@ process bgzip_scored_genmod {
 			${bgzip_score_sv_version(task)}
 		"""
 	stub:
-		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 		"""
 			touch "${group_score}.sv.scored.sorted.vcf.gz"
 			touch "${group_score}.sv.scored.sorted.vcf.gz.tbi"
@@ -3844,10 +3835,7 @@ process compound_finder {
 		set group, file("*versions.yml") into ch_compound_finder_versions
 
 	script:
-		group_score = group
-		if ( type == "ma" || type == "fa") {
-			group_score = group + "_" + type
-		}
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		"""
 		compound_finder.pl \\
