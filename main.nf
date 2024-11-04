@@ -411,6 +411,7 @@ process copy_bam {
 	memory '2GB'
 	time '1h'
 	container "${params.container_rsync}"
+	tag "$id"
 
 	input:
 		set group, id, file(bam), file(bai) from copy_bam_ch
@@ -500,7 +501,7 @@ def bqsr_version(task) {
 //Collect various QC data: 
 process sentieon_qc {
 	cpus 52
-	memory '30 GB'
+	memory '50 GB'
 	tag "$id"
 	time '2h'
 	// scratch true
@@ -1709,6 +1710,7 @@ def run_haplogrep_version(task) {
 
 // use eKLIPse for detecting mitochondrial deletions
 process run_eklipse {
+	tag "$id"
 	cpus 2
 	// in rare cases with samples above 50 000x this can peak at 500+ GB of VMEM. Add downsampling!
 	memory '100GB'
