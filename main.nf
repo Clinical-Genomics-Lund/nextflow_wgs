@@ -2215,6 +2215,7 @@ process bgzip_indel_cadd {
 	stub:
 		"""
 		touch "${group}.cadd.gz"
+		touch "${group}.cadd.gz.tbi"
 		${bgzip_indel_cadd_version(task)}
 		"""
 }
