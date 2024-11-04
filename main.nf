@@ -2201,6 +2201,7 @@ process bgzip_indel_cadd {
 		gunzip -c ${cadd_scores} > cadd
 		bgzip -@ ${task.cpus} cadd
 		tabix -p vcf cadd.gz
+		${bgzip_indel_cadd_version(task)}
 		"""
 	
 	stub:
