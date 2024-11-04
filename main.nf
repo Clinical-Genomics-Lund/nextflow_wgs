@@ -2392,15 +2392,12 @@ process vcf_completion {
 		set group, type, file(vcf) from scored_vcf
 
 	output:
-		set group, type, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf, snv_sv_vcf_ma, snv_sv_vcf_fa, vcf_loqus
+		set group, type, file("*.scored.vcf.gz"), file("*.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf, snv_sv_vcf_ma, snv_sv_vcf_fa, vcf_loqus
 		set group, file("${group}_snv.INFO") into snv_INFO
 		set group, file("*versions.yml") into ch_vcf_completion_versions
 
 	script:
-		group_score = group
-		if (type == "ma" || type == "fa") {
-			group_score = group + "_" + type
-		}
+		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		"""
 		sed 's/^MT/M/' -i $vcf
