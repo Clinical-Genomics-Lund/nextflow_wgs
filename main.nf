@@ -422,8 +422,8 @@ process copy_bam {
 	script:
 		"""
 		# Ionice set to only copy when disk is available
-		ionice -class 2 --classdata 7 rsync --bwlimit ${params.bam_copy_speed_mbs} -aL ${bam} "${id}_dedup.copy.bam"
-		ionice -class 2 --classdata 7 rsync --bwlimit ${params.bam_copy_speed_mbs} -aL ${bai} "${id}_dedup.copy.bam.bai"
+		ionice --class 2 --classdata 7 rsync --bwlimit ${params.bam_copy_speed_mbs} -aL ${bam} "${id}_dedup.copy.bam"
+		ionice --class 2 --classdata 7 rsync --bwlimit ${params.bam_copy_speed_mbs} -aL ${bai} "${id}_dedup.copy.bam.bai"
 		"""
 }
 
