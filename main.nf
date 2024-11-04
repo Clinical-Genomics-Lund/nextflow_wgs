@@ -2201,14 +2201,14 @@ process bgzip_indel_cadd {
 		set group, file(cadd_scores) from indel_cadd
 	
 	output:
-		set group, file("cadd.gz"), file("cadd.gz.tbi") into indel_cadd_bgzip
+		set group, file("*.cadd.gz"), file("*.cadd.gz.tbi") into indel_cadd_bgzip
 		set group, file("*versions.yml") into ch_bgzip_indel_cadd_versions
 	
 	script:
 		"""
-		gunzip -c ${cadd_scores} > cadd
-		bgzip -@ ${task.cpus} cadd
-		tabix -p vcf cadd.gz
+		gunzip -c ${cadd_scores} > "${group}.cadd"
+		bgzip -@ ${task.cpus} "${group}.cadd"
+		tabix -p vcf "${group}.cadd.gz"
 		${bgzip_indel_cadd_version(task)}
 		"""
 	
