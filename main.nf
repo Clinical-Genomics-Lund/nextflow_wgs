@@ -3805,6 +3805,7 @@ process bgzip_scored_genmod {
 			${bgzip_score_sv_version(task)}
 		"""
 	stub:
+		def group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 		"""
 			touch "${group_score}.sv.scored.sorted.vcf.gz"
 			touch "${group_score}.sv.scored.sorted.vcf.gz.tbi"
