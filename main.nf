@@ -403,6 +403,7 @@ def markdup_versions(task) {
 	"""
 }
 
+// FIXME: Remap the group <-> ID for the Sentieon QC as well
 process copy_bam {
 
 	tag "$id"
@@ -430,6 +431,17 @@ process copy_bam {
 }
 
 // bqsr expects sample_id to come first, instead of group_id
+bam_bqsr_choice.map {
+	input_tuple ->
+	def group_id = input_tuple.get(0)
+	def sample_id = input_tuple.get(1)
+	def bam_path = input_tuple.get(2)
+	def bai_path = input_tuple.get(3)
+	return tuple(sample_id, group_id, bam_path, bai_path)
+}.set{bam_bqsr_choice}
+bam_qc_choice.map {
+	tup -> return tuple(tup.get(1), tup.get(0), tup.get(2), tup.get(3)) 
+}.set(bam_qc_choice)
 bam_bqsr_choice.map {
 	input_tuple ->
 	def group_id = input_tuple.get(0)
