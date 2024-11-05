@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 3.11.1
+* Add a process to get contamination values from verifybamid2 software.
+* Update configs/nextflow.hopper.config with a specific verifybamid2 container.
+* Update configs/nextflow.hopper.config with specific SVDPrefix files for panel and wgs.
+
 ### 3.10.4
 * Added --format vcf to `vep_sv` to fix for cases where vcf file carries no variants. 
  
