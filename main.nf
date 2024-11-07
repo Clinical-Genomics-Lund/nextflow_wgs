@@ -99,7 +99,6 @@ bam_bqsr_choice.map {
 	def bai_path = input_tuple.get(3)
 	return tuple(sample_id, group_id, bam_path, bai_path)
 }.set{bam_bqsr_choice}
->>>>>>> master
 
 // vcf_choice.into{
 // 	split_cadd_choice;
