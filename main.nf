@@ -465,9 +465,9 @@ bam_bqsr_choice.map {
 	def bai_path = input_tuple.get(3)
 	return tuple(sample_id, group_id, bam_path, bai_path)
 }.set{bam_bqsr_choice}
-bam_qc_choice.map {
-	tup -> return tuple(tup.get(1), tup.get(0), tup.get(2), tup.get(3))
-}.set{bam_qc_choice}
+// bam_qc_choice.map {
+// 	tup -> return tuple(tup.get(1), tup.get(0), tup.get(2), tup.get(3))
+// }.set{bam_qc_choice}
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
