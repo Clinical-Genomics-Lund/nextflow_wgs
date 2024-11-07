@@ -111,7 +111,6 @@ Channel
 	.map{ row-> tuple(row.group, row.assay) }
         .set{ meta_loqusdb_no_sv_calling }
 
-
 // Input channels for various meta information //
 Channel
 	.fromPath(params.csv)
