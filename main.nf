@@ -1262,7 +1262,7 @@ process gvcf_combine {
 		set group, file("*versions.yml") into ch_gvcf_combine_versions
 
 	script:
-		all_gvcfs = vcf.join(' -v ')
+		all_gvcfs = vcf.collect { it.getName() }.sort().join(' -v ')
 
 		"""
 		sentieon driver \\
