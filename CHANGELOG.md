@@ -1,4 +1,6 @@
 # CHANGELOG
+### 3.11.2
+* * Ensure that input VCFs are always supplied in the same alphanumeric order to `svdb_merge` when running trio analysis (see [#172](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/172))
 
 ### 3.12.0
 * Rename `cleanVCF.py` -> `postprocess_vep_vcf.py`
