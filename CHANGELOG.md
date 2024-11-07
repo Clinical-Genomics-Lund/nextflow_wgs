@@ -1,4 +1,6 @@
 # CHANGELOG
+### 3.11.2
+* * Ensure that input VCFs are always supplied in the same alphanumeric order to `svdb_merge` when running trio analysis (see [#172](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/172))
 
 ### 3.11.1
 * Add a process to get contamination values from verifybamid2 software.
