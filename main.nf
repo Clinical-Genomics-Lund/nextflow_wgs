@@ -343,9 +343,6 @@ process markdup {
 	memory '50 GB'
 	// 12gb peak giab //
 	time '3h'
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
 	container = "${params.container_sentieon}"
 	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
