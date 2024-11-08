@@ -91,14 +91,14 @@ bam_choice.into{
 }
 
 // bqsr expects sample_id to come first, instead of group_id
-bam_bqsr_choice.map {
-	input_tuple ->
-	def group_id = input_tuple.get(0)
-	def sample_id = input_tuple.get(1)
-	def bam_path = input_tuple.get(2)
-	def bai_path = input_tuple.get(3)
-	return tuple(sample_id, group_id, bam_path, bai_path)
-}.set{bam_bqsr_choice}
+// bam_bqsr_choice.map {
+// 	input_tuple ->
+// 	def group_id = input_tuple.get(0)
+// 	def sample_id = input_tuple.get(1)
+// 	def bam_path = input_tuple.get(2)
+// 	def bai_path = input_tuple.get(3)
+// 	return tuple(sample_id, group_id, bam_path, bai_path)
+// }.set{bam_bqsr_choice}
 
 // vcf_choice.into{
 // 	split_cadd_choice;
@@ -424,25 +424,7 @@ process copy_bam {
 		set group, id, file(bam), file(bai) from copy_bam_ch
 	
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into 
-			expansionhunter_bam_choice,
-			dnascope_bam_choice,
-			bampath_start,
-			cov_bam_choice,
-			bam_manta_choice,
-			bam_tiddit_choice,
-			bam_mito_choice,
-			bam_SMN_choice,
-			bam_freebayes_choice,
-			bam_mantapanel_choice,
-			bam_cnvkitpanel_choice,
-			bam_dellypanel_choice,
-			bam_melt_choice,
-			bam_qc_choice,
-			dedup_dummy_choice,
-			bam_bqsr_choice,
-			bam_gatk_choice,
-			verifybamid2_bam_choice
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into expansionhunter_bam_choice, dnascope_bam_choice, bampath_start, cov_bam_choice, bam_manta_choice, bam_tiddit_choice, bam_mito_choice, bam_SMN_choice, bam_freebayes_choice, bam_mantapanel_choice, bam_cnvkitpanel_choice, bam_dellypanel_choice, bam_melt_choice, bam_qc_choice, dedup_dummy_choice, bam_bqsr_choice, bam_gatk_choice, verifybamid2_bam_choice
 	script:
 		"""
 		ionice -c 2 -n 7 cp ${bam} "${id}_dedup.copy.bam"
@@ -457,17 +439,17 @@ process copy_bam {
 }
 
 // bqsr expects sample_id to come first, instead of group_id
-// bam_bqsr_choice.map {
-// 	input_tuple ->
-// 	def group_id = input_tuple.get(0)
-// 	def sample_id = input_tuple.get(1)
-// 	def bam_path = input_tuple.get(2)
-// 	def bai_path = input_tuple.get(3)
-// 	return tuple(sample_id, group_id, bam_path, bai_path)
-// }.set{bam_bqsr_choice}
-// bam_qc_choice.map {
-// 	tup -> return tuple(tup.get(1), tup.get(0), tup.get(2), tup.get(3))
-// }.set{bam_qc_choice}
+bam_bqsr_choice.map {
+	input_tuple ->
+	def group_id = input_tuple.get(0)
+	def sample_id = input_tuple.get(1)
+	def bam_path = input_tuple.get(2)
+	def bai_path = input_tuple.get(3)
+	return tuple(sample_id, group_id, bam_path, bai_path)
+}.set{bam_bqsr_choice}
+bam_qc_choice.map {
+	tup -> return tuple(tup.get(1), tup.get(0), tup.get(2), tup.get(3))
+}.set{bam_qc_choice}
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
