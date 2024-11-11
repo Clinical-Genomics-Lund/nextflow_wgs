@@ -282,7 +282,7 @@ process bwa_align {
 	cpus 50
 	memory '100 GB'
 	// 64 GB peak giab //
-	scratch true
+	scratch params.no_scratch ? false : true
 	stageInMode 'copy'
 	stageOutMode 'copy'
 	tag "$id"
