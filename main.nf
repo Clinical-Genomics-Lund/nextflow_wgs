@@ -334,7 +334,6 @@ def bwa_align_versions(task) {
 	"""
 }
 
-// Bump
 process markdup {
 	cpus 40
 	errorStrategy 'retry'
@@ -343,6 +342,9 @@ process markdup {
 	memory '50 GB'
 	// 12gb peak giab //
 	time '3h'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	container = "${params.container_sentieon}"
 	publishDir "${OUTDIR}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
@@ -420,25 +422,23 @@ process copy_bam {
 		"""
 }
 
-// bqsr expects sample_id to come first, instead of group_id
-bam_bqsr_choice.map {
-	input_tuple ->
-	def group_id = input_tuple.get(0)
-	def sample_id = input_tuple.get(1)
-	def bam_path = input_tuple.get(2)
-	def bai_path = input_tuple.get(3)
-	return tuple(sample_id, group_id, bam_path, bai_path)
-}.set{bam_bqsr_choice}
-bam_qc_choice.map {
-	tup -> return tuple(tup.get(1), tup.get(0), tup.get(2), tup.get(3))
-}.set{bam_qc_choice}
+// These processes expects ID, group instead of group, ID
+// FIXME: We should really fix this to be part of the channels
+def remap_bam_choice_tuple = { channel ->
+		channel.map { tup -> return tuple(tup.get(1), tup.get(0), tup.get(2), tup.get(3))
+	}
+}
+remap_bam_choice_tuple(cov_bam_choice).set { cov_bam_choice }
+remap_bam_choice_tuple(bam_melt_choice).set { bam_melt_choice }
+remap_bam_choice_tuple(bam_bqsr_choice).set { bam_bqsr_choice }
+remap_bam_choice_tuple(bam_qc_choice).set { bam_qc_choice }
+
 // For melt to work if started from bam-file.
 process dedupdummy {
 	when:
 		params.run_melt
-
 	input:
-		set id, group, file(bam), file(bai) from dedup_dummy_choice
+		set group, id file(bam), file(bai) from dedup_dummy_choice
 	output:
 		set id, file("dummy") into dedup_dummy
 	"""
@@ -499,6 +499,9 @@ process sentieon_qc {
 	memory '30 GB'
 	tag "$id"
 	time '2h'
+	// scratch true
+	// stageInMode 'copy'
+	// stageOutMode 'copy'
 	container = "${params.container_sentieon}"
 
 	input:
@@ -647,56 +650,56 @@ def d4_coverage_version(task) {
 }
 
 process verifybamid2 {
-        cpus 16
-        memory '10 GB'
-        // publishDir "${OUTDIR}/contamination", mode: 'copy', overwrite: 'true', pattern: '*.selfSM'
-        tag "$id"
-        container = "${params.container_verifybamid2}"
+	cpus 16
+	memory '10 GB'
+	// publishDir "${OUTDIR}/contamination", mode: 'copy', overwrite: 'true', pattern: '*.selfSM'
+	tag "$id"
+	container = "${params.container_verifybamid2}"
 
-        input:
-                set group, id, file(bam), file(bai) from verifybamid2_bam
+	input:
+			set group, id, file(bam), file(bai) from verifybamid2_bam.mix(verifybamid2_bam_choice)
 
-        output:
-                file("${id}.result.selfSM")
-                file("${id}.result.Ancestry")
-                set group, file("*versions.yml") into ch_verifybamid2_versions
+	output:
+			file("${id}.result.selfSM")
+			file("${id}.result.Ancestry")
+			set group, file("*versions.yml") into ch_verifybamid2_versions
 
-        script:
+	script:
 
-                if ( params.antype == "wgs") {
-                         """
-                         verifybamid2 \
-                         --SVDPrefix ${params.verifybamid2_svdprefix} \
-                         --Reference ${genome_file} \
-                         --BamFile ${bam}
+		if ( params.antype == "wgs") {
+			"""
+			verifybamid2 \
+				--SVDPrefix ${params.verifybamid2_svdprefix} \
+				--Reference ${genome_file} \
+				--BamFile ${bam}
 
-                         mv result.selfSM ${id}.result.selfSM
-                         mv result.Ancestry ${id}.result.Ancestry
-                         ${verifybamid2_version(task)}
-                         """
-                }
-                else {
-                         """
-                         verifybamid2 \
-                         --DisableSanityCheck \
-                         --SVDPrefix ${params.verifybamid2_svdprefix} \
-                         --Reference ${genome_file} \
-                         --BamFile ${bam}
+				mv result.selfSM ${id}.result.selfSM
+				mv result.Ancestry ${id}.result.Ancestry
+			${verifybamid2_version(task)}
+			"""
+		}
+		else {
+			"""
+			verifybamid2 \
+				--DisableSanityCheck \
+				--SVDPrefix ${params.verifybamid2_svdprefix} \
+				--Reference ${genome_file} \
+				--BamFile ${bam}
 
-                         mv result.selfSM ${id}.result.selfSM
-                         mv result.Ancestry ${id}.result.Ancestry
-                         ${verifybamid2_version(task)}
-                         """
-                }
+				mv result.selfSM ${id}.result.selfSM
+				mv result.Ancestry ${id}.result.Ancestry
+			${verifybamid2_version(task)}
+			"""
+		}
 
 
-        stub:
-                """
-                touch "${id}.result.selfSM"
-                touch "${id}.result.Ancestry"
+	stub:
+		"""
+		touch "${id}.result.selfSM"
+		touch "${id}.result.Ancestry"
 
-                ${verifybamid2_version(task)}
-                """
+		${verifybamid2_version(task)}
+		"""
 }
 def verifybamid2_version(task) {
         """
@@ -4069,7 +4072,7 @@ process combine_versions {
 			ch_bqsr_versions.first(),
 			ch_sentieon_qc_versions.first(),
 			ch_d4_coverage_versions.first(),
-                        ch_verifybamid2_versions.first(),
+			ch_verifybamid2_versions.first(),
 			ch_smn_copy_number_caller_versions.first(),
 			ch_expansionhunter_versions.first(),
 			ch_stranger_versions.first(),
