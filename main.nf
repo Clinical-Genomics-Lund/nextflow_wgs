@@ -283,7 +283,7 @@ process bwa_align {
 	memory '100 GB'
 	// 64 GB peak giab //
 	scratch params.no_scratch ? false : true
-	stageInMode params.no_scratch ? 'link' : 'copy'
+	stageInMode params.no_scratch ? 'symlink' : 'copy'
 	stageOutMode 'copy'
 	tag "$id"
 	container = "${params.container_sentieon}"
