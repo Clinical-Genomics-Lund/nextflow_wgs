@@ -438,7 +438,7 @@ process dedupdummy {
 	when:
 		params.run_melt
 	input:
-		set group, id file(bam), file(bai) from dedup_dummy_choice
+		set group, id, file(bam), file(bai) from dedup_dummy_choice
 	output:
 		set id, file("dummy") into dedup_dummy
 	"""
