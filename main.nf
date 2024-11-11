@@ -3804,7 +3804,6 @@ process score_sv {
 	cpus 2
 	memory '10 GB'
 	time '2h'
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	container = "${params.container_genmod}"
 
 	input:
@@ -3845,6 +3844,8 @@ process bgzip_scored_genmod {
 	tag "$group"
 	memory '1 GB'
 	time '5m'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz.tbi'
 	container = "${params.container_bcftools}"
 
 	input:
