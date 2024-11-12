@@ -86,11 +86,6 @@ annotate_only.into{
 	annotate_only_cadd
 }
 
-bam_choice.into{ 
-	copy_bam_ch
-}
-
-
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
@@ -405,7 +400,7 @@ process copy_bam {
 	time '1h'
 
 	input:
-		set group, id, file(bam), file(bai) from copy_bam_ch
+		set group, id, file(bam), file(bai) from bam_choice
 	
 	output:
 		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into expansionhunter_bam_choice, dnascope_bam_choice, bampath_start, cov_bam_choice, bam_manta_choice, bam_tiddit_choice, bam_mito_choice, bam_SMN_choice, bam_freebayes_choice, bam_mantapanel_choice, bam_cnvkitpanel_choice, bam_dellypanel_choice, bam_melt_choice, bam_qc_choice, dedup_dummy_choice, bam_bqsr_choice, bam_gatk_choice, verifybamid2_bam_choice
