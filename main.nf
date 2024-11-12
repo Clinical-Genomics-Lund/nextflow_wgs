@@ -2370,44 +2370,41 @@ process genmodscore {
 		set group, type, file(vcf) from inhermod
 
 	output:
-		set group, type, file("*.scored.vcf") into scored_vcf
+		set group, type, file("${group_score}.scored.vcf") into scored_vcf
 		set group, file("*versions.yml") into ch_genmodscore_versions
 
 	script:
-		group_score = group
-		if ( type == "ma" || type == "fa") {
-			group_score = group + "_" + type
-		}
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		if ( mode == "family" && params.antype == "wgs" ) {
 			"""
-			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.score1.vcf
+			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.only_rankscore.vcf
 			genmod compound \
 				--threshold ${params.genmod_compound_trio_threshold} \
 				--penalty ${params.genmod_compound_trio_penalty} \
-				-o ${group_score}.score2.vcf \
-				${group_score}.score1.vcf
-			sed 's/RankScore=${group}:/RankScore=${group_score}:/g' -i ${group_score}.score2.vcf
-			genmod sort -p -f $group_score ${group_score}.score2.vcf -o ${group_score}.scored.vcf
+				-o ${group_score}.with_compounds.vcf \
+				${group_score}.only_rankscore.vcf
+			sed 's/RankScore=${group}:/RankScore=${group_score}:/g' -i ${group_score}.with_compounds.vcf
+			genmod sort -p -f $group_score ${group_score}.with_compounds.vcf -o ${group_score}.scored.vcf
 
 			${genmodscore_version(task)}
 			"""
 		}
 		else {
 			"""
-			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.score1.vcf
+			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.only_rankscore.vcf
 
 			# To get compounds without applying rank score penalty
 			genmod compound \
 				--penalty 0 \
-				-o ${group_score}.score1.with_compounds.vcf \
-				${group_score}.score1.vcf
+				-o ${group_score}.with_compounds.vcf \
+				${group_score}.only_rankscore.vcf
 
 			genmod sort \
 				-p \
 				-f $group_score \
 				-o ${group_score}.scored.vcf \
-				${group_score}.score1.with_compounds.vcf
+				${group_score}.with_compounds.vcf
 
 			${genmodscore_version(task)}
 			"""
@@ -3843,8 +3840,8 @@ def score_sv_version(task) {
 }
 
 process bgzip_scored_genmod {
-	cpus 4
 	tag "$group"
+	cpus 4
 	memory '1 GB'
 	time '5m'
 	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
