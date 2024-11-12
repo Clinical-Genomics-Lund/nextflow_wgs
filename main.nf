@@ -3667,11 +3667,11 @@ process add_omim {
 	tag "$group"
 
 	input:
-		set group, id, file(vcf) from vep_sv_vcf
+		set group, file(vcf) from add_omim_vcf
 
 	output:
 		set group, file("${group}.vep.clean.merge.omim.vcf") into artefact_vcf
-		set group, file("*versions.yml") into ch_postprocess_vep_versions
+		// set group, file("*versions.yml") into ch_postprocess_vep_versions
 
 	script:
 		"""
