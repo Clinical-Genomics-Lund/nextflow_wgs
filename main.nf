@@ -86,64 +86,12 @@ annotate_only.into{
 	annotate_only_cadd
 }
 
-bam_choice.into{ 
-	expansionhunter_bam_choice; 
-	dnascope_bam_choice;
-	bampath_start;
-	chanjo_bam_choice;
-	d4_bam_choice;
-	yaml_bam_choice; 
-	cov_bam_choice; 
-	bam_manta_choice; 
-	bam_nator_choice; 
-	bam_tiddit_choice; 
-	bam_mito_choice; 
-	bam_SMN_choice; 
-	bam_freebayes_choice;
-	bam_mantapanel_choice;
-	bam_cnvkitpanel_choice;
-	bam_dellypanel_choice;
-	bam_melt_choice;
-	bam_qc_choice;
-	dedup_dummy_choice;
-	bam_bqsr_choice;
-	bam_gatk_choice;
-        verifybamid2_bam_choice }
-
-// bqsr expects sample_id to come first, instead of group_id
-bam_bqsr_choice.map {
-	input_tuple ->
-	def group_id = input_tuple.get(0)
-	def sample_id = input_tuple.get(1)
-	def bam_path = input_tuple.get(2)
-	def bai_path = input_tuple.get(3)
-	return tuple(sample_id, group_id, bam_path, bai_path)
-}.set{bam_bqsr_choice}
-
-// vcf_choice.into{
-// 	split_cadd_choice;
-// 	split_vep_choice;
-// }
-
 Channel
 	.fromPath(params.csv)
 	.splitCsv(header:true)
 	.map{ row-> tuple(row.group, row.assay) }
         .set{ meta_loqusdb_no_sv_calling }
 
-// For melt to work if started from bam-file.
-process dedupdummy {
-	when:
-		params.run_melt
-
-	input:
-		set id, group, file(bam), file(bai) from dedup_dummy_choice
-	output:
-		set id, file("dummy") into dedup_dummy
-	"""
-	echo test > dummy
-	"""
-}
 // Input channels for various meta information //
 Channel
 	.fromPath(params.csv)
@@ -381,7 +329,6 @@ def bwa_align_versions(task) {
 	"""
 }
 
-
 process markdup {
 	cpus 40
 	errorStrategy 'retry'
@@ -444,6 +391,56 @@ def markdup_versions(task) {
 	END_VERSIONS
 	"""
 }
+
+process copy_bam {
+
+	tag "$id"
+	cpus 1
+	memory '2GB'
+	time '1h'
+
+	input:
+		set group, id, file(bam), file(bai) from bam_choice
+	
+	output:
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into expansionhunter_bam_choice, dnascope_bam_choice, bampath_start, cov_bam_choice, bam_manta_choice, bam_tiddit_choice, bam_mito_choice, bam_SMN_choice, bam_freebayes_choice, bam_mantapanel_choice, bam_cnvkitpanel_choice, bam_dellypanel_choice, bam_melt_choice, bam_qc_choice, dedup_dummy_choice, bam_bqsr_choice, bam_gatk_choice, verifybamid2_bam_choice
+	script:
+		"""
+		ionice -c 2 -n 7 cp ${bam} "${id}_dedup.copy.bam"
+		ionice -c 2 -n 7 cp ${bai} "${id}_dedup.copy.bam.bai"
+		"""
+
+	stub:
+		"""
+		touch "${id}_dedup.copy.bam"
+		touch "${id}_dedup.copy.bam.bai"
+		"""
+}
+
+// These processes expects ID, group instead of group, ID
+// FIXME: We should really fix this to be part of the channels
+def remap_bam_choice_tuple = { channel ->
+		channel.map { tup -> return tuple(tup.get(1), tup.get(0), tup.get(2), tup.get(3))
+	}
+}
+remap_bam_choice_tuple(cov_bam_choice).set { cov_bam_choice }
+remap_bam_choice_tuple(bam_melt_choice).set { bam_melt_choice }
+remap_bam_choice_tuple(bam_bqsr_choice).set { bam_bqsr_choice }
+remap_bam_choice_tuple(bam_qc_choice).set { bam_qc_choice }
+
+// For melt to work if started from bam-file.
+process dedupdummy {
+	when:
+		params.run_melt
+	input:
+		set group, id, file(bam), file(bai) from dedup_dummy_choice
+	output:
+		set id, file("dummy") into dedup_dummy
+	"""
+	echo test > dummy
+	"""
+}
+
 
 process bqsr {
 	cpus 40
@@ -648,56 +645,56 @@ def d4_coverage_version(task) {
 }
 
 process verifybamid2 {
-        cpus 16
-        memory '10 GB'
-        // publishDir "${OUTDIR}/contamination", mode: 'copy', overwrite: 'true', pattern: '*.selfSM'
-        tag "$id"
-        container = "${params.container_verifybamid2}"
+	cpus 16
+	memory '10 GB'
+	// publishDir "${OUTDIR}/contamination", mode: 'copy', overwrite: 'true', pattern: '*.selfSM'
+	tag "$id"
+	container = "${params.container_verifybamid2}"
 
-        input:
-                set group, id, file(bam), file(bai) from verifybamid2_bam
+	input:
+			set group, id, file(bam), file(bai) from verifybamid2_bam.mix(verifybamid2_bam_choice)
 
-        output:
-                file("${id}.result.selfSM")
-                file("${id}.result.Ancestry")
-                set group, file("*versions.yml") into ch_verifybamid2_versions
+	output:
+			file("${id}.result.selfSM")
+			file("${id}.result.Ancestry")
+			set group, file("*versions.yml") into ch_verifybamid2_versions
 
-        script:
+	script:
 
-                if ( params.antype == "wgs") {
-                         """
-                         verifybamid2 \
-                         --SVDPrefix ${params.verifybamid2_svdprefix} \
-                         --Reference ${genome_file} \
-                         --BamFile ${bam}
+		if ( params.antype == "wgs") {
+			"""
+			verifybamid2 \
+				--SVDPrefix ${params.verifybamid2_svdprefix} \
+				--Reference ${genome_file} \
+				--BamFile ${bam}
 
-                         mv result.selfSM ${id}.result.selfSM
-                         mv result.Ancestry ${id}.result.Ancestry
-                         ${verifybamid2_version(task)}
-                         """
-                }
-                else {
-                         """
-                         verifybamid2 \
-                         --DisableSanityCheck \
-                         --SVDPrefix ${params.verifybamid2_svdprefix} \
-                         --Reference ${genome_file} \
-                         --BamFile ${bam}
+				mv result.selfSM ${id}.result.selfSM
+				mv result.Ancestry ${id}.result.Ancestry
+			${verifybamid2_version(task)}
+			"""
+		}
+		else {
+			"""
+			verifybamid2 \
+				--DisableSanityCheck \
+				--SVDPrefix ${params.verifybamid2_svdprefix} \
+				--Reference ${genome_file} \
+				--BamFile ${bam}
 
-                         mv result.selfSM ${id}.result.selfSM
-                         mv result.Ancestry ${id}.result.Ancestry
-                         ${verifybamid2_version(task)}
-                         """
-                }
+				mv result.selfSM ${id}.result.selfSM
+				mv result.Ancestry ${id}.result.Ancestry
+			${verifybamid2_version(task)}
+			"""
+		}
 
 
-        stub:
-                """
-                touch "${id}.result.selfSM"
-                touch "${id}.result.Ancestry"
+	stub:
+		"""
+		touch "${id}.result.selfSM"
+		touch "${id}.result.Ancestry"
 
-                ${verifybamid2_version(task)}
-                """
+		${verifybamid2_version(task)}
+		"""
 }
 def verifybamid2_version(task) {
         """
@@ -1259,7 +1256,7 @@ process gvcf_combine {
 		set group, file("*versions.yml") into ch_gvcf_combine_versions
 
 	script:
-		all_gvcfs = vcf.join(' -v ')
+		all_gvcfs = vcf.collect { it.toString() }.sort().join(' -v ')
 
 		"""
 		sentieon driver \\
@@ -1761,6 +1758,8 @@ def run_haplogrep_version(task) {
 
 // use eKLIPse for detecting mitochondrial deletions
 process run_eklipse {
+
+	tag "$id"
 	cpus 2
 	// in rare cases with samples above 50 000x this can peak at 500+ GB of VMEM. Add downsampling!
 	memory '100GB'
@@ -2234,16 +2233,56 @@ def calculate_indel_cadd_version(task) {
 	"""
 }
 
+process bgzip_indel_cadd {
+
+	tag "$group"
+	cpus 4
+	memory '1 GB'
+	time '5m'
+	container = "${params.container_bcftools}"
+
+	input:
+		set group, file(cadd_scores) from indel_cadd
+	
+	output:
+		set group, file("${group}.cadd.gz"), file("${group}.cadd.gz.tbi") into indel_cadd_bgzip
+		set group, file("*versions.yml") into ch_bgzip_indel_cadd_versions
+	
+	script:
+		"""
+		gunzip -c ${cadd_scores} > "${group}.cadd"
+		bgzip -@ ${task.cpus} "${group}.cadd"
+		tabix -p vcf "${group}.cadd.gz"
+		${bgzip_indel_cadd_version(task)}
+		"""
+	
+	stub:
+		"""
+		touch "${group}.cadd.gz"
+		touch "${group}.cadd.gz.tbi"
+		${bgzip_indel_cadd_version(task)}
+		"""
+}
+def bgzip_indel_cadd_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	END_VERSIONS
+	"""
+}
+
 // Add the calculated indel CADDs to the vcf
 process add_cadd_scores_to_vcf {
 	cpus 4
 	tag "$group"
 	memory '1 GB'
 	time '5m'
-	container = '/fs1/resources/containers/genmod.sif'
+	container = "${params.container_genmod}"
 
 	input: 
-		set group, file(vcf), file(cadd_scores) from splice_marked.join(indel_cadd)
+		set group, file(vcf), file(cadd_scores), file(cadd_scores_tbi) from splice_marked.join(indel_cadd_bgzip)
 
 	output:
 		set group, file("${group}.cadd.vcf") into ma_vcf, fa_vcf, base_vcf
@@ -2251,10 +2290,7 @@ process add_cadd_scores_to_vcf {
 
 	script:
 		"""
-		gunzip -c $cadd_scores > cadd
-		bgzip -@ ${task.cpus} cadd
-		tabix -p vcf cadd.gz
-		genmod annotate --cadd-file cadd.gz $vcf > ${group}.cadd.vcf
+		genmod annotate --cadd-file ${cadd_scores} ${vcf} > ${group}.cadd.vcf
 
 		${add_cadd_scores_to_vcf_version(task)}
 		"""
@@ -2269,24 +2305,19 @@ def add_cadd_scores_to_vcf_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
 	END_VERSIONS
-
 	"""
 }
 
 
 // # Annotating variant inheritance models:
 process inher_models {
+	tag "$group"
 	cpus 3
 	memory '80 GB'
-	tag "$group"
 	time '1h'
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
-	container = '/fs1/resources/containers/genmod.sif'
+	container = "${params.container_genmod}"
 
 	input:
 		set group, file(vcf), type, file(ped) from base_vcf.mix(ma_vcf, fa_vcf).join(ped_inher.mix(ped_inher_ma,ped_inher_fa))
@@ -2321,11 +2352,11 @@ def inher_models_version(task) {
 // Adjusting compound scores: 
 // Sorting VCF according to score: 
 process genmodscore {
-	cpus 2
 	tag "$group"
+	cpus 2
 	memory '20 GB'
 	time '1h'
-	container = '/fs1/resources/containers/genmod.sif'
+	container = "${params.container_genmod}"
 
 	input:
 		set group, type, file(vcf) from inhermod
@@ -2335,25 +2366,37 @@ process genmodscore {
 		set group, file("*versions.yml") into ch_genmodscore_versions
 
 	script:
-		group_score = group
-		if ( type == "ma" || type == "fa") {
-			group_score = group + "_" + type
-		}
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		if ( mode == "family" && params.antype == "wgs" ) {
 			"""
-			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.score1.vcf
-			genmod compound ${group_score}.score1.vcf > ${group_score}.score2.vcf
-			sed 's/RankScore=${group}:/RankScore=${group_score}:/g' -i ${group_score}.score2.vcf
-			genmod sort -p -f $group_score ${group_score}.score2.vcf -o ${group_score}.scored.vcf
+			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.only_rankscore.vcf
+			genmod compound \
+				--threshold ${params.genmod_compound_trio_threshold} \
+				--penalty ${params.genmod_compound_trio_penalty} \
+				-o ${group_score}.with_compounds.vcf \
+				${group_score}.only_rankscore.vcf
+			sed 's/RankScore=${group}:/RankScore=${group_score}:/g' -i ${group_score}.with_compounds.vcf
+			genmod sort -p -f $group_score ${group_score}.with_compounds.vcf -o ${group_score}.scored.vcf
 
 			${genmodscore_version(task)}
 			"""
 		}
 		else {
 			"""
-			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.score1.vcf
-			genmod sort -p -f $group_score ${group_score}.score1.vcf -o ${group_score}.scored.vcf
+			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.only_rankscore.vcf
+
+			# To get compounds without applying rank score penalty
+			genmod compound \
+				--penalty 0 \
+				-o ${group_score}.with_compounds.vcf \
+				${group_score}.only_rankscore.vcf
+
+			genmod sort \
+				-p \
+				-f $group_score \
+				-o ${group_score}.scored.vcf \
+				${group_score}.with_compounds.vcf
 
 			${genmodscore_version(task)}
 			"""
@@ -2387,15 +2430,12 @@ process vcf_completion {
 		set group, type, file(vcf) from scored_vcf
 
 	output:
-		set group, type, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf,snv_sv_vcf_ma,snv_sv_vcf_fa, vcf_loqus
+		set group, type, file("${group_score}.scored.vcf.gz"), file("${group_score}.scored.vcf.gz.tbi") into vcf_peddy, snv_sv_vcf, snv_sv_vcf_ma, snv_sv_vcf_fa, vcf_loqus
 		set group, file("${group}_snv.INFO") into snv_INFO
 		set group, file("*versions.yml") into ch_vcf_completion_versions
 
 	script:
-		group_score = group
-		if (type == "ma" || type == "fa") {
-			group_score = group + "_" + type
-		}
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		"""
 		sed 's/^MT/M/' -i $vcf
@@ -2408,10 +2448,7 @@ process vcf_completion {
 		"""
 
 	stub:
-		group_score = group
-		if (type == "ma" || type == "fa") {
-			group_score = group + "_" + type
-		}
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		"""
 		touch "${group_score}.scored.vcf.gz"
@@ -3554,7 +3591,7 @@ process annotsv {
 }
 def annotsv_version(task) {
 	"""${task.process}:
-	    annotsv: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )"""
+        annotsv: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )"""
 }
 
 process vep_sv {
@@ -3769,57 +3806,32 @@ process prescore {
 }
 
 process score_sv {
-	cpus 2
 	tag "$group $mode"
-	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	cpus 2
 	memory '10 GB'
 	time '2h'
-	container = '/fs1/resources/containers/genmod.sif'
+	container = "${params.container_genmod}"
 
 	input:
-		set group, type, file(vcf) from annotatedSV
+		set group, type, file(in_vcf) from annotatedSV
 
 	output:
-		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore,sv_rescore_ma,sv_rescore_fa
-		set group, file("${group}_sv.INFO") into sv_INFO
-		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
+		set group, type, file("${group_score}.sv.scored.vcf") into ch_scored_sv
 		set group, file("*versions.yml") into ch_score_sv_versions
 
 	script:
-		group_score = group
-		if ( type == "ma" || type == "fa") {
-			group_score = group + "_" + type
-		}
-	
-		if (mode == "family" && params.antype == "wgs") {
-			"""
-			genmod score -i $group_score -c $params.svrank_model -r $vcf -o ${group_score}.sv.scored_tmp.vcf
-			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group_score}.sv.scored_tmp.vcf 
-			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
-			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
-			echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+		def model = (mode == "family" && params.antype == "wgs") ? params.svrank_model : params.svrank_model_s
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+		"""
+		genmod score --family_id ${group_score} --score_config ${model} --rank_results --outfile "${group_score}.sv.scored.vcf" ${in_vcf}
 
-			${score_sv_version(task)}
-			"""
-		}
-		else {
-			"""
-			genmod score -i $group_score -c $params.svrank_model_s -r $vcf -o ${group_score}.sv.scored.vcf
-			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${group}.sv.scored.vcf
-			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
-			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
-			echo "SV	$type	${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
-
-			${score_sv_version(task)}
-			"""
-		}
+		${score_sv_version(task)}
+		"""
 
 	stub:
 		group_score = group
 		"""
-		touch "${group_score}.sv.scored.sorted.vcf.gz"
-		touch "${group_score}.sv.scored.sorted.vcf.gz.tbi"
-		touch "${group}_sv.INFO"
+		touch "${group_score}.sv.scored.vcf"
 
 		${score_sv_version(task)}
 		"""
@@ -3828,8 +3840,54 @@ def score_sv_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
+	END_VERSIONS	
+	"""
+}
+
+process bgzip_scored_genmod {
+	tag "$group"
+	cpus 4
+	memory '1 GB'
+	time '5m'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+	publishDir "${OUTDIR}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz.tbi'
+	container = "${params.container_bcftools}"
+
+	input:
+		set group, type, file(scored_sv_vcf) from ch_scored_sv
+	
+	output:
+		set group, type, file("${group_score}.sv.scored.sorted.vcf.gz"), file("${group_score}.sv.scored.sorted.vcf.gz.tbi") into sv_rescore, sv_rescore_ma, sv_rescore_fa
+		set group, file("${group_score}.sv.scored.sorted.vcf.gz") into svvcf_bed, svvcf_pod
+		set group, file("${group}_sv.INFO") into sv_INFO
+		set group, file("*versions.yml") into ch_bgzip_scored_genmod_versions
+
+	script:
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+		"""
+			bcftools sort -O v -o ${group_score}.sv.scored.sorted.vcf ${scored_sv_vcf}
+			bgzip -@ ${task.cpus} ${group_score}.sv.scored.sorted.vcf -f
+			tabix ${group_score}.sv.scored.sorted.vcf.gz -f
+			echo "SV\t$type\t${params.accessdir}/vcf/${group_score}.sv.scored.sorted.vcf.gz" > ${group}_sv.INFO
+
+			${bgzip_score_sv_version(task)}
+		"""
+	stub:
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+		"""
+			touch "${group_score}.sv.scored.sorted.vcf.gz"
+			touch "${group_score}.sv.scored.sorted.vcf.gz.tbi"
+			touch "${group}_sv.INFO"
+
+			${bgzip_score_sv_version(task)}
+		"""
+}
+def bgzip_score_sv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
 	END_VERSIONS	
 	"""
@@ -3855,10 +3913,7 @@ process compound_finder {
 		set group, file("*versions.yml") into ch_compound_finder_versions
 
 	script:
-		group_score = group
-		if ( type == "ma" || type == "fa") {
-			group_score = group + "_" + type
-		}
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
 		"""
 		compound_finder.pl \\
@@ -4069,7 +4124,9 @@ process combine_versions {
 			ch_postprocess_vep_versions.first(),
 			ch_artefact_versions.first(),
  			ch_score_sv_versions.first(),
-			ch_compound_finder_versions.first()
+			ch_compound_finder_versions.first(),
+			ch_bgzip_indel_cadd_versions.first(),
+			ch_bgzip_scored_genmod_versions.first()
 		).groupTuple()
 	
 	output:

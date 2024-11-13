@@ -1,4 +1,13 @@
 # CHANGELOG
+
+### 3.12.1
+* Update Genmod version allowing control of penalty
+* Assign non-scored components for single GIAB
+* Fix `compound_finder.pl` such that it converts floats to int (i.e. 5.0 -> 5)
+* Remap all start-from-BAM channels that flips the ID <-> group
+* Copy in bam file to work dir when running from bam rather than accessing it directly in its original location
+* Sort the order of vcfs to `gvcf_combine` for stable SNV-calls
+
 ### 3.11.2
 * * Ensure that input VCFs are always supplied in the same alphanumeric order to `svdb_merge` when running trio analysis (see [#172](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/172))
 
