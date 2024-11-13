@@ -652,15 +652,14 @@ process verifybamid2 {
 	container = "${params.container_verifybamid2}"
 
 	input:
-			set group, id, file(bam), file(bai) from verifybamid2_bam.mix(verifybamid2_bam_choice)
+		set group, id, file(bam), file(bai) from verifybamid2_bam.mix(verifybamid2_bam_choice)
 
 	output:
-			file("${id}.result.selfSM")
-			file("${id}.result.Ancestry")
-			set group, file("*versions.yml") into ch_verifybamid2_versions
+		file("${id}.result.selfSM")
+		file("${id}.result.Ancestry")
+		set group, file("*versions.yml") into ch_verifybamid2_versions
 
 	script:
-
 		if ( params.antype == "wgs") {
 			"""
 			verifybamid2 \
