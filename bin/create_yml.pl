@@ -389,7 +389,7 @@ foreach my $ind (@inher_patterns) {
     }
     if ($INFO{IMG}) {
         print OUT "  case:\n";
-        foreach my $img_type (keys %{ $INFO{IMG} }) {
+        foreach my $img_type (sort keys %{ $INFO{IMG} }) {
             print OUT "    $img_type:\n";
             print OUT "      - title: $INFO{IMG}{$img_type}\n";
             print OUT "        description: $img{$img_type}{desc}\n";
@@ -401,7 +401,7 @@ foreach my $ind (@inher_patterns) {
     }
     if ($INFO{STR_IMG}) {
         print OUT "  str:\n";
-        foreach my $img_type (keys %{ $INFO{STR_IMG} }) {
+        foreach my $img_type (sort keys %{ $INFO{STR_IMG} }) {
             print OUT "    - title: $INFO{STR_IMG}{$img_type}\n";
             print OUT "      description: $img{STR}{desc}\n";
             print OUT "      width: $img{STR}{width}\n";
