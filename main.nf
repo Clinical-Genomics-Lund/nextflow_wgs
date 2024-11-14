@@ -2479,7 +2479,7 @@ process peddy {
 	memory '20GB'
 
 	when:
-		!params.annotate_only && params.run_peddy
+		params.run_peddy
 
 	input:
 		set group, type, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
