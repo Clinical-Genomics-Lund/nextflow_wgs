@@ -696,12 +696,12 @@ process verifybamid2 {
 		"""
 }
 def verifybamid2_version(task) {
-        """
-        cat <<-END_VERSIONS > ${task.process}_versions.yml
-        ${task.process}:
-            VerifyBamID2: \$( echo \$( verifybamid2 --help 2>&1 | grep Version ) | sed "s/^.*Version://" )
-        END_VERSIONS
-        """
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+		VerifyBamID2: \$( echo \$( verifybamid2 --help 2>&1 | grep Version ) | sed "s/^.*Version://" )
+	END_VERSIONS
+	"""
 }
 
 // Calculate coverage for paneldepth
