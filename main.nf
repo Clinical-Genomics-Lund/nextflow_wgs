@@ -699,7 +699,7 @@ def verifybamid2_version(task) {
 	"""
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
-		VerifyBamID2: \$( echo \$( verifybamid2 --help 2>&1 | grep Version ) | sed "s/^.*Version://" )
+	    VerifyBamID2: \$( echo \$( verifybamid2 --help 2>&1 | grep Version ) | sed "s/^.*Version://" )
 	END_VERSIONS
 	"""
 }
@@ -4121,7 +4121,7 @@ process combine_versions {
 		file("${group}.versions.yml")
 	
 	script:
-		versions_joined = versions.collect().sort { a, b -> a.name <=> b.name }.join( ' ' )
+		versions_joined = versions.collect().sort { it -> it.name }.join(" ")
 		"""
 		cat $versions_joined > ${group}.versions.yml
 		"""
