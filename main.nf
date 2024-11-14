@@ -3344,7 +3344,6 @@ def svdb_merge_panel_version(task) {
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
 	END_VERSIONS
 	"""
 }
@@ -3479,8 +3478,7 @@ def svdb_merge_version(task) {
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-	END_VERSIONS	
+	END_VERSIONS
 	"""
 }
 
@@ -3692,8 +3690,7 @@ def postprocess_vep_sv_version(task) {
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-	END_VERSIONS	
+	END_VERSIONS
 	"""
 }
 
@@ -3775,8 +3772,7 @@ def artefact_version(task) {
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-	END_VERSIONS	
+	END_VERSIONS
 	"""
 }
 
