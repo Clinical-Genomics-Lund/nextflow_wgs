@@ -4121,7 +4121,7 @@ process combine_versions {
 		file("${group}.versions.yml")
 	
 	script:
-		versions_joined = versions.collect().sort { it -> it.name }.join(" ")
+		versions_joined = versions.collect().sort { my_it -> my_it.name }.join(" ")
 		"""
 		cat $versions_joined > ${group}.versions.yml
 		"""
