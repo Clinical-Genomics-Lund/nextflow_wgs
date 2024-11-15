@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.12.2
+* Sort processes in versions yaml and images in Scout yaml
+
 ### 3.12.1
 * Update Genmod version allowing control of penalty
 * Assign non-scored components for single GIAB

@@ -652,15 +652,14 @@ process verifybamid2 {
 	container = "${params.container_verifybamid2}"
 
 	input:
-			set group, id, file(bam), file(bai) from verifybamid2_bam.mix(verifybamid2_bam_choice)
+		set group, id, file(bam), file(bai) from verifybamid2_bam.mix(verifybamid2_bam_choice)
 
 	output:
-			file("${id}.result.selfSM")
-			file("${id}.result.Ancestry")
-			set group, file("*versions.yml") into ch_verifybamid2_versions
+		file("${id}.result.selfSM")
+		file("${id}.result.Ancestry")
+		set group, file("*versions.yml") into ch_verifybamid2_versions
 
 	script:
-
 		if ( params.antype == "wgs") {
 			"""
 			verifybamid2 \
@@ -697,12 +696,12 @@ process verifybamid2 {
 		"""
 }
 def verifybamid2_version(task) {
-        """
-        cat <<-END_VERSIONS > ${task.process}_versions.yml
-        ${task.process}:
-            VerifyBamID2: \$( echo \$( verifybamid2 --help 2>&1 | grep Version ) | sed "s/^.*Version://" )
-        END_VERSIONS
-        """
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    VerifyBamID2: \$( echo \$( verifybamid2 --help 2>&1 | grep Version ) | sed "s/^.*Version://" )
+	END_VERSIONS
+	"""
 }
 
 // Calculate coverage for paneldepth
@@ -3607,7 +3606,7 @@ process annotsv {
 }
 def annotsv_version(task) {
 	"""${task.process}:
-        annotsv: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )"""
+	    annotsv: \$( echo \$(/AnnotSV/bin/AnnotSV --version) | sed -e "s/AnnotSV //g ; s/Copyright.*//" )"""
 }
 
 process vep_sv {
@@ -4122,13 +4121,13 @@ process combine_versions {
 		file("${group}.versions.yml")
 	
 	script:
-		versions_joined = versions.join( ' ' )
+		versions_joined = versions.sort( my_it -> my_it.name ).join(" ")
 		"""
 		cat $versions_joined > ${group}.versions.yml
 		"""
 	
 	stub:
-		versions_joined = versions.join( ' ' )
+		versions_joined = versions.sort( my_it -> my_it.name ).join(" ")
 		"""
 		cat $versions_joined > ${group}.versions.yml
 		"""
