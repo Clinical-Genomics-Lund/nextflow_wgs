@@ -423,7 +423,7 @@ def remap_bam_choice_tuple = { channel ->
 		channel.map { tup -> return tuple(tup.get(1), tup.get(0), tup.get(2), tup.get(3))
 	}
 }
-// remap_bam_choice_tuple(cov_bam_choice).set { cov_bam_choice }
+remap_bam_choice_tuple(cov_bam_choice).set { cov_bam_choice }
 remap_bam_choice_tuple(bam_melt_choice).set { bam_melt_choice }
 remap_bam_choice_tuple(bam_bqsr_choice).set { bam_bqsr_choice }
 remap_bam_choice_tuple(bam_qc_choice).set { bam_qc_choice }
@@ -2479,7 +2479,7 @@ process peddy {
 	memory '20GB'
 
 	when:
-		params.run_peddy
+		!params.annotate_only && params.run_peddy
 
 	input:
 		set group, type, file(vcf), file(idx), type, file(ped) from vcf_peddy.join(ped_peddy)
