@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.12.3
+* Replace RNU2-4 gene coordinates with RNU4-2 coordinates in wgs intersect bed. 
+
 ### 3.12.2
 * Sort processes in versions yaml and images in Scout yaml
 
