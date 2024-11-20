@@ -3318,7 +3318,7 @@ process svdb_merge_panel {
 			priority = tmpp.join(',')
 			
 			"""
-			svdb --merge --vcf $vcfs_svdb --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $priority > ${group}.merged.vcf
+			svdb --merge --vcf $vcfs_svdb --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $priority --ins_distance 0 > ${group}.merged.vcf
 			filter_panel_cnv.pl --mergedvcf ${group}.merged.vcf --callers $priority > ${group}.merged.filtered.vcf
 			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
 			
