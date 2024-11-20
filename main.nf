@@ -3446,7 +3446,7 @@ process svdb_merge {
 			prio = prio.join(',')
 			vcfs = vcfs.join(' ')
 			"""
-			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio > ${group}.merged.vcf
+			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio --ins_distance 0 > ${group}.merged.vcf
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 			
 			${svdb_merge_version(task)}
@@ -3457,7 +3457,7 @@ process svdb_merge {
 			tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + gatkV.collect {it + ':gatk ' }
 			vcfs = tmp.join(' ')
 			"""
-			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,gatk > ${group}.merged.vcf
+			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,gatk --ins_distance 0 > ${group}.merged.vcf
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 			
 			${svdb_merge_version(task)}
@@ -3672,7 +3672,7 @@ process postprocess_vep_sv {
 		"""
 		# Filter variants with FILTER != . or PASS and variants missing CSQ field.
 		postprocess_vep_vcf.py $vcf > ${group}.vep.clean.vcf
-		svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
+		svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf --ins_distance 0 > ${group}.vep.clean.merge.vcf
 		sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.vcf
 		sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
 
