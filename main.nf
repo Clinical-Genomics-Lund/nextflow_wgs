@@ -3724,6 +3724,7 @@ process artefact {
 	tag "$group"
 	time '10h'
 	memory '10 GB'
+	container = "${params.container_svdb}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -3739,7 +3740,6 @@ process artefact {
 		// use loqusdb dump not svdb database //
 		if (params.gatkcnv) {
 			"""
-			source activate py3-env
 			svdb \\
 			--query --bnd_distance 25000 --overlap 0.7 --in_occ Obs --out_occ ACOUNT --in_frq Frq --out_frq AFRQ  \\
 			--db $params.svdb \\
@@ -3751,7 +3751,6 @@ process artefact {
 		// for oncov1-0 still use svdb database remove in future//
 		else {
 			"""
-			source activate py3-env
 			svdb \\
 			--sqdb $params.svdb --query \\
 			--query_vcf $sv --out_occ ACOUNT --out_frq AFRQ > ${group}.artefact.vcf
