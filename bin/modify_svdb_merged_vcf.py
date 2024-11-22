@@ -20,6 +20,7 @@ SVDB_SET_SEPARATOR = "-"
 
 
 class Callers:
+
     MANTA = "manta"
     GATK = "gatk"
     TIDDIT = "tiddit"
@@ -79,7 +80,7 @@ def main() -> None:
             else:
                 info_dict[entry] = True  # Flag without a value
 
-        # Modify 'set' and 'svdb_origin' in place
+        # modify 'set' and 'svdb_origin' in place
         if SVDB_SET_KEY in info_dict:
             info_dict[SVDB_SET_KEY] = reduce_to_set_of_unique_callers(
                 info_dict[SVDB_SET_KEY], separator=SVDB_SET_SEPARATOR
@@ -92,7 +93,7 @@ def main() -> None:
                 info_dict[SVDB_ORIGIN_KEY], separator=SVDB_ORIGIN_SEPARATOR
             )
 
-        # Reconstruct the INFO field while retaining the order
+        # reconstruct the INFO field while retaining the order
         new_info = []
         for key, value in info_dict.items():
             if value is True:

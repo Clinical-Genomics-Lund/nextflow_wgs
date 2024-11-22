@@ -3676,7 +3676,7 @@ process postprocess_vep_sv {
 		sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.tmp.vcf
 		sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.tmp.vcf
 		# Prepare annotations for scout:
-		modify_svdb_annotations.py ${group}.vep.clean.merge.tmp.vcf > ${group}.vep.clean.merge.vcf
+		modify_svdb_merged_vcf.py ${group}.vep.clean.merge.tmp.vcf > ${group}.vep.clean.merge.vcf
 		${postprocess_vep_sv_version(task)}
 		"""
 	stub:
