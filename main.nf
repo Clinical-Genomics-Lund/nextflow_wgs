@@ -3744,6 +3744,7 @@ process artefact {
 			svdb \\
 			--query --bnd_distance 25000 --overlap 0.7 --in_occ Obs --out_occ ACOUNT --in_frq Frq --out_frq AFRQ  \\
 			--db $params.svdb \\
+			--ins_distance 0 \\
 			--query_vcf $sv > ${group}.artefact.vcf
 
 			${artefact_version(task)}
@@ -3753,8 +3754,12 @@ process artefact {
 		else {
 			"""
 			svdb \\
-			--sqdb $params.svdb --query \\
-			--query_vcf $sv --out_occ ACOUNT --out_frq AFRQ > ${group}.artefact.vcf
+			--sqdb $params.svdb \\
+			--query \\
+			--query_vcf $sv \\
+			--out_occ ACOUNT \\
+			--ins_distance 0 \\
+			--out_frq AFRQ > ${group}.artefact.vcf
 
 			${artefact_version(task)}
 			"""
