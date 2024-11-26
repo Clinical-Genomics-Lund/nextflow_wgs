@@ -121,7 +121,7 @@ my $analysis = "";
 if ($opt{assay}) { 
     my @a_a = split/,/,$opt{assay};
     $assay = $a_a[0];
-    if ($a_a[1] ne 'false' && $a_a[1]) {
+    if ($a_a[1]) {
         $analysis = $a_a[1];
     }
     elsif ($opt{d} eq 'ahus') { ## beginning of stinking mess, deadline for fix 2021-03-01
@@ -130,10 +130,22 @@ if ($opt{assay}) {
     else { $analysis = 'ph';}
     
 }
-
+print STDERR "assay: $assay analysis: $analysis\n";
 ### Group ###
-if (!defined $opt{g}) { print STDERR "need group name"; exit;}
-my @g_c = split/,/,$opt{g};
+### Proband ### Could differ from group, needed to select correct eklipse image
+### Clarity-ID ###
+my @g_c;
+if (defined $opt{g}) { 
+    @g_c = split/,/,$opt{g};
+    unless (scalar(@g_c) == 2) {
+        print STDERR "need group-id,clarity-id\n";
+        exit; 
+    }
+}
+else {
+    print STDERR "need group-id,clarity-id\n";
+    exit;       
+}
 my $group = $g_c[0];
 my $clarity_id = $g_c[1];
 
@@ -142,42 +154,46 @@ my $files = $opt{files};
 open (INFO, $files) or die "Cannot open $files\n";
 my %INFO;
 my @bams;
+# For mother affected, father affected also print files associated to these
 my @inher_patterns;
 while ( <INFO> ) {
 
     my @tmp = split/\s+/,$_;
-    print STDERR $_,"\n";
-    if ($tmp[0] eq "BAM") {
-        $INFO{BAM}->{$tmp[1]} = $tmp[2];
+    my $category = $tmp[0];
+    my $subcat = $tmp[1];
+    my $filepath = $tmp[2];
+    if ($category eq "BAM") {
+        $INFO{BAM}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "TISSUE") {
-        $INFO{TISSUE}->{$tmp[1]} = $tmp[2];
+    elsif ($category eq "TISSUE") {
+        $INFO{TISSUE}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "mtBAM") {
-        $INFO{mtBAM}->{$tmp[1]} = $tmp[2];
+    elsif ($category eq "mtBAM") {
+        $INFO{mtBAM}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "D4") {
-        $INFO{D4}->{$tmp[1]} = $tmp[2];
+    elsif ($category eq "D4") {
+        $INFO{D4}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "IMG") {
-        $INFO{IMG}->{$tmp[1]} = $tmp[2];
+    elsif ($category eq "IMG") {
+        $INFO{IMG}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "STR_IMG") {
-        $INFO{STR_IMG}->{$tmp[1]} = $tmp[2];
+    elsif ($category eq "STR_IMG") {
+        $INFO{STR_IMG}->{$subcat} = $filepath;
     }
-    elsif ($tmp[0] eq "SV" or $tmp[0] eq "SVc" or $tmp[0] eq "SNV" or $tmp[0] eq "MADDE") {
-        if ($tmp[0] eq "SNV") {
-            push @inher_patterns,$tmp[1];
+    elsif ($category eq "SV" or $category eq "SVc" or $category eq "SNV" or $category eq "MADDE") {
+        if ($category eq "SNV") {
+            push @inher_patterns,$subcat;
         }
-        $INFO{$tmp[0]}->{$tmp[1]} = $tmp[2];
+        $INFO{$category}->{$subcat} = $filepath;
     }
     else {
-        $INFO{$tmp[0]} = $tmp[1];
+        $INFO{$category} = $subcat;
     }
 
 }
 close INFO;
-print Dumper(%INFO);
+#my $info_json = to_json(\%INFO, { pretty => 1, indent => 4 });
+#print STDERR ($info_json);
 ####################################################
 
 my $kit = "Intersected WGS"; ## placeholder, does not change for panels
@@ -197,15 +213,14 @@ close PED;
 my $institute = "klingen";
 my $institute_owner = "klingen";
 if ($opt{assay}) { 
-    ## if something added to wgs-hg38, i.e wgs-hg38-nu (no upload loqusdb)
-    if ($assay =~ /wgs-hg38/ ) {
-        $assay = "wgs-hg38";
-    }
     $institute = $assays{$assay}{$analysis}{institute};
     $institute_owner = $assays{$assay}{$analysis}{institute_owner};
-    $kit = $assays{$assay}{capture_kit};
+    if ($assays{$assay}{capture_kit}) {
+        $kit = $assays{$assay}{capture_kit};
+    }
 }
 my $gene_panels = get_genelist($institute);
+
 ####################################################
 
 
@@ -227,8 +242,6 @@ foreach my $ind (@inher_patterns) {
     }
     open (OUT,'>',$out);
 
-
-    
     print OUT "---\n";
     ### ASSAY DECIDE OWNER? ####
     print OUT "owner: $institute_owner\n";
@@ -376,7 +389,7 @@ foreach my $ind (@inher_patterns) {
     }
     if ($INFO{IMG}) {
         print OUT "  case:\n";
-        foreach my $img_type (keys %{ $INFO{IMG} }) {
+        foreach my $img_type (sort keys %{ $INFO{IMG} }) {
             print OUT "    $img_type:\n";
             print OUT "      - title: $INFO{IMG}{$img_type}\n";
             print OUT "        description: $img{$img_type}{desc}\n";
@@ -388,7 +401,7 @@ foreach my $ind (@inher_patterns) {
     }
     if ($INFO{STR_IMG}) {
         print OUT "  str:\n";
-        foreach my $img_type (keys %{ $INFO{STR_IMG} }) {
+        foreach my $img_type (sort keys %{ $INFO{STR_IMG} }) {
             print OUT "    - title: $INFO{STR_IMG}{$img_type}\n";
             print OUT "      description: $img{STR}{desc}\n";
             print OUT "      width: $img{STR}{width}\n";
@@ -413,16 +426,15 @@ sub get_genelist {
     while (<JSON>) {
         $data = decode_json($_);
     }
-   # print Dumper($data);
     foreach my $key (@{$data}) {
+        ## This is because some gene panels are assigned to two different institutes
+        ## NOT SUPPORTED by scouut, it's a fluke that it even works
         if (ref $key->{institute} eq 'ARRAY') {
             foreach my $inst (@{ $key->{institute} }) {
-                next if $key->{'display_name'} =~ /ERSATT|TEST|test|Test/;
                 push @ok_panels,$key->{panel_name} if $inst eq $institute;
             }
         }
         elsif ($key->{institute} eq $institute) {
-            next if $key->{'display_name'} =~ /ERSATT|TEST|test|Test/;
             push @ok_panels,$key->{panel_name};
         }
     }

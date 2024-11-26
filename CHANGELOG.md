@@ -4,6 +4,66 @@
 
 * add flag `--alignment_only` to only output genomic and mito `.bam` and QC data
 
+### 3.12.3
+* Replace RNU2-4 gene coordinates with RNU4-2 coordinates in wgs intersect bed. 
+
+### 3.12.2
+* Sort processes in versions yaml and images in Scout yaml
+
+### 3.12.1
+* Update Genmod version allowing control of penalty
+* Assign non-scored components for single GIAB
+* Fix `compound_finder.pl` such that it converts floats to int (i.e. 5.0 -> 5)
+* Remap all start-from-BAM channels that flips the ID <-> group
+* Copy in bam file to work dir when running from bam rather than accessing it directly in its original location
+* Sort the order of vcfs to `gvcf_combine` for stable SNV-calls
+
+### 3.11.2
+* * Ensure that input VCFs are always supplied in the same alphanumeric order to `svdb_merge` when running trio analysis (see [#172](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/172))
+
+### 3.11.1
+* Add a process to get contamination values from verifybamid2 software.
+* Update configs/nextflow.hopper.config with a specific verifybamid2 container.
+* Update configs/nextflow.hopper.config with specific SVDPrefix files for panel and wgs.
+
+### 3.10.4
+* Added --format vcf to `vep_sv` to fix for cases where vcf file carries no variants. 
+ 
+### 3.10.3
+* Add workaround to enable loqusdb export for runs where SV calling is disabled
+* Rename myeloid_const loqusdb to `loqusdb_myeloid_const`
+* Disable artefact scoring in `myeloid_const` rank models
+	
+### 3.10.2
+* Fix mito QC stats JSON conversion for samples started from old bams with updated sample ids. 
+
+### 3.10.1
+* Update config for bed intersect
+* Some fixes to the logging of the bed intersect script
+
+### 3.9.10
+* Use reduced gene_panel JSON to avoid adding dead/archived panels to new scout cases 
+* Add lennart-side script/worker CRON job to generate new gene panel JSON
+
+### 3.9.9
+* Extend the update_bed.pl script to handle multiple input files
+* Rewrite to Python and add tests
+
+### 3.9.8
+* Reverted removed code in gene panel matches, caused missing gene panels for onco samples
+
+### 3.9.7
+* Solved trio eklipse image being wrongly added to yaml
+* Removed outdated regex matches for genepanel, would remove important gene panels
+* General clean-up of create_yml.pl
+
+### 3.9.6
+* Fix bug where wrong tuple value unpacked as group and sample id in `bqsr` when starting run from bam
+
+
+### 3.9.5
+* Fixed faulty if-condition for annotsv, would result in empty annotsv tsv everytime
+
 ### 3.9.4
 
 * Use -K flag in bwa-mem for consistent results
@@ -11,7 +71,7 @@
 ### 3.9.3
 
 * Re-optimized profiles wgs and onco. More memory allocations
-* added flag for reanalyze for bjorn to hook into
+* Added flag for reanalyze for bjorn to hook into
 
 ### 3.9.2
 
