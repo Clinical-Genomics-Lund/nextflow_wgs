@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### TBA
+
+* add flag `--alignment_only` to only output genomic and mito `.bam` and QC data
+
 ### 3.12.3
 * Replace RNU2-4 gene coordinates with RNU4-2 coordinates in wgs intersect bed. 
 
@@ -61,6 +65,7 @@
 * Fixed faulty if-condition for annotsv, would result in empty annotsv tsv everytime
 
 ### 3.9.4
+
 * Use -K flag in bwa-mem for consistent results
 
 ### 3.9.3
