@@ -3306,7 +3306,6 @@ def svdb_merge_panel_version(task) {
 
 process postprocess_merged_panel_sv_vcf {
 
-	container = "${params.container_svdb}"
 	cpus 2
 	cache 'deep'
 	tag "$group"
