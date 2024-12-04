@@ -3238,11 +3238,10 @@ process svdb_merge_panel {
 	memory '1 GB'
 
 	input:
-		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf)
+		set group, id, file(vcfs) from called_manta_panel.mix(called_cnvkit_panel,merged_gatk_panel).groupTuple()
 				
 	output:
-		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
-		set group, file("${group}.merged.filtered.melt.vcf") into loqusdb_sv_panel
+		set group, id, file("${group}.merged.vcf") into ch_postprocess_merged_panel_sv
 		set group, file("*versions.yml") into ch_svdb_merge_panel_versions
 
 	script:
