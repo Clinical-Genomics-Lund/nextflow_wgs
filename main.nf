@@ -3333,9 +3333,8 @@ process postprocess_merged_panel_sv_vcf {
 
 		# Add MELT data to info vars:
 		final_info_header_row_idx=\$(grep -n '^##INFO' ${group}.merged.filtered.vcf | tail -n 1 | cut -d: -f1)
-		sed -i "\$final_info_header_row_idx a\
-			##INFO=<ID=MELT_RANK,Number=.,Type=String,Description=\"Evidence level 1-5, 5highest\">\
-			##INFO=<ID=MELT_QC,Number=.,Type=String,Description=\"Quality of call\">" ${group}.merged.bndless.genotypefix.vcf
+		sed -i "\$final_info_header_row_idx a ##INFO=<ID=MELT_RANK,Number=.,Type=String,Description=\"Evidence level 1-5, 5highest\">" ${group}.merged.bndless.genotypefix.vcf
+		sed -i "\$final_info_header_row_idx a ##INFO=<ID=MELT_QC,Number=.,Type=String,Description=\"Quality of call\">" ${group}.merged.bndless.genotypefix.vcf
 
 		# Combine with MELT:
 		vcf-concat  ${group}.merged.bndless.genotypefix.vcf $melt_vcf | vcf-sort -c > ${group}.merged.bndless.genotypefix.melt.vcf
