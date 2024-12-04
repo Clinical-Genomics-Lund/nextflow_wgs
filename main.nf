@@ -3269,7 +3269,15 @@ process svdb_merge_panel {
 			priority = tmpp.join(',')
 			
 			"""
-			svdb --merge --vcf $vcfs_svdb --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $priority --ins_distance 0 > ${group}.merged.vcf
+			svdb \
+			  --merge \
+			  --vcf $vcfs_svdb \
+			  --no_intra \
+			  --pass_only \
+			  --bnd_distance 2500 \
+			  --overlap 0.7 \
+			  --priority $priority \
+			  --ins_distance 0 > ${group}.merged.vcf
 
 			${svdb_merge_panel_version(task)}
 			"""
