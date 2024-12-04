@@ -38,16 +38,13 @@ while ( my $a = $vcf->next_var() ) {
     my $start = $a -> {POS};
 
     #print Dumper($a);
-    my $delly = 0;
     my $manta = 0;
     my $cnvkit = 0;
     my $gatk = 0;
     my @callers = split/-/,$a->{INFO}->{set};
     foreach my $caller (@callers) {
-        if ($caller =~ /delly/) {
-            $delly = 1;
-        }
-        elsif ($caller =~ /manta/) {
+
+        if ($caller =~ /manta/) {
             $manta = 1;
         }
         elsif ($caller =~ /cnvkit/) {
@@ -57,9 +54,6 @@ while ( my $a = $vcf->next_var() ) {
             $gatk = 1;
         }
         elsif ($caller =~ /Intersection/) {
-            if ($used_callers =~ /delly/) {
-                $delly = 1;
-            }
             if ($used_callers =~ /manta/) {
                 $manta = 1;
             }
@@ -71,8 +65,8 @@ while ( my $a = $vcf->next_var() ) {
             } 
         }
     }
+
     next if ($a->{INFO}->{SVTYPE} eq 'BND');
-    ## Filter delly-only variants
 
     ## Print first 7 columns of vcf
     print join("\t",@str[0..6])."\t";
@@ -83,8 +77,6 @@ while ( my $a = $vcf->next_var() ) {
 
     my @foundin;
     if ($manta) { push @foundin,"manta"; }
-    if ($delly && $a->{INFO}->{IMPRECISE}) { push @foundin,"delly~imprecise"; }
-    if ($delly && $a->{INFO}->{PRECISE}) { push @foundin,"delly~precise"; }
     if ($cnvkit) { push @foundin,"cnvkit"; }
     if ($gatk) { push @foundin,"gatk"; }
     #print Dumper($a);

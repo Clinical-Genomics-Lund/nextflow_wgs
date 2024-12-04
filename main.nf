@@ -347,7 +347,7 @@ process markdup {
 		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
 
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, verifybamid2_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, verifybamid2_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
 		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
@@ -403,7 +403,7 @@ process copy_bam {
 		set group, id, file(bam), file(bai) from bam_choice
 	
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into expansionhunter_bam_choice, dnascope_bam_choice, bampath_start, cov_bam_choice, bam_manta_choice, bam_tiddit_choice, bam_mito_choice, bam_SMN_choice, bam_freebayes_choice, bam_mantapanel_choice, bam_cnvkitpanel_choice, bam_dellypanel_choice, bam_melt_choice, bam_qc_choice, dedup_dummy_choice, bam_bqsr_choice, bam_gatk_choice, verifybamid2_bam_choice
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into expansionhunter_bam_choice, dnascope_bam_choice, bampath_start, cov_bam_choice, bam_manta_choice, bam_tiddit_choice, bam_mito_choice, bam_SMN_choice, bam_freebayes_choice, bam_mantapanel_choice, bam_cnvkitpanel_choice, bam_melt_choice, bam_qc_choice, dedup_dummy_choice, bam_bqsr_choice, bam_gatk_choice, verifybamid2_bam_choice
 	script:
 		"""
 		ionice -c 2 -n 7 cp ${bam} "${id}_dedup.copy.bam"
@@ -1000,9 +1000,9 @@ process vcfbreakmulti_expansionhunter {
 			bgzip ${group}.expansionhunter.vcf
 			tabix ${group}.expansionhunter.vcf.gz
 			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
+			"""
 
 			${vcfbreakmulti_expansionhunter_version(task)}
-			"""
 		}
 
 	stub:
@@ -3169,51 +3169,6 @@ def manta_panel_version(task) {
 	"""
 }
 
-process delly_panel {
-	cpus = 5
-	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
-	tag "$id"
-	time '3h'
-	memory '10 GB'
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
-	cache 'deep'
-	
-	when:
-		params.sv && params.antype == "panel" && params.delly
-
-	input:
-		set group, id, file(bam), file(bai) from bam_delly_panel.mix(bam_dellypanel_choice)
-
-	output:
-		set group, id, file("${id}.delly.vcf.gz") into called_delly_panel
-		set group, file("*versions.yml") into ch_delly_panel_versions
-
-	script:
-		"""
-		delly call -g $genome_file -o ${id}.bcf $bam
-		bcftools view ${id}.bcf > ${id}.vcf
-		filter_delly.pl --vcf ${id}.vcf --bed $params.intersect_bed > ${id}.delly.vcf
-		bgzip -c ${id}.delly.vcf > ${id}.delly.vcf.gz
-
-		${delly_panel_version(task)}
-		"""
-
-	stub:
-		"""
-		touch "${id}.delly.vcf.gz"
-		${delly_panel_version(task)}
-		"""
-}
-def delly_panel_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    delly: \$( echo \$(delly --version 2>&1) | sed 's/^.*Delly version: v//; s/ using.*\$//')
-	END_VERSIONS	
-	"""
-}
 
 process cnvkit_panel {
 	cpus = 5
@@ -3283,7 +3238,7 @@ process svdb_merge_panel {
 	memory '1 GB'
 
 	input:
-		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_delly_panel,called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf)
+		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf)
 				
 	output:
 		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
@@ -3295,25 +3250,22 @@ process svdb_merge_panel {
 			// for each sv-caller add idx, find vcf and find priority, add in priority order! //
 			// index of vcfs added from mix //
 			manta_idx = vcfs.findIndexOf{ it =~ 'manta' }
-			delly_idx = vcfs.findIndexOf{ it =~ 'delly' }
 			cnvkit_idx = vcfs.findIndexOf{ it =~ 'cnvkit' }
 			gatk_idx = vcfs.findIndexOf{ it =~ 'gatk' }
 
 			// find vcfs //
 			manta = manta_idx >= 0 ? vcfs[manta_idx].collect {it + ':manta ' } : null
-			delly = delly_idx >= 0 ? vcfs[delly_idx].collect {it + ':delly ' } : null
 			cnvkit = cnvkit_idx >= 0 ? vcfs[cnvkit_idx].collect {it + ':cnvkit ' } : null
 			gatk = gatk_idx >= 0 ? vcfs[gatk_idx].collect {it + ':gatk ' } : null
-			tmp = manta + delly + gatk + cnvkit
+			tmp = manta + gatk + cnvkit
 			tmp = tmp - null
 			vcfs_svdb = tmp.join(' ')
 
 			// find priorities //
 			mantap = manta_idx >= 0 ? 'manta' : null
-			dellyp = delly_idx >= 0 ? 'delly' : null
 			gatkp = gatk_idx >= 0 ? 'gatk' : null
 			cnvkitp = cnvkit_idx >= 0 ? 'cnvkit' : null
-			tmpp = [mantap, dellyp, gatkp, cnvkitp]
+			tmpp = [mantap, gatkp, cnvkitp]
 			tmpp = tmpp - null
 			priority = tmpp.join(',')
 			
@@ -4108,7 +4060,6 @@ process combine_versions {
 			ch_postprocessgatk_versions.first(),
 			ch_manta_versions.first(),
 			ch_manta_panel_versions.first(),
-			ch_delly_panel_versions.first(),
 			ch_cnvkit_panel_versions.first(),
 			ch_svdb_merge_panel_versions.first(),
 			ch_tiddit_versions.first(),
