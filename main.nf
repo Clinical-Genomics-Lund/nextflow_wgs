@@ -3297,7 +3297,16 @@ def svdb_merge_panel_version(task) {
 	"""
 }
 
-def postprocess_merged_panel_sv_vcf {
+process postprocess_merged_panel_sv_vcf {
+
+	container = "${params.container_svdb}"
+	cpus 2
+	cache 'deep'
+	tag "$group"
+	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	time '1h'
+	memory '1 GB'
+
 
 	input:
 		set group, id, file(merged_vcf) from ch_postprocess_merged_panel_sv
@@ -3309,22 +3318,22 @@ def postprocess_merged_panel_sv_vcf {
 
 
 	script:
-	"""
-	# Remove BNDs
-	grep -v "BND" $merged_vcf > "${group}.merged.bndless"
+		"""
+		# Remove BNDs
+		grep -v "BND" $merged_vcf > "${group}.merged.bndless.vcf"
 
-	# Any 0/0 GT -> 0/1, otherwise loqus will reject them.
-	modify_cnv_genotypes_for_loqusdb.pl --merged_panel_sv_vcf ${group}.merged.vcf > ${group}.merged.filtered.vcf
+		# Any 0/0 GT -> 0/1, otherwise loqus will reject them.
+		modify_cnv_genotypes_for_loqusdb.pl --merged_panel_sv_vcf ${group}.merged.bndless.vcf > ${group}.merged.bndless.genotypefix.vcf
 
-	# Add MELT data to info vars:
-	final_info_header_row_idx=\$(grep -n '^##INFO' ${group}.merged.filtered.vcf | tail -n 1 | cut -d: -f1)
-	sed -i "$final_info_header_row_idx a\
-		##INFO=<ID=MELT_RANK,Number=.,Type=String,Description=\"Evidence level 1-5, 5highest\">\
-		##INFO=<ID=MELT_QC,Number=.,Type=String,Description=\"Quality of call\">"
+		# Add MELT data to info vars:
+		final_info_header_row_idx=\$(grep -n '^##INFO' ${group}.merged.filtered.vcf | tail -n 1 | cut -d: -f1)
+		sed -i "$final_info_header_row_idx a\
+			##INFO=<ID=MELT_RANK,Number=.,Type=String,Description=\"Evidence level 1-5, 5highest\">\
+			##INFO=<ID=MELT_QC,Number=.,Type=String,Description=\"Quality of call\">" ${group}.merged.bndless.genotypefix.vcf
 
-	# Combine with MELT:
-	vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
-	"""
+		# Combine with MELT:
+		vcf-concat  ${group}.merged.bndless.genotypefix.vcf $melt_vcf | vcf-sort -c > ${group}.merged.bndless.genotypefix.melt.vcf
+		"""
 
 }
 
