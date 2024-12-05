@@ -3319,8 +3319,8 @@ process postprocess_merged_panel_sv_vcf {
 		set group, id, file(melt_vcf) from ch_melt_vcf
 
 	output:
-		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel
-		set group, file("${group}.merged.filtered.melt.vcf") into loqusdb_sv_panel
+		set group, id, file("${group}.merged.bndless.genotypefix.melt.vcf") into vep_sv_panel, annotsv_panel
+		set group, file("${group}.merged.bndless.genotypefix.melt.vcf") into loqusdb_sv_panel
 
 
 	script:
