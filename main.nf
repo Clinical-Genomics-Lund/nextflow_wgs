@@ -3333,6 +3333,7 @@ process postprocess_merged_panel_sv_vcf {
 
 		# Add MELT data to info vars:
 		final_info_header_row_idx=\$(grep -n '^##INFO' ${group}.merged.bndless.genotypefix.vcf | tail -n 1 | cut -d: -f1)
+		sed -i "\$final_info_header_row_idx a ##INFO=<ID=SCOUT_CUSTOM,Number=.,Type=String,Description=\\"Custom annotations for scout\\">" ${group}.merged.bndless.genotypefix.vcf
 		sed -i "\$final_info_header_row_idx a ##INFO=<ID=MELT_RANK,Number=.,Type=String,Description=\\"Evidence level 1-5, 5highest\\">" ${group}.merged.bndless.genotypefix.vcf
 		sed -i "\$final_info_header_row_idx a ##INFO=<ID=MELT_QC,Number=.,Type=String,Description=\\"Quality of call\\">" ${group}.merged.bndless.genotypefix.vcf
 
