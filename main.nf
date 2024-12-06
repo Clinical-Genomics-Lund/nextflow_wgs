@@ -3277,7 +3277,15 @@ process svdb_merge_panel {
 			  --bnd_distance 2500 \
 			  --overlap 0.7 \
 			  --priority $priority \
-			  --ins_distance 0 > ${group}.merged.vcf
+			  --ins_distance 0 > ${group}.merged.tmp.vcf
+
+			# copy callers out of INFO.set to INFO.SCOUT_CUSTOM
+			python3 add_callers_to_scout_custom.py \
+				--callers $priority \
+				--merged_vcf ${group}.merged.tmp.vcf > ${group}.merged.vcf
+
+			# Update VCF header:
+			sed -i "\$final_info_header_row_idx a ##INFO=<ID=SCOUT_CUSTOM,Number=.,Type=String,Description=\\"Custom annotations for scout\\">" ${group}.merged.vcf
 
 			${svdb_merge_panel_version(task)}
 			"""
@@ -3333,7 +3341,6 @@ process postprocess_merged_panel_sv_vcf {
 
 		# Add MELT data to info vars:
 		final_info_header_row_idx=\$(grep -n '^##INFO' ${group}.merged.bndless.genotypefix.vcf | tail -n 1 | cut -d: -f1)
-		sed -i "\$final_info_header_row_idx a ##INFO=<ID=SCOUT_CUSTOM,Number=.,Type=String,Description=\\"Custom annotations for scout\\">" ${group}.merged.bndless.genotypefix.vcf
 		sed -i "\$final_info_header_row_idx a ##INFO=<ID=MELT_RANK,Number=.,Type=String,Description=\\"Evidence level 1-5, 5highest\\">" ${group}.merged.bndless.genotypefix.vcf
 		sed -i "\$final_info_header_row_idx a ##INFO=<ID=MELT_QC,Number=.,Type=String,Description=\\"Quality of call\\">" ${group}.merged.bndless.genotypefix.vcf
 
