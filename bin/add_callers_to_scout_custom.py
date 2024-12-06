@@ -110,4 +110,4 @@ def build_scout_custom(custom_dict):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    process_vcf(args.mergedvcf, args.callers)
+    process_vcf(args.merged_vcf, args.callers)
