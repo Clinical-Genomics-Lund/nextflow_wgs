@@ -3280,7 +3280,7 @@ process svdb_merge_panel {
 			  --ins_distance 0 > ${group}.merged.tmp.vcf
 
 			# copy callers out of INFO.set to INFO.SCOUT_CUSTOM
-			python3 add_callers_to_scout_custom.py \
+			add_callers_to_scout_custom.py \
 				--callers $priority \
 				--merged_vcf ${group}.merged.tmp.vcf > ${group}.merged.vcf
 
