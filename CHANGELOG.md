@@ -1,5 +1,8 @@
 # CHANGELOG
 
+### 3.13.0
+* Remove delly process and associated params / script code
+
 ### 3.12.3
 * Replace RNU2-4 gene coordinates with RNU4-2 coordinates in wgs intersect bed. 
 
@@ -16,6 +19,12 @@
 
 ### 3.11.2
 * * Ensure that input VCFs are always supplied in the same alphanumeric order to `svdb_merge` when running trio analysis (see [#172](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/172))
+
+### 3.12.0
+* Rename `cleanVCF.py` -> `postprocess_vep_vcf.py`
+* Remove `merge_callsets.pl` from `svdb_merge` process
+* Move most container path specs into config
+* Ensure that input VCFs are always supplied in the same alphanumeric order to svdb (see [#172](https://github.com/Clinical-Genomics-Lund/nextflow_wgs/issues/172))
 
 ### 3.11.1
 * Add a process to get contamination values from verifybamid2 software.

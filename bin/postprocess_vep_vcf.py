@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(
         2  INFO-field missing CSQ field.
     """
 )
-parser.add_argument("--vcf", type=str, required=True, help="the path to the vcf file")
+parser.add_argument("vep_annotated_vcf", type=str, help="Path to VEP-annotated VCF")
 args = parser.parse_args()
 
 logging.basicConfig(
@@ -36,7 +36,7 @@ def filter_pass(filter_field):
 
 nbr_filtered = 0
 
-with open(args.vcf) as vcf:
+with open(args.vep_annotated_vcf) as vcf:
     for idx, line in enumerate(vcf):
         line = line.strip()
 
