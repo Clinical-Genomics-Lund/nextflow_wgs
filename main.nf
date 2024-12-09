@@ -3682,8 +3682,7 @@ process postprocess_vep_sv {
 		# Filter variants with FILTER != . or PASS and variants missing CSQ field.
 		postprocess_vep_vcf.py $vcf > ${group}.vep.clean.vcf
 		svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf --ins_distance 0 > ${group}.vep.clean.merge.tmp.vcf
-		sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.tmp.vcf
-		sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.tmp.vcf
+
 		# Prepare annotations for scout:
 		modify_svdb_merged_vcf.py ${group}.vep.clean.merge.tmp.vcf > ${group}.vep.clean.merge.vcf
 		${postprocess_vep_sv_version(task)}
