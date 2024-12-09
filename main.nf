@@ -3412,7 +3412,7 @@ process svdb_merge {
 		set group, id, file(gatkV) from merged_gatk.groupTuple()
 		
 	output:
-		set group, id, file("${group}.merged.bndless.vcf") into vcf_vep, annotsv_vcf
+		set group, id, file("${group}.merged.bndless.vcf") into vep_sv, annotsv_vcf
 		set group, file("${group}.merged.vcf") into loqusdb_sv
 		set group, file("*versions.yml") into ch_svdb_merge_versions
 
@@ -3607,7 +3607,7 @@ process vep_sv {
 	time '1h'
 	
 	input:
-		set group, id, file(vcf) from vcf_vep.mix(vep_sv_panel)
+		set group, id, file(vcf) from vep_sv.mix(vep_sv_panel)
 
 	output:
 		set group, id, file("${group}.vep.vcf") into vep_sv_vcf
