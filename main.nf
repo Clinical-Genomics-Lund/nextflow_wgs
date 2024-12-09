@@ -3238,6 +3238,9 @@ process svdb_merge_panel {
 	time '1h'
 	memory '1 GB'
 
+	when:
+		params.antype == "panel"
+
 	input:
 		set group, id, file(vcfs) from called_manta_panel.mix(called_cnvkit_panel,merged_gatk_panel).groupTuple()
 				
