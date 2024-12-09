@@ -3269,25 +3269,25 @@ process svdb_merge_panel {
 			priority = tmpp.join(',')
 			
 			"""
-			svdb \
-			  --merge \
-			  --vcf $vcfs_svdb \
-			  --no_intra \
-			  --pass_only \
-			  --bnd_distance 2500 \
-			  --overlap 0.7 \
-			  --priority $priority \
+			svdb \\
+			  --merge \\
+			  --vcf $vcfs_svdb \\
+			  --no_intra \\
+			  --pass_only \\
+			  --bnd_distance 2500 \\
+			  --overlap 0.7 \\
+			  --priority $priority \\
 			  --ins_distance 0 > ${group}.merged.tmp
 
 
 			# copy callers out of INFO.set to INFO.SCOUT_CUSTOM
-			add_callers_to_scout_custom.py \
-				--callers $priority \
+			add_callers_to_scout_custom.py \\
+				--callers $priority \\
 				--merged_vcf ${group}.merged.tmp > ${group}.merged.callers.tmp
 
-			add_vcf_header_info_records.py \
-				--vcf ${group}.merged.callers.tmp \
-				--info SCOUT_CUSTOM . String "Custom annotations for scout" \
+			add_vcf_header_info_records.py \\
+				--vcf ${group}.merged.callers.tmp \\
+				--info SCOUT_CUSTOM . String "Custom annotations for scout" \\
 				--output ${group}.merged.vcf
 
 			${svdb_merge_panel_version(task)}
@@ -3337,16 +3337,16 @@ process postprocess_merged_panel_sv_vcf {
 	script:
 		"""
 		# Remove BNDs
-		grep -v "BND" $merged_vcf > "${group}.merged.bndless.vcf"
+		grep -v "BND" $merged_vcf > ${group}.merged.bndless.vcf
 
 		# Any 0/0 GT -> 0/1, otherwise loqus will reject them.
 		modify_cnv_genotypes_for_loqusdb.pl --merged_panel_sv_vcf ${group}.merged.bndless.vcf > ${group}.merged.bndless.genotypefix.vcf
 
 		# Add MELT data to info vars:
-		add_vcf_header_info_records.py \
-			--vcf ${group}.merged.bndless.genotypefix.vcf \
-			--info MELT_RANK . String "Evidence level 1-5, 5 - highest" \
-			--info MELT_QC . String "Quality of call" \
+		add_vcf_header_info_records.py \\
+			--vcf ${group}.merged.bndless.genotypefix.vcf \\
+			--info MELT_RANK . String "Evidence level 1-5, 5 - highest" \\
+			--info MELT_QC . String "Quality of call" \\
 			--output ${group}.merged.bndless.genotypefix.headers.vcf
 
 		# Combine with MELT:
@@ -3537,16 +3537,16 @@ process add_to_loqusdb {
 		file("${group}*.loqus") into loqusdb_done
 
 	script:
-                """
-                sv_variants=""
-                nbr_svvcf_records=\$(grep -v '^#' ${svvcf} | wc -l)
+		"""
+		sv_variants=""
+		nbr_svvcf_records=\$(grep -v '^#' ${svvcf} | wc -l)
 
-                if (( \$nbr_svvcf_records > 0 )); then
-                   sv_variants="--sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}"
-                fi
+		if (( \$nbr_svvcf_records > 0 )); then
+			sv_variants="--sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}"
+		fi
 
 		echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} \$sv_variants" > ${group}.loqus
-                """
+		"""
 
 	stub:
 		"""
@@ -3683,9 +3683,9 @@ process postprocess_vep_sv {
 		svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf --ins_distance 0 > ${group}.vep.clean.merge.tmp.vcf
 
 		# --notag above will remove set from INFO:
-		add_vcf_header_info_records.py \
-			--vcf ${group}.vep.clean.merge.tmp.vcf \
-			--info set 1 String "Source VCF for the merged record in SVDB" \
+		add_vcf_header_info_records.py \\
+			--vcf ${group}.vep.clean.merge.tmp.vcf \\
+			--info set 1 String "Source VCF for the merged record in SVDB" \\
 			--output ${group}.vep.clean.merge.headers.tmp.vcf
 
 		# Prepare annotations for scout:
