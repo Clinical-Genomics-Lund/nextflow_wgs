@@ -3690,6 +3690,7 @@ process postprocess_vep_sv {
 		add_vcf_header_info_records.py \\
 			--vcf ${group}.vep.clean.merge.tmp.vcf \\
 			--info set 1 String "Source VCF for the merged record in SVDB" \\
+			--info VARID 1 String "The variant ID of merged samples" \\
 			--output ${group}.vep.clean.merge.headers.tmp.vcf
 
 		# Prepare annotations for scout:
