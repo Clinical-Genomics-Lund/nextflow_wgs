@@ -3277,17 +3277,17 @@ process svdb_merge_panel {
 			  --bnd_distance 2500 \
 			  --overlap 0.7 \
 			  --priority $priority \
-			  --ins_distance 0 > ${group}.merged.tmp.vcf
+			  --ins_distance 0 > ${group}.merged.tmp
 
 
 			# copy callers out of INFO.set to INFO.SCOUT_CUSTOM
 			add_callers_to_scout_custom.py \
 				--callers $priority \
-				--merged_vcf ${group}.merged.tmp.vcf > ${group}.merged.callers.vcf
+				--merged_vcf ${group}.merged.tmp > ${group}.merged.callers.tmp
 
 			final_info_header_row_idx=\$(grep -n '^##INFO' ${group}.merged.bndless.genotypefix.vcf | tail -n 1 | cut -d: -f1)
 			add_vcf_header_info_records.py \
-				--vcf ${group}.merged.callers.vcf \
+			--vcf ${group}.merged.callers.tmp \
 				--info SCOUT_CUSTOM . String "Custom annotations for scout" \
 				--output ${group}.merged.vcf
 
