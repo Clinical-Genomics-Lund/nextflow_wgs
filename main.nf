@@ -3682,6 +3682,12 @@ process postprocess_vep_sv {
 		postprocess_vep_vcf.py $vcf > ${group}.vep.clean.vcf
 		svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf --ins_distance 0 > ${group}.vep.clean.merge.tmp.vcf
 
+		# --notag above will remove set from INFO:
+		add_vcf_header_info_records.py \
+			--vcf ${group}.vep.clean.merge.tmp.vcf \
+			--info set 1 String "Source VCF for the merged record in SVDB" \
+			--output ${group}.vep.clean.merge.headers.tmp.vcf
+
 		# Prepare annotations for scout:
 		modify_svdb_merged_vcf.py ${group}.vep.clean.merge.tmp.vcf > ${group}.vep.clean.merge.vcf
 		${postprocess_vep_sv_version(task)}
