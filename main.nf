@@ -3285,9 +3285,8 @@ process svdb_merge_panel {
 				--callers $priority \
 				--merged_vcf ${group}.merged.tmp > ${group}.merged.callers.tmp
 
-			final_info_header_row_idx=\$(grep -n '^##INFO' ${group}.merged.bndless.genotypefix.vcf | tail -n 1 | cut -d: -f1)
 			add_vcf_header_info_records.py \
-			--vcf ${group}.merged.callers.tmp \
+				--vcf ${group}.merged.callers.tmp \
 				--info SCOUT_CUSTOM . String "Custom annotations for scout" \
 				--output ${group}.merged.vcf
 
