@@ -1,5 +1,15 @@
 # CHANGELOG
 
+### 3.13.0
+* Update SVDB to 2.8.2
+* Rename `cleanVCF.py` -> `postprocess_vep_vcf.py` 
+* Remove `merge_callsets.pl` from `svdb_merge` process
+* Move most container path specs into config
+* Remove delly process and associated params / script code
+* Add util script `add_vcf_header_info_records.py`
+* Split out `add_omim.pl` to own process and move hardcoded db path into config.
+* Add util script update VCF INFO field SCOUT_CUSTOM with list of sv callers that called the variant
+
 ### 3.12.3
 * Replace RNU2-4 gene coordinates with RNU4-2 coordinates in wgs intersect bed. 
 
