@@ -1000,9 +1000,10 @@ process vcfbreakmulti_expansionhunter {
 			bgzip ${group}.expansionhunter.vcf
 			tabix ${group}.expansionhunter.vcf.gz
 			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
-			"""
 
 			${vcfbreakmulti_expansionhunter_version(task)}
+			"""
+
 		}
 
 	stub:
