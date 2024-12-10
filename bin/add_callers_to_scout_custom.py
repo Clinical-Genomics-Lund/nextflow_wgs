@@ -44,7 +44,13 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
             callers_flag = defaultdict(lambda: False)
 
             # Parse caller information from the "set" field in INFO
-            set_info_field = info_dict.get(SVDB_SET_KEY, "")
+            set_info_field = info_dict.get(SVDB_SET_KEY, None)
+            if not set_info_field:
+                LOG.warning("Line %s: No INFO.set field found.", row_idx)
+                old_info = reconstruct_info_field(info_dict)
+                print("\t".join(columns[:7] + [old_info, fmt] + samples))
+                continue
+
             callers_in_set = set(set_info_field.split("-"))
 
             for caller in callers_in_set:
@@ -60,6 +66,9 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
 
             # Do not touch SCOUT_CUSTOM if no callers found in set
             if not found_callers:
+                LOG.warning(
+                    "Line %s: None of expected callers found in INFO.set", row_idx
+                )
                 old_info = reconstruct_info_field(info_dict)
                 print("\t".join(columns[:7] + [old_info, fmt] + samples))
                 continue
