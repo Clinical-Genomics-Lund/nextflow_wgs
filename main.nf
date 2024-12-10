@@ -3336,6 +3336,7 @@ process postprocess_merged_panel_sv_vcf {
 	output:
 		set group, id, file("${group}.merged.bndless.genotypefix.melt.vcf") into vep_sv_panel, annotsv_panel
 		set group, file("${group}.merged.bndless.genotypefix.melt.vcf") into loqusdb_sv_panel
+		set group, file("*versions.yml") into ch_postprocess_merged_panel_sv_vcf_versions
 
 
 	script:
@@ -3355,8 +3356,23 @@ process postprocess_merged_panel_sv_vcf {
 
 		# Combine with MELT:
 		vcf-concat  ${group}.merged.bndless.genotypefix.headers.vcf $melt_vcf | vcf-sort -c > ${group}.merged.bndless.genotypefix.melt.vcf
+		${postprocess_merged_panel_sv_version(task)}
 		"""
 
+	stub:
+		"""
+		touch ${group}.merged.bndless.genotypefix.melt.vcf
+		${postprocess_merged_panel_sv_version(task)}
+		"""
+
+}
+def postprocess_merged_panel_sv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    vcftools: \$(vcftools --version | cut -f 2 -d " " | tr -d "()")
+	END_VERSIONS
+	"""
 }
 
 process tiddit {
@@ -4133,6 +4149,7 @@ process combine_versions {
 			ch_manta_versions.first(),
 			ch_manta_panel_versions.first(),
 			ch_cnvkit_panel_versions.first(),
+			ch_postprocess_merged_panel_sv_vcf_versions.first(),
 			ch_svdb_merge_panel_versions.first(),
 			ch_tiddit_versions.first(),
 			ch_svdb_merge_versions.first(),
