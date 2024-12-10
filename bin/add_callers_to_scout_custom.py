@@ -3,7 +3,7 @@
 import logging
 import argparse
 from collections import defaultdict
-from typing import List
+from typing import List, Dict, Union
 
 INTERSECTION = "Intersection"
 SVDB_SET_KEY = "set"
@@ -47,7 +47,7 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
             callers_flag = defaultdict(lambda: False)
 
             # Parse caller information from the "set" field in INFO
-            set_info_field = info_dict.get(SVDB_SET_KEY, None)
+            set_info_field = str(info_dict.get(SVDB_SET_KEY, None))
             if not set_info_field:
                 LOG.warning("Line %s: No INFO.set field found.", row_idx)
                 old_info = reconstruct_info_field(info_dict)
@@ -79,7 +79,8 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
             new_scout_custom_values = {SCOUT_CUSTOM_CALLER_KEY: "&".join(found_callers)}
 
             if SCOUT_CUSTOM_KEY in info_dict:
-                existing_scout_custom = parse_scout_custom(info_dict[SCOUT_CUSTOM_KEY])
+                scout_custom_val = str(info_dict[SCOUT_CUSTOM_KEY])
+                existing_scout_custom = parse_scout_custom(scout_custom_val)
                 existing_scout_custom.update(new_scout_custom_values)
                 info_dict[SCOUT_CUSTOM_KEY] = build_scout_custom(existing_scout_custom)
             else:
@@ -91,9 +92,9 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
             print("\t".join(columns[:7] + [new_info, fmt] + samples))
 
 
-def parse_info_field(info_field):
+def parse_info_field(info_field: str) -> Dict[str, Union[str, bool]]:
     """Parse the INFO field into a dictionary, handling key-value pairs and flags."""
-    info_dict = {}
+    info_dict: Dict[str, Union[str, bool]] = {}
     for item in info_field.split(";"):
         if "=" in item:
             key, value = item.split("=", 1)
@@ -104,7 +105,7 @@ def parse_info_field(info_field):
     return info_dict
 
 
-def reconstruct_info_field(info_dict):
+def reconstruct_info_field(info_dict: Dict[str, Union[str, bool]]) -> str:
     """Reconstruct the INFO field from the dictionary."""
     info_items = []
     for key, value in info_dict.items():
@@ -117,7 +118,7 @@ def reconstruct_info_field(info_dict):
     return ";".join(info_items)
 
 
-def parse_scout_custom(scout_custom):
+def parse_scout_custom(scout_custom: str) -> Dict[str, str]:
     """Parse the SCOUT_CUSTOM field into a dictionary."""
     custom_dict = {}
     for item in scout_custom.split(","):
@@ -126,7 +127,7 @@ def parse_scout_custom(scout_custom):
     return custom_dict
 
 
-def build_scout_custom(custom_dict):
+def build_scout_custom(custom_dict: Dict[str, str]) -> str:
     """Rebuild the SCOUT_CUSTOM field from a dictionary."""
     return ",".join(f"{key}|{value}" for key, value in custom_dict.items())
 
