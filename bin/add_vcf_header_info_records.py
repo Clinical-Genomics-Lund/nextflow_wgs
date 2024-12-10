@@ -6,9 +6,10 @@ Add INFO fields to VCF Header
 
 import argparse
 import os
+from typing import List, Tuple
 
 
-def parse_arguments():
+def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Add INFO fields to a VCF header.")
     parser.add_argument(
         "--vcf",
@@ -34,7 +35,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def generate_info_lines(info_fields):
+def generate_info_lines(info_fields: List[List[str]]) -> List[str]:
     info_lines = []
     for info in info_fields:
         id_, number, type_, description = info
@@ -43,7 +44,7 @@ def generate_info_lines(info_fields):
     return info_lines
 
 
-def add_info_to_vcf(input_vcf, output_vcf, info_lines):
+def add_info_to_vcf(input_vcf: str, output_vcf: str, info_lines: List[str]) -> None:
     with open(input_vcf, "r") as infile, open(output_vcf, "w") as outfile:
         for line in infile:
             if line.startswith("#CHROM"):
@@ -53,15 +54,14 @@ def add_info_to_vcf(input_vcf, output_vcf, info_lines):
             outfile.write(line)
 
 
-def main():
+def main() -> None:
     args = parse_arguments()
 
     if not os.path.exists(args.vcf):
         raise FileNotFoundError(f"Input VCF file '{args.vcf}' does not exist.")
 
-    info_lines = generate_info_lines(args.info)
-
-    add_info_to_vcf(args.vcf, args.output, info_lines)
+    info_lines_to_be_added = generate_info_lines(args.info)
+    add_info_to_vcf(args.vcf, args.output, info_lines_to_be_added)
 
 
 if __name__ == "__main__":
