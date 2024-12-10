@@ -9,6 +9,7 @@ It converts the default nf_wgs output
 for both the set and svdb_origin fields.
 """
 
+import logging
 import sys
 import gzip
 from collections import OrderedDict
@@ -65,7 +66,7 @@ def main() -> None:
     else:
         f = open(vcf_infile, "r")
 
-    for line in f:
+    for row_idx, line in enumerate(f):
         # Retain header lines
         if line.startswith("#"):
             print(line, end="")
@@ -89,12 +90,32 @@ def main() -> None:
             info_dict[SVDB_SET_KEY] = reduce_to_set_of_unique_callers(
                 info_dict[SVDB_SET_KEY], separator=SVDB_SET_SEPARATOR
             )
+        else:
+            logging.warn(
+                "Line %s: %s:%s:%s:%s - %s not found in INFO",
+                row_idx,
+                chrom,
+                pos,
+                ref,
+                alt,
+                SVDB_SET_KEY,
+            )
 
         if SVDB_ORIGIN_KEY in info_dict:
             # Modify 'svdb_origin' value as needed
             # Example: info_dict['svdb_origin'] = 'new_value'
             info_dict[SVDB_ORIGIN_KEY] = reduce_to_set_of_unique_callers(
                 info_dict[SVDB_ORIGIN_KEY], separator=SVDB_ORIGIN_SEPARATOR
+            )
+        else:
+            logging.warn(
+                "Line %s: %s:%s:%s:%s - %s not found in INFO",
+                row_idx,
+                chrom,
+                pos,
+                ref,
+                alt,
+                SVDB_ORIGIN_KEY,
             )
 
         # reconstruct the INFO field while retaining the order
