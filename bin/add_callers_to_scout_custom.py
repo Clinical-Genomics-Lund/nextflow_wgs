@@ -58,7 +58,7 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
             found_callers = [caller for caller, flag in callers_flag.items() if flag]
 
             # Do not touch SCOUT_CUSTOM if no callers found in set
-            if not any(found_callers):
+            if not found_callers:
                 old_info = reconstruct_info_field(info_dict)
                 print("\t".join(columns[:7] + [old_info, fmt] + samples))
                 continue
