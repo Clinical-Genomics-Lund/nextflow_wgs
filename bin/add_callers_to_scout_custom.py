@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import argparse
 from collections import defaultdict
 from typing import List
@@ -8,6 +9,8 @@ INTERSECTION = "Intersection"
 SVDB_SET_KEY = "set"
 SCOUT_CUSTOM_KEY = "SCOUT_CUSTOM"
 SCOUT_CUSTOM_CALLER_KEY = "Caller"
+
+LOG = logging.getLogger(__name__)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -30,7 +33,7 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
     callers_used_in_analysis = set(callers)
 
     with open(merged_vcf, "r") as vcf_file:
-        for line in vcf_file:
+        for row_idx, line in enumerate(vcf_file):
             if line.startswith("#"):
                 print(line.strip())
                 continue
