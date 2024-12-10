@@ -3064,7 +3064,7 @@ process filter_merge_gatk {
 		set group, id, file(inter), file(gatk), file(denoised) from called_gatk
 
 	output:
-		set group, id, file("${id}.gatk.filtered.merged.vcf") into merged_gatk,merged_gatk_panel
+		set group, id, file("${id}.gatk.filtered.merged.vcf") into merged_gatk, merged_gatk_panel
 
 	script:
 		"""
