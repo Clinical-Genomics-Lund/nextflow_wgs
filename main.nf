@@ -3306,7 +3306,7 @@ process svdb_merge_panel {
 	
 	stub:
 		"""
-		touch "${group}.merged.filtered.melt.vcf"
+		touch "${group}.merged.vcf"
 		${svdb_merge_panel_version(task)}
 		"""
 }
