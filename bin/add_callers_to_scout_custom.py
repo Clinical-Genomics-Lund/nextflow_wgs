@@ -43,7 +43,7 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
             callers_flag = defaultdict(lambda: False)
 
             # Parse caller information from the "set" field in INFO
-            set_info_field = info_dict.get("set", "")
+            set_info_field = info_dict.get(SVDB_SET_KEY, "")
             callers_in_set = set(set_info_field.split("-"))
 
             for caller in callers_in_set:
