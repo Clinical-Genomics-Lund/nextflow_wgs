@@ -9,11 +9,12 @@ It converts the default nf_wgs output
 for both the set and svdb_origin fields.
 """
 
+import argparse
 import logging
 import sys
 import gzip
 from collections import OrderedDict
-from typing import Optional
+from typing import Optional, List
 
 SVDB_ORIGIN_SEPARATOR = "|"
 SVDB_ORIGIN_KEY = "svdb_origin"
@@ -21,44 +22,49 @@ SVDB_SET_KEY = "set"
 SVDB_SET_SEPARATOR = "-"
 
 
-class Callers:
+def match_svdb_annotation_with_caller(
+    unparsed_svdb_origin_annotation: str, callers: List[str]
+) -> Optional[str]:
     """
-    Supported callers
+    Convert caller annotations manta1|gatk1|gatk2 -> manta|gatk
+
+    Returns:
+     - caller_name (str) i
+     - None if caller not supported
     """
+    for caller in callers:
+        if caller in unparsed_svdb_origin_annotation:
+            return caller
 
-    MANTA = "manta"
-    GATK = "gatk"
-    TIDDIT = "tiddit"
-
-    @staticmethod
-    def match_svdb_annotation_with_caller(
-        unparsed_svdb_origin_annotation: str,
-    ) -> Optional[str]:
-        """
-        Convert caller annotations manta1|gatk1|gatk2 -> manta|gatk
-
-        Returns:
-         - caller_name (str) i
-         - None if caller not supported
-        """
-        callers = [Callers.MANTA, Callers.GATK, Callers.TIDDIT]
-
-        for caller in callers:
-            if caller in unparsed_svdb_origin_annotation:
-                return caller
-
-        return None
+    return None
 
 
-def main() -> None:
-    if len(sys.argv) != 2:
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Modify SVDB merged VCF script.")
+    parser.add_argument(
+        "vcf_file", type=str, help="Input VCF file (can be .vcf or .vcf.gz)."
+    )
+    parser.add_argument(
+        "--callers", nargs="+", type=str, required=True, help="List of SV caller names."
+    )
+
+    args = parser.parse_args()
+
+    if not args.vcf_file.endswith((".vcf", ".vcf.gz")):
         print(
-            "Usage: modify_svdb_merged_vcf.py file.vcf(.gz) > output.vcf",
+            "Error: Input file must be a VCF file with .vcf or .vcf.gz extension.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    vcf_infile = sys.argv[1]
+    return args
+
+
+def main() -> None:
+    args = parse_args()
+
+    vcf_infile = args.vcf_file
+    callers = args.callers
 
     # Open the VCF file (supports gzip)
     if vcf_infile.endswith(".gz"):
@@ -88,7 +94,7 @@ def main() -> None:
         # modify 'set' and 'svdb_origin' in place
         if SVDB_SET_KEY in info_dict:
             info_dict[SVDB_SET_KEY] = reduce_to_set_of_unique_callers(
-                info_dict[SVDB_SET_KEY], separator=SVDB_SET_SEPARATOR
+                info_dict[SVDB_SET_KEY], separator=SVDB_SET_SEPARATOR, callers=callers
             )
         else:
             logging.warn(
@@ -105,7 +111,9 @@ def main() -> None:
             # Modify 'svdb_origin' value as needed
             # Example: info_dict['svdb_origin'] = 'new_value'
             info_dict[SVDB_ORIGIN_KEY] = reduce_to_set_of_unique_callers(
-                info_dict[SVDB_ORIGIN_KEY], separator=SVDB_ORIGIN_SEPARATOR
+                info_dict[SVDB_ORIGIN_KEY],
+                separator=SVDB_ORIGIN_SEPARATOR,
+                callers=callers,
             )
         else:
             logging.warn(
@@ -134,7 +142,9 @@ def main() -> None:
     f.close()
 
 
-def reduce_to_set_of_unique_callers(svdb_annotation: str, separator: str) -> str:
+def reduce_to_set_of_unique_callers(
+    svdb_annotation: str, separator: str, callers=List[str]
+) -> str:
     """
     Fetches callers from specified svdb INFO annotations
     and reduces annotation to list of detected unique callers
@@ -145,7 +155,7 @@ def reduce_to_set_of_unique_callers(svdb_annotation: str, separator: str) -> str
     parsed_callers = set()
 
     for caller in callers:
-        matched_caller = Callers.match_svdb_annotation_with_caller(caller)
+        matched_caller = match_svdb_annotation_with_caller(caller, callers)
 
         # Add caller as-is if not supported
         if matched_caller is None:

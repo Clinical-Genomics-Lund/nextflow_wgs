@@ -3710,7 +3710,7 @@ process postprocess_vep_sv {
 			--output ${group}.vep.clean.merge.headers.tmp.vcf
 
 		# Prepare annotations for scout:
-		modify_svdb_merged_vcf.py ${group}.vep.clean.merge.headers.tmp.vcf > ${group}.vep.clean.merge.vcf
+		modify_svdb_merged_vcf.py ${group}.vep.clean.merge.headers.tmp.vcf --callers manta gatk tiddit > ${group}.vep.clean.merge.vcf
 		${postprocess_vep_sv_version(task)}
 		"""
 	stub:
