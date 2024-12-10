@@ -3299,7 +3299,7 @@ process svdb_merge_panel {
 		}
 		else {
 			"""
-			mv $vcf ${group}.merged.filtered.melt.vcf
+			mv $vcf ${group}.merged.vcf
 			${svdb_merge_panel_version(task)}
 			"""
 		}
