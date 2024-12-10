@@ -7,6 +7,7 @@ from typing import List
 INTERSECTION = "Intersection"
 SVDB_SET_KEY = "set"
 SCOUT_CUSTOM_KEY = "SCOUT_CUSTOM"
+SCOUT_CUSTOM_CALLER_KEY = "Caller"
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -63,7 +64,7 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
                 print("\t".join(columns[:7] + [old_info, fmt] + samples))
                 continue
 
-            new_scout_custom_values = {"Caller": "&".join(found_callers)}
+            new_scout_custom_values = {SCOUT_CUSTOM_CALLER_KEY: "&".join(found_callers)}
 
             if SCOUT_CUSTOM_KEY in info_dict:
                 existing_scout_custom = parse_scout_custom(info_dict[SCOUT_CUSTOM_KEY])
