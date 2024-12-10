@@ -3511,32 +3511,32 @@ def svdb_merge_version(task) {
 
 process dummy_svvcf_for_loqusdb {
 
-        // add_to_loqusb won't run if no svvcf is generated
-        // this process creates dummy svvcf for no-SV runs
-        // assay input only exists to disable nextflow warning 
-        // for channels emitting with less than two input elements
+	// add_to_loqusb won't run if no svvcf is generated
+	// this process creates dummy svvcf for no-SV runs
+	// assay input only exists to disable nextflow warning
+	// for channels emitting with less than two input elements
 
-        cpus 1
-        tag "$group"
-        memory '10 MB'
-        time '10m'
+	cpus 1
+	tag "$group"
+	memory '10 MB'
+	time '10m'
 
-        when:
-                !params.sv
-        input:
-                set group, assay from meta_loqusdb_no_sv_calling
-        output:
-                set group, file("${group}.dummy.sv.vcf") into dummy_svvcf_ch
+	when:
+		!params.sv
+	input:
+		set group, assay from meta_loqusdb_no_sv_calling
+	output:
+		set group, file("${group}.dummy.sv.vcf") into dummy_svvcf_ch
 
-        script:
-        """
-        touch ${group}.dummy.sv.vcf
-        """
+	script:
+		"""
+		touch ${group}.dummy.sv.vcf
+		"""
 
-        stub:
-        """
-        touch ${group}.dummy.sv.vcf
-        """
+	stub:
+		"""
+		touch ${group}.dummy.sv.vcf
+		"""
 }
 
 process add_to_loqusdb {
