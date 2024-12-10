@@ -47,12 +47,12 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
             callers_in_set = set(set_info_field.split("-"))
 
             for caller in callers_in_set:
-                if caller in callers_flag:
+                # in-test ensures that e.g. caller=manta
+                if caller in callers_used_in_analysis:
                     callers_flag[caller] = True
                 elif INTERSECTION == caller:
                     for used_caller in callers_used_in_analysis:
-                        if used_caller in callers_flag:
-                            callers_flag[used_caller] = True
+                        callers_flag[used_caller] = True
                     break
 
             found_callers = [caller for caller, flag in callers_flag.items() if flag]
