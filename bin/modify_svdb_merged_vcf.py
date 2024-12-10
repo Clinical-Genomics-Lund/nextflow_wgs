@@ -53,13 +53,13 @@ def main() -> None:
         )
         sys.exit(1)
 
-    infile = sys.argv[1]
+    vcf_infile = sys.argv[1]
 
     # Open the VCF file (supports gzip)
-    if infile.endswith(".gz"):
-        f = gzip.open(infile, "rt")
+    if vcf_infile.endswith(".gz"):
+        f = gzip.open(vcf_infile, "rt")
     else:
-        f = open(infile, "r")
+        f = open(vcf_infile, "r")
 
     for line in f:
         # Retain header lines
