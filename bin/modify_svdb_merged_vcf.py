@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 """
-This script ensured that the SV `svdb_origin` and `set` INFO values can be
-parsed by scout.
+This script ensured that the wgs trio-analysis SV `svdb_origin`
+and `set` INFO values can be parsed by scout.
 
-It reduces `svdb_origin=manta1|manta2|tiddit1` -> `svdb_origin=manta|tiddit`
-and does the same for the `set` field
+It converts the default nf_wgs output
+`svdb_origin=manta1|manta2|tiddit1` -> `svdb_origin=manta|tiddit`
+for both the set and svdb_origin fields.
 """
 
 import sys
@@ -20,6 +21,9 @@ SVDB_SET_SEPARATOR = "-"
 
 
 class Callers:
+    """
+    Supported callers
+    """
 
     MANTA = "manta"
     GATK = "gatk"
@@ -110,6 +114,12 @@ def main() -> None:
 
 
 def reduce_to_set_of_unique_callers(svdb_annotation: str, separator: str) -> str:
+    """
+    Fetches callers from specified svdb INFO annotations
+    and reduces annotation to list of detected unique callers
+
+    Returns a string in the same format as the input annotation
+    """
     callers = svdb_annotation.split(separator)
     parsed_callers = set()
 
