@@ -13,20 +13,6 @@ SCOUT_CUSTOM_CALLER_KEY = "Caller"
 LOG = logging.getLogger(__name__)
 
 
-def parse_arguments() -> argparse.Namespace:
-    """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Copy caller names from SVDB INFO.set to INFO.SCOUT_CUSTOM in SVDB merged VCFs"
-    )
-    parser.add_argument(
-        "--merged_vcf", required=True, help="Path to the merged VCF file."
-    )
-    parser.add_argument(
-        "--callers", required=True, help="Comma-separated list of used callers."
-    )
-    return parser.parse_args()
-
-
 def main(merged_vcf: str, used_callers: List[str]) -> None:
     """Process the VCF file and copy caller information to SCOUT_CUSTOM variant by variant."""
 
@@ -90,6 +76,20 @@ def main(merged_vcf: str, used_callers: List[str]) -> None:
 
             new_info = reconstruct_info_field(info_dict)
             print("\t".join(columns[:7] + [new_info, fmt] + samples))
+
+
+def parse_arguments() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Copy caller names from SVDB INFO.set to INFO.SCOUT_CUSTOM in SVDB merged VCFs"
+    )
+    parser.add_argument(
+        "--merged_vcf", required=True, help="Path to the merged VCF file."
+    )
+    parser.add_argument(
+        "--callers", required=True, help="Comma-separated list of used callers."
+    )
+    return parser.parse_args()
 
 
 def parse_info_field(info_field: str) -> Dict[str, Union[str, bool]]:
