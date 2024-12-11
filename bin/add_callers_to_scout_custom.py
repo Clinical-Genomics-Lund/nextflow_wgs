@@ -119,7 +119,12 @@ def reconstruct_info_field(info_dict: Dict[str, Union[str, bool]]) -> str:
 
 
 def parse_scout_custom(scout_custom: str) -> Dict[str, str]:
-    """Parse the SCOUT_CUSTOM field into a dictionary."""
+    """Parse the SCOUT_CUSTOM field into a dictionary.
+
+    The scout custom INFO field uses the format:
+      - SCOUT_CUSTOM="key1|value1,key2|value2,key3|value3_1&value3_2"
+
+    """
     custom_dict = {}
     for item in scout_custom.split(","):
         key, value = item.split("|", 1)
