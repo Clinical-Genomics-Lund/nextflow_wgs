@@ -296,7 +296,8 @@ foreach my $ind (@inher_patterns) {
             $out = $out.".".$ind;
         }
     }
-    open (OUT,'>',$out);
+    print("Writing Scout yaml to '$out'\n");
+    open (OUT, '>', $out);
 
     print OUT "---\n";
     ### ASSAY DECIDE OWNER? ####
