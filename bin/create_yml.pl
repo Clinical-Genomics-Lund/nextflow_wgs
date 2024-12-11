@@ -71,6 +71,15 @@ my %assays = (
             'institute_owner' => 'onkogenetik'
         }
     },
+    'oncov2-0-pipeeval' => { 
+        'rankm' => 'OncoV2.0-SNV-RM-v5.0',
+        'svrankm' => 'OncoV2.0-SV-Panel-RM-v1.0.2',
+        'capture_kit' => 'oncov2-0',
+        'ph' => {
+            'institute' => 'oncogen',
+            'institute_owner' => 'onkogenetik'
+        }
+    },
     'wgs-hg38' => {
         'rankm' => '5.2.1_SNV',
         'svrankm' => '5.2_SV',
@@ -106,6 +115,14 @@ my %assays = (
         'wgsvalid' => {
             'institute' => 'klingen_38',
             'institute_owner' => 'klingen-genlista'
+        }
+    },
+    'wgs-hg38-pipeeval' => {
+        'rankm' => '5.2.1_SNV',
+        'svrankm' => '5.2_SV',
+        'ph' => {
+            'institute' => 'klingen-genlista',
+            'institute_owner' => 'klingen_38'
         }
     },
     'myeloid-const' => {

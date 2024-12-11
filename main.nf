@@ -4047,7 +4047,8 @@ process create_yaml {
 			--ped $ped \\
 			--files $INFO \\
 			--assay $assay,$analysis \\
-			--antype $params.antype
+			--antype $params.antype \\
+			--extra_panels $params.extra_panels
 		"""
 
 	stub:
