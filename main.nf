@@ -4040,7 +4040,14 @@ process create_yaml {
 	script:
 		"""
 		create_yml.pl \\
-			--g $group,$clarity_sample_id --d $diagnosis --panelsdef $params.panelsdef --out ${group}.yaml --ped $ped --files $INFO --assay $assay,$analysis --antype $params.antype
+			--g $group,$clarity_sample_id \\
+			--d $diagnosis \\
+			--panelsdef $params.panelsdef \\
+			--out ${group}.yaml \\
+			--ped $ped \\
+			--files $INFO \\
+			--assay $assay,$analysis \\
+			--antype $params.antype
 		"""
 
 	stub:

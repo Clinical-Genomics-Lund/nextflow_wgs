@@ -1,13 +1,39 @@
 #! /usr/bin/perl -w
 #use MongoDB;
 use strict;
+use warnings;
 use Data::Dumper;
 use Getopt::Long;
 use JSON;
 use List::MoreUtils qw(uniq);
 
 my %opt = ();
-GetOptions( \%opt, 'g=s', 'd=s', 'p=s', 'out=s', 'genome=s', 'antype=s', 'ped=s', 'assay=s', 'files=s', 'panelsdef=s' );
+GetOptions(
+    \%opt,
+    'g=s',
+    'd=s',
+    'p=s',
+    'out=s',
+    'genome=s',
+    'antype=s',
+    'ped=s',
+    'assay=s',
+    'files=s',
+    'panelsdef=s',
+    'extra_panels=s'
+) or usage();
+
+my @required = ('g', 'd', 'out', 'files', 'ped', 'panelsdef', 'assay', 'antype');
+
+my @missing;
+foreach my $param (@required) {
+    push @missing, $param unless exists $opt{$param};
+}
+
+if (@missing) {
+    print STDERR "Missing required options: " . join(", ", @missing) . "\n";
+    exit 1
+}
 
 ### Define scout institute per assay and/or analysis. ###
 my %assays = (
@@ -213,6 +239,19 @@ close PED;
 my $institute = "klingen";
 my $institute_owner = "klingen";
 if ($opt{assay}) { 
+
+    unless (exists $assays{$assay}) {
+        die "Error: Assay '$assay' not found.\n";
+    }
+
+    unless (exists $assays{$assay}{$analysis}) {
+        die "Error: Analysis '$analysis' for assay '$assay' not found.\n";
+    }
+
+    unless (exists $assays{$assay}{$analysis}{institute}) {
+        die "Error: 'institute' key missing or undefined for assay '$assay' and analysis '$analysis'.\n";
+    }
+
     $institute = $assays{$assay}{$analysis}{institute};
     $institute_owner = $assays{$assay}{$analysis}{institute_owner};
     if ($assays{$assay}{capture_kit}) {
@@ -419,25 +458,78 @@ foreach my $ind (@inher_patterns) {
 sub get_genelist {
     my $institute = shift;
     
-    my $file = $opt{panelsdef};
-    my $data;
-    my @ok_panels;
-    open (JSON, $file);
-    while (<JSON>) {
-        $data = decode_json($_);
+    die "Error: Institute parameter is required\n" unless defined $institute;
+    die "Error: 'panelsdef' option is not defined\n" unless exists $opt{panelsdef};
+
+
+    # Allow outside-institute panels
+    my @extra_panels;
+    if ($opt{extra_panels}) {
+        my $extra_panels_file = $opt{extra_panels};
+
+        my $json_text = '';
+        open(my $fh, '<', $extra_panels_file) or die "Cannot open '$extra_panels_file'";
+        while (my $line = <$fh>) {
+            $json_text .= $line;
+        }
+        close($fh);
+
+        my $extra_panels_per_institute = decode_json($json_text);
+
+        print("Institute: $institute \n");
+
+        if (exists $extra_panels_per_institute -> {$institute}) {
+            @extra_panels = @{ $extra_panels_per_institute -> {$institute} };
+        } else {
+            print("No extra panels matching institute '${institute}'\n");
+        }
     }
-    foreach my $key (@{$data}) {
+
+    my $panels_dump = $opt{panelsdef};
+    my $json_data;
+    my @ok_panels;
+    open (JSON, $panels_dump) or die "Cannot open '$panels_dump'";
+    while (<JSON>) {
+        $json_data = decode_json($_);
+    }
+    close(JSON);
+
+
+    foreach my $panel (@{$json_data}) {
+
+        my $panel_name = $panel->{panel_name};
+
+        # Can be a single value or an array reference
+        my $panel_institutes_ref = $panel->{institute};
+
         ## This is because some gene panels are assigned to two different institutes
-        ## NOT SUPPORTED by scouut, it's a fluke that it even works
-        if (ref $key->{institute} eq 'ARRAY') {
-            foreach my $inst (@{ $key->{institute} }) {
-                push @ok_panels,$key->{panel_name} if $inst eq $institute;
+        ## NOT SUPPORTED by Scout, it's a fluke that it even works
+        my @panel_institutes;
+        if (ref $panel_institutes_ref eq 'ARRAY') {
+            @panel_institutes = @{ $panel_institutes_ref };
+        } else {
+            @panel_institutes = ( $panel_institutes_ref );
+        }
+
+        foreach my $panel_inst (@panel_institutes) {
+            my $is_extra_panel = grep { $_ eq $panel_name } @extra_panels;
+            if ($panel_inst eq $institute || $is_extra_panel) {
+
+                if ($is_extra_panel) {
+                    print("$panel_name $panel_inst $institute $is_extra_panel" . "\n");
+                }
+
+                push @ok_panels, $panel_name;
+                # One match is enough, stopping the loop
+                last;
             }
         }
-        elsif ($key->{institute} eq $institute) {
-            push @ok_panels,$key->{panel_name};
-        }
+
     }
+
     @ok_panels = uniq(@ok_panels);
+
+    # print(Dumper(@ok_panels) . "\n");
+
     return \@ok_panels;
 }
