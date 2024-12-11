@@ -22,44 +22,6 @@ SVDB_SET_KEY = "set"
 SVDB_SET_SEPARATOR = "-"
 
 
-def match_svdb_annotation_with_caller(
-    unparsed_svdb_origin_annotation: str, callers: List[str]
-) -> Optional[str]:
-    """
-    Convert caller annotations manta1|gatk1|gatk2 -> manta|gatk
-
-    Returns:
-     - caller_name (str) i
-     - None if caller not supported
-    """
-    for caller in callers:
-        if caller in unparsed_svdb_origin_annotation:
-            return caller
-
-    return None
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Modify SVDB merged VCF script.")
-    parser.add_argument(
-        "vcf_file", type=str, help="Input VCF file (can be .vcf or .vcf.gz)."
-    )
-    parser.add_argument(
-        "--callers", nargs="+", type=str, required=True, help="List of SV caller names."
-    )
-
-    args = parser.parse_args()
-
-    if not args.vcf_file.endswith((".vcf", ".vcf.gz")):
-        print(
-            "Error: Input file must be a VCF file with .vcf or .vcf.gz extension.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    return args
-
-
 def main() -> None:
     args = parse_args()
 
@@ -140,6 +102,44 @@ def main() -> None:
         print("\t".join(new_fields))
 
     f.close()
+
+
+def match_svdb_annotation_with_caller(
+    unparsed_svdb_origin_annotation: str, callers: List[str]
+) -> Optional[str]:
+    """
+    Convert caller annotations manta1|gatk1|gatk2 -> manta|gatk
+
+    Returns:
+     - caller_name (str) i
+     - None if caller not supported
+    """
+    for caller in callers:
+        if caller in unparsed_svdb_origin_annotation:
+            return caller
+
+    return None
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Modify SVDB merged VCF script.")
+    parser.add_argument(
+        "vcf_file", type=str, help="Input VCF file (can be .vcf or .vcf.gz)."
+    )
+    parser.add_argument(
+        "--callers", nargs="+", type=str, required=True, help="List of SV caller names."
+    )
+
+    args = parser.parse_args()
+
+    if not args.vcf_file.endswith((".vcf", ".vcf.gz")):
+        print(
+            "Error: Input file must be a VCF file with .vcf or .vcf.gz extension.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    return args
 
 
 def reduce_to_set_of_unique_callers(
