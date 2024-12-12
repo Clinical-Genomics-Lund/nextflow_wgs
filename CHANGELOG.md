@@ -1,7 +1,9 @@
 # CHANGELOG
 
-### TBD
+### 3.13.1
 * Add support for including specific panels from other institutes in Scout yaml.
+* Scout yaml now get panels and other info added for "pipeeval" profile
+* Some refactor of create_yaml.pl
 
 ### 3.12.3
 * Replace RNU2-4 gene coordinates with RNU4-2 coordinates in wgs intersect bed. 
