@@ -3291,7 +3291,7 @@ process svdb_merge_panel {
 
 			add_vcf_header_info_records.py \\
 				--vcf ${group}.merged.callers.tmp \\
-				--info SCOUT_CUSTOM . String "Custom annotations for scout" \\
+				--info SCOUT_CUSTOM . String "Custom annotations for scout" '' '' \\
 				--output ${group}.merged.vcf
 
 			${svdb_merge_panel_version(task)}
@@ -3350,8 +3350,8 @@ process postprocess_merged_panel_sv_vcf {
 		# Add MELT data to info vars:
 		add_vcf_header_info_records.py \\
 			--vcf ${group}.merged.bndless.genotypefix.vcf \\
-			--info MELT_RANK . String "Evidence level 1-5, 5 - highest" \\
-			--info MELT_QC . String "Quality of call" \\
+			--info MELT_RANK . String "Evidence level 1-5, 5 - highest" '' '' \\
+			--info MELT_QC . String "Quality of call" '' '' \\
 			--output ${group}.merged.bndless.genotypefix.headers.vcf
 
 		# Combine with MELT:
