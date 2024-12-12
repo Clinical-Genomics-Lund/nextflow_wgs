@@ -59,6 +59,14 @@ def process_info_args(info_args: List[List[str]]) -> List[Dict[str, Optional[str
     Returns:
         List[Dict]: INFO fields as dictionaries.
     """
+
+    id_: str
+    number: str
+    type_: str
+    description: str
+    source: Optional[str]
+    version: Optional[str]
+
     processed_info = []
     for info in info_args:
         id_, number, type_, description, source, version = info
