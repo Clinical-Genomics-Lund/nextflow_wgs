@@ -109,13 +109,15 @@ my %assays = (
         }
     },
     'pipeeval' => {
+        'rankm' => '5.2.1_SNV(pipeeval placeholder)',
+        'svrankm' => '5.2_SV(pipeeval placeholder)',
         'wgs' => {
-            'institute' => 'klingen-genlista',
-            'institute_owner' => 'klingen_38'
+            'institute' => 'klingen_38',
+            'institute_owner' => 'klingen-genlista'
         },
         'onco' => {
-            'institute' => 'oncogen',
-            'institute_owner' => 'onkogenetik'
+            'institute' => 'onkogenetik',
+            'institute_owner' => 'oncogen'
         }
     },
     'myeloid-const' => {
@@ -487,8 +489,6 @@ sub get_genelist {
 
         my $extra_panels_per_institute = decode_json($json_text);
 
-        print("Institute: $institute \n");
-
         if (exists $extra_panels_per_institute -> {$institute}) {
             @extra_panels = @{ $extra_panels_per_institute -> {$institute} };
         } else {
@@ -525,10 +525,6 @@ sub get_genelist {
         foreach my $panel_inst (@panel_institutes) {
             my $is_extra_panel = grep { $_ eq $panel_name } @extra_panels;
             if ($panel_inst eq $institute || $is_extra_panel) {
-
-                if ($is_extra_panel) {
-                    print("$panel_name $panel_inst $institute $is_extra_panel" . "\n");
-                }
 
                 push @ok_panels, $panel_name;
                 # One match is enough, stopping the loop
