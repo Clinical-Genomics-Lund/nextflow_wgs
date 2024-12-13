@@ -52,34 +52,12 @@ def main() -> None:
         others = fields[8:]  # If there are additional columns
 
         info_dict = parse_info_field(info_field=info)
-
-        # modify 'set' and 'svdb_origin' in place
-        for svdb_field_info in SVDB_TARGET_FIELDS:
-            field_name: str = svdb_field_info["field_name"]
-            separator: str = svdb_field_info["separator"]
-
-            if not field_name in info_dict:
-                logging.warn(
-                    "Line %s: %s:%s:%s:%s - %s not found in INFO",
-                    row_idx,
-                    chrom,
-                    pos,
-                    ref,
-                    alt,
-                    field_name,
-                )
-                continue
-
-            target_svdb_info_value = info_dict[field_name]
-
-            if not isinstance(target_svdb_info_value, str):
-                raise ValueError(
-                    f"Line {row_idx}: '{field_name}' parsed as {type(info_dict[field_name])}, must be str."
-                )
-
-            info_dict[field_name] = reduce_to_set_of_unique_callers(
-                target_svdb_info_value, separator=separator, callers=callers
+        try:
+            updated_info_dict = clean_up_caller_names_in_svdb_info_fields(
+                info_dict, callers
             )
+        except ValueError as e:
+            raise ValueError(f"Line {row_idx}: {e}")
 
         # reconstruct the INFO field while retaining the order
         new_info = []
@@ -95,6 +73,42 @@ def main() -> None:
         print("\t".join(new_fields))
 
     f.close()
+
+
+def clean_up_caller_names_in_svdb_info_fields(
+    info_row: Dict[str, Union[str, bool]], used_callers: List[str]
+) -> Dict[str, Union[str, bool]]:
+    """
+    Iterate over all target SVDB fields in curr info row
+    and clean up target caller names inside so they can
+    be parsed by scout.
+    """
+
+    parsed_info_row = info_row.copy()
+
+    for svdb_field_info in SVDB_TARGET_FIELDS:
+        field_name: str = svdb_field_info["field_name"]
+        separator: str = svdb_field_info["separator"]
+
+        if not field_name in parsed_info_row:
+            logging.warn(
+                "%s not found in INFO.",
+                field_name,
+            )
+            continue
+
+        target_svdb_info_value = parsed_info_row[field_name]
+
+        if not isinstance(target_svdb_info_value, str):
+            raise ValueError(
+                f"'{field_name}' parsed as {type(parsed_info_row[field_name])}, must be str."
+            )
+
+        parsed_info_row[field_name] = reduce_to_set_of_unique_callers(
+            target_svdb_info_value, separator=separator, callers=used_callers
+        )
+
+    return parsed_info_row
 
 
 def parse_info_field(info_field: str) -> Dict[str, Union[str, bool]]:
