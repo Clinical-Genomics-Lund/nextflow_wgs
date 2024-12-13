@@ -112,7 +112,7 @@ def validate_info_fields(*, number: str, info_type: str) -> None:
             f"Invalid number: '{number}'. Must be an integer or any of the following: {VALID_NUMBER_SPECIAL_CHARS}",
         )
 
-    if not info_type in VALID_INFO_TYPES:
+    if info_type not in VALID_INFO_TYPES:
         raise ValueError(
             f"Invalid type: '{info_type}'. Must be one of the following: {VALID_INFO_TYPES}",
         )
