@@ -3320,9 +3320,7 @@ def svdb_merge_panel_version(task) {
 }
 
 process postprocess_merged_panel_sv_vcf {
-
 	cpus 2
-	cache 'deep'
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '1h'
