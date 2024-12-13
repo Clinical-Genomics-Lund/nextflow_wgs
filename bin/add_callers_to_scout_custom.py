@@ -16,7 +16,7 @@ LOG = logging.getLogger(__name__)
 def main(merged_vcf: str, used_callers: List[str]) -> None:
     """Process the VCF file and copy caller information to SCOUT_CUSTOM variant by variant."""
 
-    callers_used_in_analysis = set(callers)
+    callers_used_in_analysis = set(used_callers)
 
     with open(merged_vcf, "r") as vcf_file:
         for row_idx, line in enumerate(vcf_file):
