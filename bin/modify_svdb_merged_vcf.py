@@ -14,12 +14,17 @@ import logging
 import sys
 import gzip
 from collections import OrderedDict
-from typing import Optional, List
+from typing import Optional, List, Dict, Union
 
 SVDB_ORIGIN_SEPARATOR = "|"
 SVDB_ORIGIN_KEY = "svdb_origin"
 SVDB_SET_KEY = "set"
 SVDB_SET_SEPARATOR = "-"
+
+SVDB_TARGET_FIELDS = [
+    {"field_name": SVDB_SET_KEY, "separator": SVDB_SET_SEPARATOR},
+    {"field_name": SVDB_ORIGIN_KEY, "separator": SVDB_ORIGIN_SEPARATOR},
+]
 
 
 def main() -> None:
@@ -35,57 +40,45 @@ def main() -> None:
         f = open(vcf_infile, "r")
 
     for row_idx, line in enumerate(f):
-        # Retain header lines
-        if line.startswith("#"):
-            print(line, end="")
+        curr_record = str(line)
+
+        # Retain header curr_records
+        if curr_record.startswith("#"):
+            print(curr_record, end="")
             continue
 
-        fields = line.rstrip("\n").split("\t")
+        fields = curr_record.rstrip("\n").split("\t")
         chrom, pos, id_, ref, alt, qual, filter_, info = fields[:8]
         others = fields[8:]  # If there are additional columns
 
-        info_entries = info.split(";")
-        info_dict = OrderedDict()
-        for entry in info_entries:
-            if "=" in entry:
-                key, value = entry.split("=", 1)
-                info_dict[key] = value
-            else:
-                info_dict[entry] = True  # Flag without a value
+        info_dict = parse_info_field(info_field=info)
 
         # modify 'set' and 'svdb_origin' in place
-        if SVDB_SET_KEY in info_dict:
-            info_dict[SVDB_SET_KEY] = reduce_to_set_of_unique_callers(
-                info_dict[SVDB_SET_KEY], separator=SVDB_SET_SEPARATOR, callers=callers
-            )
-        else:
-            logging.warn(
-                "Line %s: %s:%s:%s:%s - %s not found in INFO",
-                row_idx,
-                chrom,
-                pos,
-                ref,
-                alt,
-                SVDB_SET_KEY,
-            )
+        for svdb_field_info in SVDB_TARGET_FIELDS:
+            field_name: str = svdb_field_info["field_name"]
+            separator: str = svdb_field_info["separator"]
 
-        if SVDB_ORIGIN_KEY in info_dict:
-            # Modify 'svdb_origin' value as needed
-            # Example: info_dict['svdb_origin'] = 'new_value'
-            info_dict[SVDB_ORIGIN_KEY] = reduce_to_set_of_unique_callers(
-                info_dict[SVDB_ORIGIN_KEY],
-                separator=SVDB_ORIGIN_SEPARATOR,
-                callers=callers,
-            )
-        else:
-            logging.warn(
-                "Line %s: %s:%s:%s:%s - %s not found in INFO",
-                row_idx,
-                chrom,
-                pos,
-                ref,
-                alt,
-                SVDB_ORIGIN_KEY,
+            if not field_name in info_dict:
+                logging.warn(
+                    "Line %s: %s:%s:%s:%s - %s not found in INFO",
+                    row_idx,
+                    chrom,
+                    pos,
+                    ref,
+                    alt,
+                    field_name,
+                )
+                continue
+
+            target_svdb_info_value = info_dict[field_name]
+
+            if not isinstance(target_svdb_info_value, str):
+                raise ValueError(
+                    f"Line {row_idx}: '{field_name}' parsed as {type(info_dict[field_name])}, must be str."
+                )
+
+            info_dict[field_name] = reduce_to_set_of_unique_callers(
+                target_svdb_info_value, separator=separator, callers=callers
             )
 
         # reconstruct the INFO field while retaining the order
@@ -102,6 +95,22 @@ def main() -> None:
         print("\t".join(new_fields))
 
     f.close()
+
+
+def parse_info_field(info_field: str) -> Dict[str, Union[str, bool]]:
+    """
+    Split info string and parse into dict whilst retaining order
+    """
+    info_entries = info_field.split(";")
+    info_dict: Dict[str, Union[str, bool]] = OrderedDict()
+    for entry in info_entries:
+        if "=" in entry:
+            key, value = entry.split("=", 1)
+            info_dict[key] = value
+        else:
+            info_dict[entry] = True  # Flag without a value
+
+    return info_dict
 
 
 def match_svdb_annotation_with_caller(
@@ -143,7 +152,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def reduce_to_set_of_unique_callers(
-    svdb_annotation: str, separator: str, callers=List[str]
+    svdb_annotation: str, separator: str, callers: List[str]
 ) -> str:
     """
     Fetches callers from specified svdb INFO annotations
