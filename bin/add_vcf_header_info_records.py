@@ -12,6 +12,20 @@ VALID_NUMBER_SPECIAL_CHARS = ("A", "R", "G", ".")
 VALID_INFO_TYPES = ("Integer", "Float", "Flag", "Character", "String")
 
 
+def main() -> None:
+    """
+    Add new INFO rows to VCF, output to new VCF file.
+    """
+    args = parse_arguments()
+
+    if not os.path.exists(args.vcf):
+        raise FileNotFoundError(f"Input VCF file '{args.vcf}' does not exist.")
+
+    processed_header_data = process_info_args(args.info)
+    info_lines_to_be_added = generate_info_lines(processed_header_data)
+    add_info_to_vcf(args.vcf, args.output, info_lines_to_be_added)
+
+
 def parse_arguments() -> argparse.Namespace:
     """
     Parse command-line arguments.
@@ -144,17 +158,6 @@ def add_info_to_vcf(input_vcf: str, output_vcf: str, info_lines: List[str]) -> N
             raise ValueError(
                 "Could not find column header (#CHROM and friends). Is this even a VCF file?"
             )
-
-
-def main() -> None:
-    args = parse_arguments()
-
-    if not os.path.exists(args.vcf):
-        raise FileNotFoundError(f"Input VCF file '{args.vcf}' does not exist.")
-
-    processed_header_data = process_info_args(args.info)
-    info_lines_to_be_added = generate_info_lines(processed_header_data)
-    add_info_to_vcf(args.vcf, args.output, info_lines_to_be_added)
 
 
 if __name__ == "__main__":
