@@ -3737,7 +3737,6 @@ process add_omim {
 
 	output:
 		set group, file("${group}.vep.clean.merge.omim.vcf") into artefact_vcf
-		// set group, file("*versions.yml") into ch_postprocess_vep_versions
 
 	script:
 		"""
