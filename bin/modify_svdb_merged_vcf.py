@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-This script ensured that the wgs trio-analysis SV `svdb_origin`
+This script ensures that the wgs trio-analysis SV `svdb_origin`
 and `set` INFO values can be parsed by scout.
 
 It converts the default nf_wgs output
