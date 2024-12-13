@@ -3242,7 +3242,7 @@ process svdb_merge_panel {
 		params.antype == "panel"
 
 	input:
-		set group, id, file(vcfs) from called_manta_panel.mix(called_cnvkit_panel,merged_gatk_panel).groupTuple()
+		set group, id, file(vcfs) from called_manta_panel.mix(called_cnvkit_panel, merged_gatk_panel).groupTuple()
 				
 	output:
 		set group, id, file("${group}.merged.vcf") into ch_postprocess_merged_panel_sv
