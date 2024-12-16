@@ -29,7 +29,7 @@ BED = list[list[str]]
 CLNSIG:      Clinical significance of variant
 CLNSIGINCL:  Clinical significance for a haplotype or genotype that includes
                 this variant. Reported as pairs (VariantID:ClinSig).
-                It can for instance be benign by itself, but when found together with a separate 
+                It can for instance be benign by itself, but when found together with a separate
                 variant on the same location, or different location, it could be Pathogenic.
 CLNSIGCONF:  Reviewer certainty
 CLNDN:       ClinVar preferred disease name
