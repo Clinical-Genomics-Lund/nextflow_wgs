@@ -1,13 +1,33 @@
 # CHANGELOG
 
-* Update SVDB to 2.8.2
+### 3.14.0
+
+#### Updated:
+
+* SVDB to 2.8.2
+
+#### Added
+* Util script `add_vcf_header_info_records.py`
+* Util script `normalize_caller_names_in_svdb_fields.py`
+* Util script `add_callers_to_scout_custom.py`
+* Util script `modify_cnv_genotypes_for_loqusdb.pl` (formerly `filter_panel_cnv.pl`)
+* `main.nf`: New process `postprocess_merged_panel_sv_vcf`
+* `main.nf`: New process `add_omim`
+
+#### Changed:
+
 * Rename `cleanVCF.py` -> `postprocess_vep_vcf.py` 
-* Remove `merge_callsets.pl` from `svdb_merge` process
 * Move most container path specs into config
-* Remove delly process and associated params / script code
-* Add util script `add_vcf_header_info_records.py`
 * Split out `add_omim.pl` to own process and move hardcoded db path into config.
-* Add util script update VCF INFO field SCOUT_CUSTOM with list of sv callers that called the variant
+* `main.nf`: Rename `postprocess_vep` to `postprocess_vep_sv`
+
+#### Deleted:
+
+* Remove `merge_callsets.pl` from `svdb_merge` process
+* Remove delly process and associated params / script code
+* Remove onco v1 profile
+* Remove `filter_panel_cnv.pl` 
+* Remove `omim_genes.txt` (converted to external db)
 
 ### 3.13.1
 * Add support for including specific panels from other institutes in Scout yaml.
