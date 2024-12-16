@@ -347,7 +347,7 @@ process markdup {
 		set id, group, file(bam), file(bai) from bam_markdup.mix(merged_bam_dedup)
 
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, verifybamid2_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_delly_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into complete_bam, chanjo_bam, d4_bam, verifybamid2_bam, expansionhunter_bam, yaml_bam, cov_bam, bam_manta, bam_nator, bam_tiddit, bam_manta_panel, bam_cnvkit_panel, bam_freebayes, bam_mito, smncnc_bam, bam_gatk, depth_onco
 		set id, group, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into qc_bam, bam_melt, bam_bqsr
 		set val(id), file("dedup_metrics.txt") into dedupmet_sentieonqc
 		set group, file("${group}_bam.INFO") into bam_INFO
@@ -403,7 +403,7 @@ process copy_bam {
 		set group, id, file(bam), file(bai) from bam_choice
 	
 	output:
-		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into expansionhunter_bam_choice, dnascope_bam_choice, bampath_start, cov_bam_choice, bam_manta_choice, bam_tiddit_choice, bam_mito_choice, bam_SMN_choice, bam_freebayes_choice, bam_mantapanel_choice, bam_cnvkitpanel_choice, bam_dellypanel_choice, bam_melt_choice, bam_qc_choice, dedup_dummy_choice, bam_bqsr_choice, bam_gatk_choice, verifybamid2_bam_choice
+		set group, id, file("${id}_dedup.bam"), file("${id}_dedup.bam.bai") into expansionhunter_bam_choice, dnascope_bam_choice, bampath_start, cov_bam_choice, bam_manta_choice, bam_tiddit_choice, bam_mito_choice, bam_SMN_choice, bam_freebayes_choice, bam_mantapanel_choice, bam_cnvkitpanel_choice, bam_melt_choice, bam_qc_choice, dedup_dummy_choice, bam_bqsr_choice, bam_gatk_choice, verifybamid2_bam_choice
 	script:
 		"""
 		ionice -c 2 -n 7 cp ${bam} "${id}_dedup.copy.bam"
@@ -876,10 +876,7 @@ process stranger {
 	memory '1 GB'
 	time '10m'
 	cpus 2
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
-	container = "/fs1/resources/containers/stranger_0.8.sif"
+	container = "${params.container_stranger}"
 
 	input:
 		set group, id, file(eh_vcf) from expansionhunter_vcf
@@ -922,7 +919,7 @@ process reviewer {
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
 	errorStrategy 'ignore'
-	container = "/fs1/resources/containers/REViewer_2021-06-07.sif"
+	container = "${params.container_reviewer}"
 	publishDir "${OUTDIR}/plots/reviewer/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.svg'
 	
 	input:
@@ -1006,6 +1003,7 @@ process vcfbreakmulti_expansionhunter {
 
 			${vcfbreakmulti_expansionhunter_version(task)}
 			"""
+
 		}
 
 	stub:
@@ -1082,7 +1080,7 @@ process melt_qc_val {
 process melt {
 	cpus 3
 	errorStrategy 'retry'
-	container = '/fs1/resources/containers/melt_2.2.2.sif'
+	container = "${params.container_melt}"
 	tag "$id"
 	// memory seems to scale with less number of reads?
 	memory '70 GB'
@@ -1147,7 +1145,7 @@ process intersect_melt {
 		params.run_melt
 
 	output:
-		set group, id, file("${id}.melt.merged.intersected.vcf") into melt_vcf
+		set group, id, file("${id}.melt.merged.intersected.vcf") into ch_melt_vcf
 		set group, file("*versions.yml") into ch_intersect_melt_versions
 
 	script:
@@ -1333,7 +1331,7 @@ process madeline {
 	memory '1 GB'
 	time '1h'
 	cpus 2
-	container '/fs1/resources/containers/madeline.sif'
+	container = "${params.container_madeline}"
 
 	input:
 		set group, type, file(ped) from ped_mad.mix(ped_mad_ma,ped_mad_fa)
@@ -1385,7 +1383,7 @@ process freebayes {
 	cpus 1
 	time '2h'
 	memory '10 GB'
-	container '/fs1/resources/containers/twistmyeloid_2020-06-17.sif'
+	container = "${params.container_twist_myeloid}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2199,7 +2197,7 @@ def indel_vep_version(task) {
 // Calculate CADD scores for all indels
 process calculate_indel_cadd {
 	cpus 2
-	container = '/fs1/resources/containers/cadd_v1.6.sif'
+	container = "${params.container_cadd}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2470,9 +2468,10 @@ def vcf_completion_version(task) {
 }
 
 process peddy {
+
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.ped'
 	publishDir "${OUTDIR}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.csv'
-	//container = '/fs1/resources/containers/wgs_20200115.sif'
+
 	cpus 4
 	tag "$group"
 	time '1h'
@@ -2804,7 +2803,7 @@ process gatk_coverage {
 	cpus 2
 	memory '50GB'
 	time '2h'
-	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
+	container = "${params.container_gatk}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2862,7 +2861,7 @@ process gatk_call_ploidy {
 	cpus 10
 	memory '50GB'
 	time '2h'
-	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
+	container = "${params.container_gatk}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2917,7 +2916,7 @@ process gatk_call_cnv {
 	cpus 8
 	memory '50GB'
 	time '3h'
-	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'
+	container = "${params.container_gatk}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -2980,7 +2979,7 @@ process postprocessgatk {
 	cpus 5
 	memory '50GB'
 	time '3h'
-	container = '/fs1/resources/containers/gatk_4.1.9.0.sif'	
+	container = "${params.container_gatk}"
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 	tag "$id"
 
@@ -3065,7 +3064,7 @@ process filter_merge_gatk {
 		set group, id, file(inter), file(gatk), file(denoised) from called_gatk
 
 	output:
-		set group, id, file("${id}.gatk.filtered.merged.vcf") into merged_gatk,merged_gatk_panel
+		set group, id, file("${id}.gatk.filtered.merged.vcf") into merged_gatk, merged_gatk_panel
 
 	script:
 		"""
@@ -3171,55 +3170,10 @@ def manta_panel_version(task) {
 	"""
 }
 
-process delly_panel {
-	cpus = 5
-	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
-	tag "$id"
-	time '3h'
-	memory '10 GB'
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
-	cache 'deep'
-	
-	when:
-		params.sv && params.antype == "panel" && params.delly
-
-	input:
-		set group, id, file(bam), file(bai) from bam_delly_panel.mix(bam_dellypanel_choice)
-
-	output:
-		set group, id, file("${id}.delly.vcf.gz") into called_delly_panel
-		set group, file("*versions.yml") into ch_delly_panel_versions
-
-	script:
-		"""
-		delly call -g $genome_file -o ${id}.bcf $bam
-		bcftools view ${id}.bcf > ${id}.vcf
-		filter_delly.pl --vcf ${id}.vcf --bed $params.intersect_bed > ${id}.delly.vcf
-		bgzip -c ${id}.delly.vcf > ${id}.delly.vcf.gz
-
-		${delly_panel_version(task)}
-		"""
-
-	stub:
-		"""
-		touch "${id}.delly.vcf.gz"
-		${delly_panel_version(task)}
-		"""
-}
-def delly_panel_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    delly: \$( echo \$(delly --version 2>&1) | sed 's/^.*Delly version: v//; s/ using.*\$//')
-	END_VERSIONS	
-	"""
-}
 
 process cnvkit_panel {
 	cpus = 5
-	container = '/fs1/resources/containers/twistmyeloid_active.sif'
+	container = "${params.container_twist_myeloid}"
 	publishDir "${OUTDIR}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	publishDir "${OUTDIR}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
 	tag "$id"
@@ -3276,75 +3230,83 @@ def cnvkit_panel_version(task) {
 }
 
 process svdb_merge_panel {
+	container = "${params.container_svdb}"
 	cpus 2
 	cache 'deep'
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '1h'
 	memory '1 GB'
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
+
+	when:
+		params.antype == "panel"
 
 	input:
-		//set group, id, file(mantaV), file(dellyV), file(melt), file(cnvkitV) \
-		//	from called_manta_panel.join(called_delly_panel, by:[0,1]).join(melt_vcf, by:[0,1]).join(called_cnvkit_panel, by:[0,1])
-		set group, id, file(vcfs), id, file(melt) from called_manta_panel.mix(called_delly_panel,called_cnvkit_panel,merged_gatk_panel).groupTuple().join(melt_vcf)
+		set group, id, file(vcfs) from called_manta_panel.mix(called_cnvkit_panel, merged_gatk_panel).groupTuple()
 				
 	output:
-		set group, id, file("${group}.merged.filtered.melt.vcf") into vep_sv_panel, annotsv_panel 
-		//set group, id, file("${group}.merged.filtered.vcf") into annotsv_panel
-		set group, file("${group}.merged.filtered.melt.vcf") into loqusdb_sv_panel
+		set group, id, file("${group}.merged.vcf") into ch_postprocess_merged_panel_sv
 		set group, file("*versions.yml") into ch_svdb_merge_panel_versions
 
 	script:
-		//tmp = mantaV.collect {it + ':manta ' } + dellyV.collect {it + ':delly ' } + cnvkitV.collect {it + ':cnvkit ' }
-		//vcfs = tmp.join(' ')
 		if (vcfs.size() > 1) {
 			// for each sv-caller add idx, find vcf and find priority, add in priority order! //
 			// index of vcfs added from mix //
 			manta_idx = vcfs.findIndexOf{ it =~ 'manta' }
-			delly_idx = vcfs.findIndexOf{ it =~ 'delly' }
 			cnvkit_idx = vcfs.findIndexOf{ it =~ 'cnvkit' }
 			gatk_idx = vcfs.findIndexOf{ it =~ 'gatk' }
 
 			// find vcfs //
 			manta = manta_idx >= 0 ? vcfs[manta_idx].collect {it + ':manta ' } : null
-			delly = delly_idx >= 0 ? vcfs[delly_idx].collect {it + ':delly ' } : null
 			cnvkit = cnvkit_idx >= 0 ? vcfs[cnvkit_idx].collect {it + ':cnvkit ' } : null
 			gatk = gatk_idx >= 0 ? vcfs[gatk_idx].collect {it + ':gatk ' } : null
-			tmp = manta + delly + gatk + cnvkit
+			tmp = manta + gatk + cnvkit
 			tmp = tmp - null
 			vcfs_svdb = tmp.join(' ')
 
 			// find priorities //
 			mantap = manta_idx >= 0 ? 'manta' : null
-			dellyp = delly_idx >= 0 ? 'delly' : null
 			gatkp = gatk_idx >= 0 ? 'gatk' : null
 			cnvkitp = cnvkit_idx >= 0 ? 'cnvkit' : null
-			tmpp = [mantap, dellyp, gatkp, cnvkitp]
+			tmpp = [mantap, gatkp, cnvkitp]
 			tmpp = tmpp - null
 			priority = tmpp.join(',')
 			
 			"""
-			source activate py3-env
-			svdb --merge --vcf $vcfs_svdb --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $priority > ${group}.merged.vcf
-			filter_panel_cnv.pl --mergedvcf ${group}.merged.vcf --callers $priority > ${group}.merged.filtered.vcf
-			vcf-concat ${group}.merged.filtered.vcf $melt | vcf-sort -c > ${group}.merged.filtered.melt.vcf
-			
+			svdb \\
+			  --merge \\
+			  --vcf $vcfs_svdb \\
+			  --no_intra \\
+			  --pass_only \\
+			  --bnd_distance 2500 \\
+			  --overlap 0.7 \\
+			  --priority $priority \\
+			  --ins_distance 0 > ${group}.merged.tmp
+
+
+			# copy callers out of INFO.set to INFO.SCOUT_CUSTOM
+			add_callers_to_scout_custom.py \\
+				--callers $priority \\
+				--merged_vcf ${group}.merged.tmp > ${group}.merged.callers.tmp
+
+			add_vcf_header_info_records.py \\
+				--vcf ${group}.merged.callers.tmp \\
+				--info SCOUT_CUSTOM . String "Custom annotations for scout" '' '' \\
+				--output ${group}.merged.vcf
+
 			${svdb_merge_panel_version(task)}
 			"""
 		}
 		else {
 			"""
-			mv $vcf ${group}.merged.filtered.melt.vcf
+			mv $vcf ${group}.merged.vcf
 			${svdb_merge_panel_version(task)}
 			"""
 		}
 	
 	stub:
 		"""
-		touch "${group}.merged.filtered.melt.vcf"
+		touch "${group}.merged.vcf"
 		${svdb_merge_panel_version(task)}
 		"""
 }
@@ -3353,7 +3315,60 @@ def svdb_merge_panel_version(task) {
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	END_VERSIONS
+	"""
+}
+
+process postprocess_merged_panel_sv_vcf {
+	cpus 2
+	tag "$group"
+	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	time '1h'
+	memory '1 GB'
+
+
+	input:
+		set group, id, file(merged_vcf) from ch_postprocess_merged_panel_sv
+		set group, id, file(melt_vcf) from ch_melt_vcf
+
+	output:
+		set group, id, file("${group}.merged.bndless.genotypefix.melt.vcf") into vep_sv_panel, annotsv_panel
+		set group, file("${group}.merged.bndless.genotypefix.melt.vcf") into loqusdb_sv_panel
+		set group, file("*versions.yml") into ch_postprocess_merged_panel_sv_vcf_versions
+
+
+	script:
+		"""
+		# Remove BNDs
+		grep -v "BND" $merged_vcf > ${group}.merged.bndless.vcf
+
+		# Any 0/0 GT -> 0/1, otherwise loqus will reject them.
+		modify_cnv_genotypes_for_loqusdb.pl --merged_panel_sv_vcf ${group}.merged.bndless.vcf > ${group}.merged.bndless.genotypefix.vcf
+
+		# Add MELT data to info vars:
+		add_vcf_header_info_records.py \\
+			--vcf ${group}.merged.bndless.genotypefix.vcf \\
+			--info MELT_RANK . String "Evidence level 1-5, 5 - highest" '' '' \\
+			--info MELT_QC . String "Quality of call" '' '' \\
+			--output ${group}.merged.bndless.genotypefix.headers.vcf
+
+		# Combine with MELT:
+		vcf-concat  ${group}.merged.bndless.genotypefix.headers.vcf $melt_vcf | vcf-sort -c > ${group}.merged.bndless.genotypefix.melt.vcf
+		${postprocess_merged_panel_sv_version(task)}
+		"""
+
+	stub:
+		"""
+		touch ${group}.merged.bndless.genotypefix.melt.vcf
+		${postprocess_merged_panel_sv_version(task)}
+		"""
+
+}
+def postprocess_merged_panel_sv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    vcftools: \$(vcftools --version | cut -f 2 -d " " | tr -d "()")
 	END_VERSIONS
 	"""
 }
@@ -3403,13 +3418,11 @@ def tiddit_version(task) {
 
 process svdb_merge {
 	cpus 2
+	container = "${params.container_svdb}"
 	tag "$group"
 	publishDir "${OUTDIR}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 	time '2h'
 	memory '1 GB'
-	// scratch true
-	// stageInMode 'copy'
-	// stageOutMode 'copy'
 
 	input:
 		set group, id, file(mantaV) from called_manta.groupTuple()
@@ -3417,7 +3430,7 @@ process svdb_merge {
 		set group, id, file(gatkV) from merged_gatk.groupTuple()
 		
 	output:
-		set group, id, file("${group}.merged.bndless.vcf") into vcf_vep, annotsv_vcf
+		set group, id, file("${group}.merged.bndless.vcf") into vep_sv, annotsv_vcf
 		set group, file("${group}.merged.vcf") into loqusdb_sv
 		set group, file("*versions.yml") into ch_svdb_merge_versions
 
@@ -3459,9 +3472,16 @@ process svdb_merge {
 			prio = prio.join(',')
 			vcfs = vcfs.join(' ')
 			"""
-			source activate py3-env
-			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority $prio > ${group}.merged_tmp.vcf
-			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
+			svdb \\
+				--merge \\
+				--vcf $vcfs \\
+				--no_intra \\
+				--pass_only \\
+				--bnd_distance 2500 \\
+				--overlap 0.7 \\
+				--priority $prio \\
+				--ins_distance 0 > ${group}.merged.vcf
+
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 			
 			${svdb_merge_version(task)}
@@ -3472,9 +3492,16 @@ process svdb_merge {
 			tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + gatkV.collect {it + ':gatk ' }
 			vcfs = tmp.join(' ')
 			"""
-			source activate py3-env
-			svdb --merge --vcf $vcfs --no_intra --pass_only --bnd_distance 2500 --overlap 0.7 --priority manta,tiddit,gatk > ${group}.merged_tmp.vcf
-			merge_callsets.pl ${group}.merged_tmp.vcf > ${group}.merged.vcf
+			svdb \\
+				--merge \\
+				--vcf $vcfs \\
+				--no_intra \\
+				--pass_only \\
+				--bnd_distance 2500 \\
+				--overlap 0.7 \\
+				--priority manta,tiddit,gatk \\
+				--ins_distance 0 > ${group}.merged.vcf
+
 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 			
 			${svdb_merge_version(task)}
@@ -3494,39 +3521,38 @@ def svdb_merge_version(task) {
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-	END_VERSIONS	
+	END_VERSIONS
 	"""
 }
 
 process dummy_svvcf_for_loqusdb {
 
-        // add_to_loqusb won't run if no svvcf is generated
-        // this process creates dummy svvcf for no-SV runs
-        // assay input only exists to disable nextflow warning 
-        // for channels emitting with less than two input elements
+	// add_to_loqusb won't run if no svvcf is generated
+	// this process creates dummy svvcf for no-SV runs
+	// assay input only exists to disable nextflow warning
+	// for channels emitting with less than two input elements
 
-        cpus 1
-        tag "$group"
-        memory '10 MB'
-        time '10m'
+	cpus 1
+	tag "$group"
+	memory '10 MB'
+	time '10m'
 
-        when:
-                !params.sv
-        input:
-                set group, assay from meta_loqusdb_no_sv_calling
-        output:
-                set group, file("${group}.dummy.sv.vcf") into dummy_svvcf_ch
+	when:
+		!params.sv
+	input:
+		set group, assay from meta_loqusdb_no_sv_calling
+	output:
+		set group, file("${group}.dummy.sv.vcf") into dummy_svvcf_ch
 
-        script:
-        """
-        touch ${group}.dummy.sv.vcf
-        """
+	script:
+		"""
+		touch ${group}.dummy.sv.vcf
+		"""
 
-        stub:
-        """
-        touch ${group}.dummy.sv.vcf
-        """
+	stub:
+		"""
+		touch ${group}.dummy.sv.vcf
+		"""
 }
 
 process add_to_loqusdb {
@@ -3547,16 +3573,16 @@ process add_to_loqusdb {
 		file("${group}*.loqus") into loqusdb_done
 
 	script:
-                """
-                sv_variants=""
-                nbr_svvcf_records=\$(grep -v '^#' ${svvcf} | wc -l)
+		"""
+		sv_variants=""
+		nbr_svvcf_records=\$(grep -v '^#' ${svvcf} | wc -l)
 
-                if (( \$nbr_svvcf_records > 0 )); then
-                   sv_variants="--sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}"
-                fi
+		if (( \$nbr_svvcf_records > 0 )); then
+			sv_variants="--sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}"
+		fi
 
 		echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} \$sv_variants" > ${group}.loqus
-                """
+		"""
 
 	stub:
 		"""
@@ -3565,7 +3591,7 @@ process add_to_loqusdb {
 }
 
 process annotsv {
-	container = '/fs1/resources/containers/annotsv.v2.3.sif'
+	container = "${params.container_annotsv}"
 	cpus 2
 	tag "$group"
 	publishDir "${OUTDIR}/annotsv/", mode: 'copy', overwrite: 'true', pattern: '*.tsv'
@@ -3617,10 +3643,10 @@ process vep_sv {
 	time '1h'
 	
 	input:
-		set group, id, file(vcf) from vcf_vep.mix(vep_sv_panel)
+		set group, id, file(vcf) from vep_sv.mix(vep_sv_panel)
 
 	output:
-		set group, id, file("${group}.vep.vcf") into vep_vcf
+		set group, id, file("${group}.vep.vcf") into vep_sv_vcf
 		set group, file("*versions.yml") into ch_vep_sv_versions
 
 	script:
@@ -3628,6 +3654,7 @@ process vep_sv {
 
 		# Temporary fix for VEP 111.0 annotation bug, where certain MANTA indels are being skipped by VEP
 		# See: https://github.com/Ensembl/ensembl-vep/issues/1631#issuecomment-1985973568
+		# Edit 2024-11-01: Fixed in VEP 112.0
 
 		sed 's/SVTYPE=/BAZBAZ=/' $vcf > ${group}.vep111-workaround.vcf
 
@@ -3671,44 +3698,75 @@ def vep_sv_version(task) {
 	"""
 }
 
-process postprocess_vep {
+process postprocess_vep_sv {
+	cpus = 2
+	memory '10GB'
+	time '1h'
+	tag "$group"
+	container = "${params.container_svdb}"
+
+	input:
+		set group, id, file(vcf) from vep_sv_vcf
+
+	output:
+		set group, file("${group}.vep.clean.merge.vcf") into add_omim_vcf
+		set group, file("*versions.yml") into ch_postprocess_vep_versions
+	
+	script:
+		"""
+		# Filter variants with FILTER != . or PASS and variants missing CSQ field.
+		postprocess_vep_vcf.py $vcf > ${group}.vep.clean.vcf
+		svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf --ins_distance 0 > ${group}.vep.clean.merge.tmp.vcf
+
+		# --notag above will remove set from INFO:
+		add_vcf_header_info_records.py \\
+			--vcf ${group}.vep.clean.merge.tmp.vcf \\
+			--info set 1 String "Source VCF for the merged record in SVDB" '' '' \\
+			--info VARID 1 String "The variant ID of merged samples" '' '' \\
+			--output ${group}.vep.clean.merge.headers.tmp.vcf
+
+		# Prepare annotations for scout:
+		normalize_caller_names_in_svdb_fields.py ${group}.vep.clean.merge.headers.tmp.vcf --callers manta gatk tiddit > ${group}.vep.clean.merge.vcf
+		${postprocess_vep_sv_version(task)}
+		"""
+	stub:
+		"""
+		touch "${group}.vep.clean.merge.vcf"
+		${postprocess_vep_sv_version(task)}
+		"""
+}
+def postprocess_vep_sv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
+	END_VERSIONS
+	"""
+}
+
+process add_omim {
 	cpus = 2
 	memory '10GB'
 	time '1h'
 	tag "$group"
 
 	input:
-		set group, id, file(vcf) from vep_vcf
+		set group, file(vcf) from add_omim_vcf
 
 	output:
 		set group, file("${group}.vep.clean.merge.omim.vcf") into artefact_vcf
-		set group, file("*versions.yml") into ch_postprocess_vep_versions
-	
+
 	script:
 		"""
-		cleanVCF.py --vcf $vcf > ${group}.vep.clean.vcf
-		svdb --merge --overlap 0.9 --notag --vcf ${group}.vep.clean.vcf > ${group}.vep.clean.merge.vcf
-		sed -i '3 i ##INFO=<ID=set,Number=1,Type=String,Description="Source VCF for the merged record in SVDB">' ${group}.vep.clean.merge.vcf
-		sed -i '3 i ##INFO=<ID=VARID,Number=1,Type=String,Description="The variant ID of merged samples">' ${group}.vep.clean.merge.vcf
-		add_omim.pl ${group}.vep.clean.merge.vcf > ${group}.vep.clean.merge.omim.vcf
-
-		${postprocess_vep_version(task)}
+		add_omim.pl $params.OMIM_GENES < $vcf > ${group}.vep.clean.merge.omim.vcf
 		"""
 	stub:
 		"""
 		touch "${group}.vep.clean.merge.omim.vcf"
-		${postprocess_vep_version(task)}
 		"""
 }
-def postprocess_vep_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-	END_VERSIONS	
-	"""
-}
+
+
 
 // Query artefact db
 process artefact {
@@ -3716,6 +3774,7 @@ process artefact {
 	tag "$group"
 	time '10h'
 	memory '10 GB'
+	container = "${params.container_svdb}"
 	// scratch true
 	// stageInMode 'copy'
 	// stageOutMode 'copy'
@@ -3731,10 +3790,10 @@ process artefact {
 		// use loqusdb dump not svdb database //
 		if (params.gatkcnv) {
 			"""
-			source activate py3-env
 			svdb \\
 			--query --bnd_distance 25000 --overlap 0.7 --in_occ Obs --out_occ ACOUNT --in_frq Frq --out_frq AFRQ  \\
 			--db $params.svdb \\
+			--ins_distance 0 \\
 			--query_vcf $sv > ${group}.artefact.vcf
 
 			${artefact_version(task)}
@@ -3743,10 +3802,13 @@ process artefact {
 		// for oncov1-0 still use svdb database remove in future//
 		else {
 			"""
-			source activate py3-env
 			svdb \\
-			--sqdb $params.svdb --query \\
-			--query_vcf $sv --out_occ ACOUNT --out_frq AFRQ > ${group}.artefact.vcf
+			--sqdb $params.svdb \\
+			--query \\
+			--query_vcf $sv \\
+			--out_occ ACOUNT \\
+			--ins_distance 0 \\
+			--out_frq AFRQ > ${group}.artefact.vcf
 
 			${artefact_version(task)}
 			"""
@@ -3763,8 +3825,7 @@ def artefact_version(task) {
 	cat <<-END_VERSIONS > ${task.process}_versions.yml
 	${task.process}:
 	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-	END_VERSIONS	
+	END_VERSIONS
 	"""
 }
 
@@ -3991,7 +4052,7 @@ process svvcf_to_bed {
 }
 
 process plot_pod {
-	container = '/fs1/resources/containers/POD_2020-05-19.sif'
+	container = "${params.container_pod}"
 	publishDir "${OUTDIR}/pod", mode: 'copy' , overwrite: 'true'
 	tag "$group"
 	time '1h'
@@ -4110,8 +4171,8 @@ process combine_versions {
 			ch_postprocessgatk_versions.first(),
 			ch_manta_versions.first(),
 			ch_manta_panel_versions.first(),
-			ch_delly_panel_versions.first(),
 			ch_cnvkit_panel_versions.first(),
+			ch_postprocess_merged_panel_sv_vcf_versions.first(),
 			ch_svdb_merge_panel_versions.first(),
 			ch_tiddit_versions.first(),
 			ch_svdb_merge_versions.first(),
