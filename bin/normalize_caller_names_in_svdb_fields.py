@@ -47,7 +47,7 @@ def main() -> None:
             print(curr_record, end="")
             continue
 
-        fields = curr_record.rstrip("\n").split("\t")
+        fi elds = curr_record.rstrip("\n").split("\t")
         chrom, pos, id_, ref, alt, qual, filter_, info = fields[:8]
         others = fields[8:]  # If there are additional columns
 
