@@ -5,7 +5,7 @@ Generate a dump of gene panels from scout containing only the latest
 versions of active/unarchived panels. Used to generate gene panel input
 to create_yml.pl in the nextflow_wgs pipeline.
 
-If the script breaks for any reason, then a JSON dump of scouts gene_panel 
+If the script breaks for any reason, then a JSON dump of scouts gene_panel
 collection, generated using the python lib bson.json_util will work.
 
 Run on lennart.
@@ -98,9 +98,7 @@ def main() -> None:
     with tempfile.NamedTemporaryFile(mode="w", delete=True) as temp_file:
 
         LOG.debug("Dumping aggregated result to %s", temp_file.name)
-        temp_file.write(
-            bson.json_util.dumps(result)
-          )
+        temp_file.write(bson.json_util.dumps(result))
 
         temp_file.flush()
         today = date.today().isoformat()
@@ -114,6 +112,7 @@ def main() -> None:
     LOG.info("All done.")
     LOG.info("Bye.")
 
+
 def set_read_permissions(remote_filepath: str) -> None:
     """
     Make JSON readable by everyone. Otherwise the JSON is copied over
@@ -124,9 +123,8 @@ def set_read_permissions(remote_filepath: str) -> None:
         REMOTE_HOST,
         "chmod a+r",
         remote_filepath,
-        "&&"
-        "chmod a-w",
-        remote_filepath
+        "&&" "chmod a-w",
+        remote_filepath,
     ]
 
     try:
@@ -200,9 +198,7 @@ def restore_symlink() -> None:
 
     try:
         subprocess.run(restore_symlink_command, check=True)
-        LOG.info(
-            "Restored old symlink from %s.bkp", REMOTE_LATEST_SYMLINK_PATH
-        )
+        LOG.info("Restored old symlink from %s.bkp", REMOTE_LATEST_SYMLINK_PATH)
     except subprocess.CalledProcessError as e:
         LOG.critical("Error occurred during symlink restore: %s", e)
         sys.exit(1)
