@@ -175,10 +175,10 @@ def reduce_to_set_of_unique_callers(
 
     Returns a string in the same format as the input annotation
     """
-    callers = svdb_annotation.split(separator)
+    callers_in_svdb_annotation = svdb_annotation.split(separator)
     parsed_callers = set()
 
-    for caller in callers:
+    for caller in callers_in_svdb_annotation:
         matched_caller = match_svdb_annotation_with_caller(caller, callers)
 
         # Add caller as-is if not supported
