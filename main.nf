@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+nextflow.enable.dsl=2
+
 // GENERAL PATHS //
 OUTDIR = params.outdir+'/'+params.subdir
 CRONDIR = params.crondir
