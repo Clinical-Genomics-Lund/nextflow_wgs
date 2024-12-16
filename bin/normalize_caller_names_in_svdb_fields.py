@@ -61,7 +61,7 @@ def main() -> None:
 
         # reconstruct the INFO field while retaining the order
         new_info = []
-        for key, value in info_dict.items():
+        for key, value in updated_info_dict.items():
             if value is True:
                 new_info.append(f"{key}")
             else:
@@ -90,8 +90,8 @@ def clean_up_caller_names_in_svdb_info_fields(
         field_name: str = svdb_field_info["field_name"]
         separator: str = svdb_field_info["separator"]
 
-        if not field_name in parsed_info_row:
-            logging.warn(
+        if field_name not in parsed_info_row:
+            logging.warning(
                 "%s not found in INFO.",
                 field_name,
             )
@@ -145,6 +145,7 @@ def match_svdb_annotation_with_caller(
 
 
 def parse_args() -> argparse.Namespace:
+
     parser = argparse.ArgumentParser(description="Modify SVDB merged VCF script.")
     parser.add_argument(
         "vcf_file", type=str, help="Input VCF file (can be .vcf or .vcf.gz)."
