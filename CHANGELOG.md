@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### 3.14.1
+
+* Adds basic flake8-based linting 
+* Removes unused scripts from /
+* Fixes wrong var name in `bin/normalize_caller_names_in_svdb_fields.py`
+* Fix wrong var assignment in `bin/normalize_caller_names_in_svdb_fields.py` that led to caller names not being normalized for wgs trios.
+
 ### 3.14.0
 
 #### Updated:
