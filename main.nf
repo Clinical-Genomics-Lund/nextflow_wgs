@@ -9,10 +9,6 @@ CRONDIR = params.crondir
 // SENTIEON CONFIGS //
 K_size      = 100000000
 sentieon_model = params.sentieon_model
-bwa_num_shards = params.bwa_shards
-bwa_shards = Channel.from( 0..bwa_num_shards-1 )
-genomic_num_shards = params.genomic_shards_num
-
 // FASTA //
 genome_file = params.genome_file
 
@@ -76,7 +72,6 @@ Channel
 fastq = Channel.create()
 bam_choice = Channel.create()
 //vcf_choice = Channel.create()
-fastq_sharded = Channel.create()
 fastq_umi = Channel.create()
 annotate_only = Channel.create()
 
@@ -180,99 +175,6 @@ def fastp_version(task) {
 	"""
 }
 
-// Align fractions of fastq files with BWA
-process bwa_align_sharded {
-	cpus 50
-	memory '120 GB'
-	tag "$id $shard"
-	time '5h'
-	container = "${params.container_sentieon}"
-
-	input:
-		set val(shard), val(group), val(id), r1, r2 from bwa_shards.combine(fastq_sharded)
-
-	output:
-		set val(id), group, file("${id}_${shard}.bwa.sort.bam"), file("${id}_${shard}.bwa.sort.bam.bai") into bwa_shards_ch
-		set group, file("*versions.yml") into ch_bwa_align_shareded_versions
-
-	when:
-		params.align && params.shardbwa
-
-	script:
-		"""
-		sentieon bwa mem -M \\
-			-R '@RG\\tID:${id}\\tSM:${id}\\tPL:illumina' \\
-			-K $K_size \\
-			-t ${task.cpus} \\
-			-p $genome_file '<sentieon fqidx extract -F $shard/$bwa_num_shards -K $K_size $r1 $r2' | sentieon util sort \\
-			-r $genome_file \\
-			-o ${id}_${shard}.bwa.sort.bam \\
-			-t ${task.cpus} --sam2bam -i -
-		
-		${bwa_align_sharded_version(task)}
-		"""
-
-	stub:
-		"""
-		touch "${id}_${shard}.bwa.sort.bam"
-		touch "${id}_${shard}.bwa.sort.bam.bai"
-
-		${bwa_align_sharded_version(task)}
-		"""
-}
-def bwa_align_sharded_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    sentieon: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-	    bwa: \$(echo \$(sentieon bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
-	END_VERSIONS
-	"""
-}
-
-// Merge the fractioned bam files
-process bwa_merge_shards {
-	cpus 50
-	tag "$id"
-	time '1h'
-	memory '120 GB'
-	container = "${params.container_sentieon}"
-
-	input:
-		set val(id), group, file(shard), file(shard_bai) from bwa_shards_ch.groupTuple(by: [0,1])
-
-	output:
-		set id, group, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_locusc
-		set id, file("${id}_merged.bam"), file("${id}_merged.bam.bai") into merged_bam_dedup
-		set group, file("*versions.yml") into ch_bwa_merge_shards_versions
-	when:
-		params.shardbwa
-	
-	script:
-		bams = shard.sort(false) { a, b -> a.getBaseName() <=> b.getBaseName() } .join(' ')
-
-		"""
-		sentieon util merge -o ${id}_merged.bam ${bams}
-
-		${bwa_merge_shards_version(task)}
-		"""
-
-	stub:
-		"""
-		touch "${id}_merged.bam"
-		touch "${id}_merged.bam.bai"
-
-		${bwa_merge_shards_version(task)}
-		"""
-}
-def bwa_merge_shards_version(task) {
-	"""
-	cat <<-END_VERSIONS > ${task.process}_versions.yml
-	${task.process}:
-	    sentieon: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-	END_VERSIONS
-	"""
-}
 
 // ALTERNATIVE PATH: Unsharded BWA, utilize local scratch space.
 process bwa_align {
