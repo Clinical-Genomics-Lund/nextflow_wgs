@@ -15,7 +15,7 @@ workflow {
 
 	// Count lines of input csv, if more than 2(header + 1 ind) then mode is set to family //
 
-	println(csv)
+	println(params.csv)
 	println("mode: " + params.mode)
 	println("trio: " + params.trio)
 	// Print commit-version of active deployment
