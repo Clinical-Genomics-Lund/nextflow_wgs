@@ -201,7 +201,7 @@ process fastp {
 		tuple val(group), val(id), path(fq_r1), path(fq_r2)
 
 	output:
-		tuple val(group), val(id), file("${id}_R1_a_q_u_trimmed.fq.gz"), file("${id}_R2_a_q_u_trimmed.fq.gz"), emit: fastq_trimmed
+		tuple val(group), val(id), path("${id}_R1_a_q_u_trimmed.fq.gz"), path("${id}_R2_a_q_u_trimmed.fq.gz"), emit: fastq_trimmed
 		path("*versions.yml"), emit: versions
 
 	when:
