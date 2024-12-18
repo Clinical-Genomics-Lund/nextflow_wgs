@@ -295,7 +295,7 @@ process markdup {
 	memory '50 GB' // 12GB peak GIAB
 	time '3h'
 	container  "${params.container_sentieon}"
-	publishDir "${params.outdir}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
+	publishDir "${params.results_output_dir}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
 	input:
 		tuple val(group), val(id), path(bam), path(bai)
