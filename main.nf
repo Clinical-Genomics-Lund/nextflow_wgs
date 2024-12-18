@@ -2233,7 +2233,7 @@ process genmodscore {
 	script:
 		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
-		if ( mode == "family" && params.antype == "wgs" ) {
+		if ( params.mode == "family" && params.antype == "wgs" ) {
 			"""
 			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.only_rankscore.vcf
 			genmod compound \
@@ -2429,7 +2429,7 @@ process upd {
 		path "*versions.yml", emit: versions
 
 	script:
-		if( mode == "family" && trio == true ) {
+		if( params.mode == "family" && trio == true ) {
 			"""
 			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
 			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
@@ -3275,7 +3275,7 @@ process svdb_merge {
 		path "*versions.yml", emit: versions
 
 	script:
-		if (mode == "family") {
+		if (params.mode == "family") {
 			vcfs = []
 			manta = []
 			tiddit = []
@@ -3784,14 +3784,13 @@ def bgzip_score_sv_version(task) {
 
 process compound_finder {
 	cpus 2
-	tag "$group $mode"
+	tag "$group ${params.mode}"
 	publishDir "${params.outdir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 	memory '10 GB'
 	time '2h'
 
 	input:
-		tuple val(group), val(type), path(vcf), path(tbi), path(ped), path(snv), path(tbi)
-		//tuple val(group), path(snv), path(tbi)
+		tuple val(group), val(type), path(sv_vcf), path(sv_tbi), path(ped), path(snv_vcf), path(snv_tbi)
 
 	output:
 		tuple val(group), path("${group_score}.snv.rescored.sorted.vcf.gz"), path("${group_score}.snv.rescored.sorted.vcf.gz.tbi"), emit: vcf_yaml
@@ -3800,7 +3799,7 @@ process compound_finder {
 
 
 	when:
-		mode == "family" && params.assay == "wgs"
+		params.mode == "family" && params.assay == "wgs"
 
 
 	script:
