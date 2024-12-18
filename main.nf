@@ -90,18 +90,21 @@ workflow NEXTFLOW_WGS {
 		markdup(bwa_align.out.bam_bai)
 		ch_bam_bai = markdup.out.dedup_bam_bai
 	}
-
 	bqsr(ch_bam_bai)
+
+
 
 	// SNV CALLING //
 	dnascope(ch_bam_bai, bqsr.out.dnascope_bqsr)
 	gvcf_combine(dnascope.out.gvcf_tbi.groupTuple())
 
-	ch_split_normalize_vcf_concat = Channel.empty()
+	ch_split_normalize = gvcf_combine.out.combined_vcf
+	ch_split_normalize.view()
+
 	// TODO: move antypes and similar to constants?
 	if (params.antype == "panel") {
 		freebayes(ch_bam_bai)
-		ch_split_normalize_vcf_concat.mix(freebayes.out.freebayes_variants)
+		ch_split_normalize.mix(freebayes.out.freebayes_variants)
 	}
 
 
@@ -119,8 +122,8 @@ workflow NEXTFLOW_WGS {
 		split_normalize_mito(run_mutect2.out.vcf, ch_meta)
 		run_hmtnote(split_normalize_mito.out.vcf)
 
-		ch_split_normalize_vcf_concat.mix(run_hmtnote.out.vcf)
-
+		ch_split_normalize.mix(run_hmtnote.out.vcf)
+		ch_split_normalize.view()
 		run_haplogrep(run_mutect2.out.vcf)
 
 		// SVs
@@ -131,8 +134,7 @@ workflow NEXTFLOW_WGS {
 	println("annotate: " + params.annotate)
 	if (params.annotate) {
 		// SNPs
-		ch_split_normalize_vcf_concat.view()
-		split_normalize(gvcf_combine.out.combined_vcf.join(ch_split_normalize_vcf_concat))
+		split_normalize(ch_split_normalize)
 		annotate_vep(split_normalize.out.intersected_vcf)
 		vcfanno(annotate_vep.out.vcf)
 		modify_vcf(vcfanno.out.vcf)
