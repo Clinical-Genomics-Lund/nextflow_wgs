@@ -7,6 +7,9 @@ workflow {
 
 	// Print startup and conf output dirs and modes.
 
+	// TODO: Params assignment inside workflow block is a temp solution:
+	//       outdir and subdir need to be combined in new var, re-setting
+	//       params.outdir won't work.
 	params.results_output_dir = params.outdir + '/' + params.subdir
 	params.cron_output_dir = params.crondir // TODO: switch back to crondir
 	params.mode = file(params.csv).countLines() > 2 ? "family" : "single"
@@ -26,9 +29,11 @@ workflow {
 	log.info("CRON output dir: " + params.cron_output_dir)
 
 	// Print commit-version of active deployment
+	// TODO: stuff this one into versions too, for good measure.
 	file(params.git)
 		.readLines()
 		.each { println "git commit-hash: "+it }
+
 	// Print active container
 	println("container: "+ file(params.container).toRealPath())
 
