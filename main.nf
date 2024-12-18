@@ -102,7 +102,6 @@ workflow NEXTFLOW_WGS {
 		freebayes(ch_bam_bai)
 	}
 
-
 	// MITO
 	if (params.antype == "wgs") { // TODO: if params.mito etc ? will probably mess up split_normalize
 
@@ -1687,6 +1686,7 @@ def split_normalize_mito_version(task) {
 
 // use python tool HmtNote for annotating vcf
 // future merging with diploid genome does not approve spaces in info-string
+// TODO: what is this future merging issue and does it still apply?
 process run_hmtnote {
 	cpus 2
 	memory '5GB'
