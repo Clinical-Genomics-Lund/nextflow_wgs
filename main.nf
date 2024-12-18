@@ -66,7 +66,7 @@ workflow NEXTFLOW_WGS {
 	ch_versions = Channel.empty()
 	ch_versions.mix(fastp.out.versions)
 	ch_versions.mix(bwa_align.out.versions)
-	ch_versions.mix(markdup.out.version)
+	ch_versions.mix(markdup.out.versions)
 	ch_versions.view()
 
 	emit:
@@ -309,6 +309,7 @@ process markdup {
 			-i $bam --shard 1:1-248956422 --shard 2:1-242193529 --shard 3:1-198295559 --shard 4:1-190214555 --shard 5:1-120339935 --shard 5:120339936-181538259 --shard 6:1-170805979 --shard 7:1-159345973 --shard 8:1-145138636 --shard 9:1-138394717 --shard 10:1-133797422 --shard 11:1-135086622 --shard 12:1-56232327 --shard 12:56232328-133275309 --shard 13:1-114364328 --shard 14:1-107043718 --shard 15:1-101991189 --shard 16:1-90338345 --shard 17:1-83257441 --shard 18:1-80373285 --shard 19:1-58617616 --shard 20:1-64444167 --shard 21:1-46709983 --shard 22:1-50818468 --shard X:1-124998478 --shard X:124998479-156040895 --shard Y:1-57227415 --shard M:1-16569 \\
 			--algo LocusCollector \\
 			--fun score_info ${id}.score
+
 		sentieon driver \\
 			--temp_dir /local/scratch/ \\
 			-t ${task.cpus} \\
@@ -316,6 +317,8 @@ process markdup {
 			--algo Dedup --score_info ${id}.score \\
 			--metrics dedup_metrics.txt \\
 			--rmdup ${id}_dedup.bam
+
+		// TODO: To some separate process?
 		echo "BAM	$id	/access/${params.subdir}/bam/${id}_dedup.bam" > ${group}_bam.INFO
 
 		${markdup_versions(task)}
