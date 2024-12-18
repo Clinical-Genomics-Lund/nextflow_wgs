@@ -189,7 +189,7 @@ process fastp {
 
 	output:
 		tuple val(group), val(id), file("${id}_R1_a_q_u_trimmed.fq.gz"), file("${id}_R2_a_q_u_trimmed.fq.gz"), emit: fastq_trimmed
-		tuple path("*versions.yml"), emit: versions
+		path("*versions.yml"), emit: versions
 
 	when:
 		params.umi
