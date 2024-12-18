@@ -46,6 +46,7 @@ workflow {
 
 	NEXTFLOW_WGS(ch_samplesheet)
 
+	log.info(NEXTFLOW_WGS.out.versions.view())
 	ch_versions.mix(NEXTFLOW_WGS.out.versions)
 	// OUTPUT_VERSIONS(ch_versions)
 
@@ -68,12 +69,15 @@ workflow NEXTFLOW_WGS {
 	fastp(ch_fastq)
 	bwa_align(fastp.out.fastq_trimmed)
 	markdup(bwa_align.out.bam_bai)
-	bqsr()
+	bqsr(markdup.out.dedup_bam_bai)
+	dnascope(markdup.out.dedup_bam_bai, bqsr.out.dnascope_bqsr)
 
 	ch_versions = Channel.empty()
 	ch_versions.mix(fastp.out.versions)
 	ch_versions.mix(bwa_align.out.versions)
 	ch_versions.mix(markdup.out.versions)
+	ch_versions.mix(bqsr.out.versions)
+	ch_versions.mix(dnascope.out.versions)
 	ch_versions.view()
 
 	emit:
