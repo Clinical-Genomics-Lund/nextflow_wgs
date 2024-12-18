@@ -330,15 +330,15 @@ process markdup {
 
  		${markdup_versions(task)}
  		"""
-// }
-// def markdup_versions(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-// 	END_VERSIONS
-// 	"""
-// }
+}
+def markdup_versions(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	END_VERSIONS
+	"""
+}
 
 // process copy_bam {
 
