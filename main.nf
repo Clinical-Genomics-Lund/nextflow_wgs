@@ -69,10 +69,10 @@ workflow NEXTFLOW_WGS {
 	if (params.umi) {
 		//TODO: versions!
 		fastp(ch_fastq)
-		ch_reads = fastp.out.fastq_trimmed_reads
+		ch_fastq = fastp.out.fastq_trimmed_reads
 	}
 
-	bwa_align(ch_reads)
+	bwa_align(ch_fastq)
 	markdup(bwa_align.out.bam_bai)
 	bqsr(markdup.out.dedup_bam_bai)
 	dnascope(markdup.out.dedup_bam_bai, bqsr.out.dnascope_bqsr)
