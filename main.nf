@@ -404,7 +404,7 @@ process bqsr {
 	publishDir "${params.results_output_dir}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
 
 	input:
-		tuple val(id), val(group), path(bam), path(bai)
+		tuple val(group), val(id), path(bam), path(bai)
 
 	output:
 		tuple val(group), val(id), path("${id}.bqsr.table"), emit: dnascope_bqsr
