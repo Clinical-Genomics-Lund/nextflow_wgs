@@ -307,7 +307,7 @@ process markdup {
 		tuple val(group), val(id), path(bam), path(bai)
 
 	output:
-		tuple val(group), val(id), path("(${id}_dedup.bam"), path("${id}_dedup.bam.bai"), emit: dedup_bam_bai
+		tuple val(group), val(id), path("${id}_dedup.bam"), path("${id}_dedup.bam.bai"), emit: dedup_bam_bai
 		tuple val(group), val(id), path("dedup_metrics.txt"), emit: dedup_metrics
 		tuple val(group), path("${group}_bam.INFO"), emit: dedup_bam_INFO
 		path "*versions.yml", emit: versions
