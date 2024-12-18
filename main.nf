@@ -1230,7 +1230,7 @@ process gvcf_combine {
 	container  "${params.container_sentieon}"
 
 	input:
-		tuple val(group), val(id), path(vcf), path(idx)
+		tuple val(group), val(id), path(vcfs), path(vcf_idxs)
 
 	output: // Off to split_normalize, together with other stuff
 		tuple val(group), val(id), path("${group}.combined.vcf"), path("${group}.combined.vcf.idx"), emit: combined_vcf
@@ -1250,6 +1250,8 @@ process gvcf_combine {
 		"""
 
 	stub:
+		all_gvcfs = vcfs.collect { it.toString() }.sort().join(' -v ')
+		println(all_gvcfs)
 		"""
 		touch "${group}.combined.vcf"
 		touch "${group}.combined.vcf.idx"
