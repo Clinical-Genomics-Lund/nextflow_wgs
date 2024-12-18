@@ -392,48 +392,48 @@ def markdup_versions(task) {
 // }
 
 
-// process bqsr {
-// 	cpus 40
-// 	errorStrategy 'retry'
-// 	maxErrors 5
-// 	tag "$id"
-// 	memory '30 GB'
-// 	// 12gb peak giab //
-// 	time '5h'
-// 	container  "${params.container_sentieon}"
-// 	publishDir "${params.results_output_dir}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
+process bqsr {
+	cpus 40
+	errorStrategy 'retry'
+	maxErrors 5
+	tag "$id"
+	memory '30 GB'
+	// 12gb peak giab //
+	time '5h'
+	container  "${params.container_sentieon}"
+	publishDir "${params.results_output_dir}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
 
-// 	input:
-// 		tuple val(id), val(group), path(bam), path(bai)
+	input:
+		tuple val(id), val(group), path(bam), path(bai)
 
-// 	output:
-// 		tuple val(group), val(id), path("${id}.bqsr.table"), emit: dnascope_bqsr
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${id}.bqsr.table"), emit: dnascope_bqsr
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		sentieon driver -t ${task.cpus} \\
-// 			-r ${params.genome_file} -i $bam \\
-// 			--algo QualCal ${id}.bqsr.table \\
-// 			-k $params.KNOWN
+	script:
+		"""
+		sentieon driver -t ${task.cpus} \\
+			-r ${params.genome_file} -i $bam \\
+			--algo QualCal ${id}.bqsr.table \\
+			-k $params.KNOWN
 
-// 		${bqsr_version(task)}
-// 		"""
+		${bqsr_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${id}.bqsr.table"
-// 		${bqsr_version(task)}
-// 		"""
-// }
-// def bqsr_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${id}.bqsr.table"
+		${bqsr_version(task)}
+		"""
+}
+def bqsr_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	END_VERSIONS
+	"""
+}
 
 // //Collect various QC data:
 // process sentieon_qc {
