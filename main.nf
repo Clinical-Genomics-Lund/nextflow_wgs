@@ -2,9 +2,30 @@
 
 nextflow.enable.dsl=2
 
+params.outdir = params.outdir + '/' + params.subdir
+params.cron_output_dir = params.crondir
+params.mode = file(params.csv).countLines() > 2 ? "family" : "single"
+params.trio = file(params.csv).countLines() > 3 ? true : false
+
 workflow {
 
-	// Print startup
+	// Print startup and conf output dirs and modes.
+
+	def PON = [F: params.GATK_PON_FEMALE, M: params.GATK_PON_MALE]
+
+	// Count lines of input csv, if more than 2(header + 1 ind) then mode is set to family //
+
+	println(csv)
+	println("mode: " + params.mode)
+	println("trio: " + params.trio)
+	// Print commit-version of active deployment
+	file(params.git)
+		.readLines()
+		.each { println "git commit-hash: "+it }
+	// Print active container
+	println("container: "+ file(params.container).toRealPath())
+
+
 	ch_versions = Channel.empty()
 	Channel
 		.fromPath(params.csv)
@@ -47,24 +68,8 @@ workflow NEXTFLOW_WGS {
 		versions = ch_versions
 }
 
-	params.outdir = params.outdir + '/' + params.subdir
-	params.cron_output_dir = params.crondir
 
-	def PON = [F: params.GATK_PON_FEMALE, M: params.GATK_PON_MALE]
 
-	// Count lines of input csv, if more than 2(header + 1 ind) then mode is set to family //
-	csv = file(params.csv)
-	params.mode = csv.countLines() > 2 ? "family" : "single"
-	params.trio = csv.countLines() > 3 ? true : false
-	println(csv)
-	println("mode: " + params.mode)
-	println("trio: " + params.trio)
-	// Print commit-version of active deployment
-	file(params.git)
-		.readLines()
-		.each { println "git commit-hash: "+it }
-	// Print active container
-	println("container: "+ file(params.container).toRealPath())
 
 	// Input channels for alignment, variant calling and annotation //
 	Channel
