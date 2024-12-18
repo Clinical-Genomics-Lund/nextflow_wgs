@@ -60,11 +60,11 @@ workflow NEXTFLOW_WGS {
 	}
 
 	fastp(ch_fastq)
-
+	bwa_align(fastp.out.fastq_trimmed)
 
 	ch_versions = Channel.empty()
 	ch_versions.mix(fastp.out.versions)
-
+	ch_versions.mix(bwa_align.out.versions)
 	ch_versions.view()
 
 	emit:
@@ -226,61 +226,59 @@ def fastp_version(task) {
 }
 
 
-// // ALTERNATIVE PATH: Unsharded BWA, utilize local scratch space.
-// process bwa_align {
-// 	cpus 50
-// 	memory '100 GB'
-// 	// 64 GB peak giab //
-// 	scratch true
-// 	stageInMode 'copy'
-// 	stageOutMode 'copy'
-// 	tag "$id"
-// 	container  "${params.container_sentieon}"
+process bwa_align {
+	cpus 50
+	memory '100 GB' 	// 64 GB peak giab //
+	scratch true
+	stageInMode 'copy'
+	stageOutMode 'copy'
+	tag "$id"
+	container  "${params.container_sentieon}"
 
-// 	input:
-// 		tuple val(group), val(id), path(r1), path(r2)
+	input:
+		tuple val(group), val(id), path(fastq_r1), path(fastq_r2)
 
-// 	output:
-// 		tuple val(id), val(group), path("${id}_merged.bam"), path("${id}_merged.bam.bai"), emit: bam
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${id}_merged.bam"), path("${id}_merged.bam.bai"), emit: bam_bai
+		path "*versions.yml", emit: versions
 
-// 	when:
-// 		params.align && !params.shardbwa
+	when:
+		params.align
 
-// 	script:
-// 		"""
-// 		sentieon bwa mem \\
-// 			-M \\
-// 			-K ${params.bwa_K_size} \\
-// 			-R '@RG\\tID:${id}\\tSM:${id}\\tPL:illumina' \\
-// 			-t ${task.cpus} \\
-// 			${params.genome_file} $r1 $r2 \\
-// 			| sentieon util sort \\
-// 			-r ${params.genome_file} \\
-// 			-o ${id}_merged.bam \\
-// 			-t ${task.cpus} --sam2bam -i -
+	script:
+		"""
+		sentieon bwa mem \\
+			-M \\
+			-K ${params.bwa_K_size} \\
+			-R '@RG\\tID:${id}\\tSM:${id}\\tPL:illumina' \\
+			-t ${task.cpus} \\
+			${params.genome_file} $fastq_r1 $fastq_r2 \\
+			| sentieon util sort \\
+			-r ${params.genome_file} \\
+			-o ${id}_merged.bam \\
+			-t ${task.cpus} --sam2bam -i -
 
-// 		${bwa_align_versions(task)}
-// 		"""
+		${bwa_align_versions(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${id}_merged.bam"
-// 		touch "${id}_merged.bam.bai"
+	stub:
+		"""
+		touch "${id}_merged.bam"
+		touch "${id}_merged.bam.bai"
 
-// 		${bwa_align_versions(task)}
-// 		"""
+		${bwa_align_versions(task)}
+		"""
 
-// }
-// def bwa_align_versions(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    sentieon: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-// 	    bwa: \$(echo \$(sentieon bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
-// 	END_VERSIONS
-// 	"""
-// }
+}
+def bwa_align_versions(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sentieon: \$(echo \$(sentieon util --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	    bwa: \$(echo \$(sentieon bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
+	END_VERSIONS
+	"""
+}
 
 // process markdup {
 // 	cpus 40
