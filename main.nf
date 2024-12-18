@@ -46,7 +46,7 @@ workflow {
 
 	NEXTFLOW_WGS(ch_samplesheet)
 
-	log.info(NEXTFLOW_WGS.out.versions.view())
+	NEXTFLOW_WGS.out.versions.view()
 	ch_versions.mix(NEXTFLOW_WGS.out.versions)
 	// OUTPUT_VERSIONS(ch_versions)
 
