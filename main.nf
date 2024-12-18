@@ -99,11 +99,12 @@ workflow NEXTFLOW_WGS {
 	gvcf_combine(dnascope.out.gvcf_tbi.groupTuple())
 
 	ch_split_normalize = gvcf_combine.out.combined_vcf
+	ch_split_normalize_concat_vcf = Channel.empty()
 
 	// TODO: move antypes and similar to constants?
 	if (params.antype == "panel") {
 		freebayes(ch_bam_bai)
-		ch_split_normalize.join(freebayes.out.freebayes_variants)
+		ch_split_normalize_concat_vcf = freebayes.out.freebayes_variants
 	}
 
 
@@ -121,8 +122,7 @@ workflow NEXTFLOW_WGS {
 		split_normalize_mito(run_mutect2.out.vcf, ch_meta)
 		run_hmtnote(split_normalize_mito.out.vcf)
 
-		run_hmtnote.out.vcf.view()
-		ch_test = ch_split_normalize.join(run_hmtnote.out.vcf).view()
+		ch_split_normalize_concat_vcf = run_hmtnote.out.vcf
 		run_haplogrep(run_mutect2.out.vcf)
 
 		// SVs
@@ -132,8 +132,7 @@ workflow NEXTFLOW_WGS {
 	// SNV ANNOTATION
 	if (params.annotate) {
 		// SNPs
-		ch_test.view()
-		split_normalize(ch_test)
+		split_normalize(ch_split_normalize, ch_split_normalize_concat_vcf)
 		annotate_vep(split_normalize.out.intersected_vcf)
 		vcfanno(annotate_vep.out.vcf)
 		modify_vcf(vcfanno.out.vcf)
@@ -1872,7 +1871,8 @@ process split_normalize {
 	memory '50 GB'
 	time '1h'
 	input:
-		tuple val(group), val(id), path(vcf), path(idx), path(vcfconcat)
+		tuple val(group), val(ids), path(vcf), path(idx)
+		tuple val(group2), path(vcfconcat)
 
 	output:
 		tuple val(group), path("${group}.norm.uniq.DPAF.vcf"), emit: norm_uniq_dpaf_vcf // TODO: fastgnomad
@@ -1880,7 +1880,7 @@ process split_normalize {
 		path "*versions.yml", emit: versions
 
 	script:
-	id = id[0]
+	id = ids[0]
 	// rename M to MT because genmod does not recognize M
 	if (params.onco || params.assay == "modycf") {
 		"""
