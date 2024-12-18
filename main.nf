@@ -450,12 +450,11 @@ process dnascope {
 	container  "${params.container_sentieon}"
 
 	input:
-		tuple val(group), val(id), bam, bai,
-		tuple val(group), val(id), bqsr
+		tuple val(group), val(id), val(bam), val(bai)
+		tuple val(group), val(id), val(bqsr)
 
 	output:
-		tuple val(group), val(id), path("${id}.dnascope.gvcf.gz"), path("${id}.dnascope.gvcf.gz.tbi"), emit: complete_vcf_choice
-		tuple val(group), val(id), path("${id}.dnascope.gvcf.gz"), emit: gvcf_gens_choice
+		tuple val(group), val(id), path("${id}.dnascope.gvcf.gz"), path("${id}.dnascope.gvcf.gz.tbi"), emit: gvcf_tbi
 		path "*versions.yml", emit: versions
 
 	when:
