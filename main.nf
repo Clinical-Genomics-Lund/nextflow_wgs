@@ -81,9 +81,6 @@ workflow NEXTFLOW_WGS {
 		ch_bam_bai = markdup.out.dedup_bam_bai
 	}
 
-
-
-
 	bqsr(ch_bam_bai)
 	dnascope(ch_bam_bai, bqsr.out.dnascope_bqsr)
 	gvcf_combine(dnascope.out.gvcf_tbi.groupTuple())
@@ -1381,7 +1378,7 @@ process freebayes {
 		tuple val(group), val(id), path(bam), path(bai)
 
 	output:
-		tuple val(group), path("${id}.pathfreebayes.lines"), emit: freebayes_concat
+		tuple val(group), path("${id}.pathfreebayes.vcf_no_header.tsv"), emit: freebayes_variants
 		path "*versions.yml", emit: versions
 
 
