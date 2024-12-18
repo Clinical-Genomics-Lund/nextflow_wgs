@@ -1210,49 +1210,49 @@ def dnascope_version(task) {
 // }
 
 
-// process gvcf_combine {
-// 	cpus 16
-// 	tag "$group"
-// 	memory '5 GB'
-// 	time '5h'
-// 	container  "${params.container_sentieon}"
+process gvcf_combine {
+	cpus 16
+	tag "$group"
+	memory '5 GB'
+	time '5h'
+	container  "${params.container_sentieon}"
 
-// 	input:
-// 		tuple val(group), val(id), path(vcf), path(idx)
+	input:
+		tuple val(group), val(id), path(vcf), path(idx)
 
-// 	output:
-// 		tuple val(group), val(id), path("${group}.combined.vcf"), path("${group}.combined.vcf.idx"), emit: combined_vcf
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${group}.combined.vcf"), path("${group}.combined.vcf.idx"), emit: combined_vcf
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		all_gvcfs = vcf.collect { it.toString() }.sort().join(' -v ')
+	script:
+		all_gvcfs = vcf.collect { it.toString() }.sort().join(' -v ')
 
-// 		"""
-// 		sentieon driver \\
-// 			-t ${task.cpus} \\
-// 			-r ${params.genome_file} \\
-// 			--algo GVCFtyper \\
-// 			-v $all_gvcfs ${group}.combined.vcf
+		"""
+		sentieon driver \\
+			-t ${task.cpus} \\
+			-r ${params.genome_file} \\
+			--algo GVCFtyper \\
+			-v $all_gvcfs ${group}.combined.vcf
 
-// 		${gvcf_combine_version(task)}
-// 		"""
+		${gvcf_combine_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.combined.vcf"
-// 		touch "${group}.combined.vcf.idx"
+	stub:
+		"""
+		touch "${group}.combined.vcf"
+		touch "${group}.combined.vcf.idx"
 
-// 		${gvcf_combine_version(task)}
-// 		"""
-// }
-// def gvcf_combine_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-// 	END_VERSIONS
-// 	"""
-// }
+		${gvcf_combine_version(task)}
+		"""
+}
+def gvcf_combine_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	END_VERSIONS
+	"""
+}
 
 // // Create ped
 // process create_ped {
