@@ -35,7 +35,7 @@ workflow {
 		.each { println "git commit-hash: "+it }
 
 	// Print active container
-	println("container: "+ file(params.container).toRealPath())
+	println("container: " + file(params.container).toRealPath())
 
 	ch_versions = Channel.empty()
 	Channel
