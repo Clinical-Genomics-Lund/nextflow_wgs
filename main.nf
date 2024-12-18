@@ -78,7 +78,7 @@ workflow NEXTFLOW_WGS {
 	dnascope(markdup.out.dedup_bam_bai, bqsr.out.dnascope_bqsr)
 	gvcf_combine(dnascope.out.gvcf_tbi.collect())
 
-
+	ch_versions = Channel.empty()
 	// ch_versions.mix(fastp.out.versions)
 	ch_versions.mix(bwa_align.out.versions)
 	ch_versions.mix(markdup.out.versions)
