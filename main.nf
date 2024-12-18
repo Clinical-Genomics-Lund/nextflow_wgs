@@ -66,7 +66,7 @@ workflow NEXTFLOW_WGS {
 		tuple(group, id, fastq_r1, fastq_r2) // TODO: filter non fq
 	}
 
-	ch_bam_bai = Channel.Empty()
+	ch_bam_bai = Channel.empty()
 
 	if (params.umi) {
 		//TODO: versions!
