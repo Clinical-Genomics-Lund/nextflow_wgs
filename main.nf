@@ -80,7 +80,7 @@ workflow NEXTFLOW_WGS {
 
 	bqsr(markdup.out.dedup_bam_bai)
 	dnascope(markdup.out.dedup_bam_bai, bqsr.out.dnascope_bqsr)
-	gvcf_combine(dnascope.out.gvcf_tbi)
+	gvcf_combine(dnascope.out.gvcf_tbi.groupTuple())
 
 	ch_versions = Channel.empty()
 	// ch_versions.mix(fastp.out.versions)
@@ -1230,14 +1230,14 @@ process gvcf_combine {
 	container  "${params.container_sentieon}"
 
 	input:
-		tuple val(group), val(id), path(vcfs), path(vcf_idxs)
+		tuple val(group), val(id), path(gvcfs), path(gvcf_idxs)
 
 	output: // Off to split_normalize, together with other stuff
 		tuple val(group), val(id), path("${group}.combined.vcf"), path("${group}.combined.vcf.idx"), emit: combined_vcf
 		path "*versions.yml", emit: versions
 
 	script:
-		all_gvcfs = vcf.collect { it.toString() }.sort().join(' -v ')
+		all_gvcfs = gvcfs.collect { it.toString() }.sort().join(' -v ')
 		println(all_gvcfs)
 		"""
 		sentieon driver \\
@@ -1250,7 +1250,7 @@ process gvcf_combine {
 		"""
 
 	stub:
-		all_gvcfs = vcfs.collect { it.toString() }.sort().join(' -v ')
+		all_gvcfs = gvcfs.collect { it.toString() }.sort().join(' -v ')
 		println(all_gvcfs)
 		"""
 		touch "${group}.combined.vcf"
