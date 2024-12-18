@@ -66,6 +66,8 @@ workflow NEXTFLOW_WGS {
 		tuple(group, id, fastq_r1, fastq_r2) // TODO: filter non fq
 	}
 
+	ch_bam_bai = Channel.Empty()
+
 	if (params.umi) {
 		//TODO: versions!
 		fastp(ch_fastq)
@@ -76,11 +78,21 @@ workflow NEXTFLOW_WGS {
 	if (params.align) {
 		bwa_align(ch_fastq)
 		markdup(bwa_align.out.bam_bai)
+		ch_bam_bai = markdup.out.bam_bai
 	}
 
-	bqsr(markdup.out.dedup_bam_bai)
-	dnascope(markdup.out.dedup_bam_bai, bqsr.out.dnascope_bqsr)
+
+
+
+	bqsr(ch_bam_bai)
+	dnascope(ch_bam_bai, bqsr.out.dnascope_bqsr)
 	gvcf_combine(dnascope.out.gvcf_tbi.groupTuple())
+
+	// TODO: move antypes and similar to constants?
+	if (params.antype == "panel") {
+		freebayes(ch_bam_bai)
+	}
+
 
 	ch_versions = Channel.empty()
 	// ch_versions.mix(fastp.out.versions)
@@ -473,9 +485,6 @@ process dnascope {
 		params.varcall
 
 	script:
-		//TODO: move them shards to config and
-		//      build outside shell block
-
 		"""
 		sentieon driver \\
 			-t ${task.cpus} \\
@@ -1362,65 +1371,65 @@ def gvcf_combine_version(task) {
 // 	"""
 // }
 
-// process freebayes {
-// 	cpus 1
-// 	time '2h'
-// 	memory '10 GB'
-// 	container  "${params.container_twist_myeloid}"
+process freebayes {
+	cpus 1
+	time '2h'
+	memory '10 GB'
+	container  "${params.container_twist_myeloid}"
 
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai)
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
 
-// 	output:
-// 		tuple val(group), path("${id}.pathfreebayes.lines"), emit: freebayes_concat
-// 		path "*versions.yml", emit: versions
-
-
-// 	when:
-// 		params.antype == "panel"
+	output:
+		tuple val(group), path("${id}.pathfreebayes.lines"), emit: freebayes_concat
+		path "*versions.yml", emit: versions
 
 
-// 	script:
-// 		if (params.onco) {
-// 			"""
-// 			freebayes -f ${params.genome_file} --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 $bam > ${id}.freebayes.vcf
-// 			vcfbreakmulti ${id}.freebayes.vcf > ${id}.freebayes.multibreak.vcf
-// 			bcftools norm -m-both -c w -O v -f ${params.genome_file} -o ${id}.freebayes.multibreak.norm.vcf ${id}.freebayes.multibreak.vcf
-// 			vcfanno_linux64 -lua $params.VCFANNO_LUA $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
-// 			grep ^# ${id}.freebayes.multibreak.norm.anno.vcf > ${id}.freebayes.multibreak.norm.anno.path.vcf
-// 			grep -v ^# ${id}.freebayes.multibreak.norm.anno.vcf | grep -i pathogenic > ${id}.freebayes.multibreak.norm.anno.path.vcf2
-// 			cat ${id}.freebayes.multibreak.norm.anno.path.vcf ${id}.freebayes.multibreak.norm.anno.path.vcf2 > ${id}.freebayes.multibreak.norm.anno.path.vcf3
-// 			filter_freebayes.pl ${id}.freebayes.multibreak.norm.anno.path.vcf3 > ${id}.pathfreebayes.lines
+	when:
+		params.antype == "panel"
 
-// 			${freebayes_version(task)}
-// 			"""
-// 		}
-// 		else {
-// 			"""
-// 			touch "${id}.pathfreebayes.lines"
 
-// 			${freebayes_version(task)}
-// 			"""
-// 		}
+	script:
+		if (params.onco) {
+			"""
+			freebayes -f ${params.genome_file} --pooled-continuous --pooled-discrete -t $params.intersect_bed --min-repeat-entropy 1 -F 0.03 $bam > ${id}.freebayes.vcf
+			vcfbreakmulti ${id}.freebayes.vcf > ${id}.freebayes.multibreak.vcf
+			bcftools norm -m-both -c w -O v -f ${params.genome_file} -o ${id}.freebayes.multibreak.norm.vcf ${id}.freebayes.multibreak.vcf
+			vcfanno_linux64 -lua $params.VCFANNO_LUA $params.vcfanno ${id}.freebayes.multibreak.norm.vcf > ${id}.freebayes.multibreak.norm.anno.vcf
+			grep ^# ${id}.freebayes.multibreak.norm.anno.vcf > ${id}.freebayes.multibreak.norm.anno.path.vcf
+			grep -v ^# ${id}.freebayes.multibreak.norm.anno.vcf | grep -i pathogenic > ${id}.freebayes.multibreak.norm.anno.path.vcf2
+			cat ${id}.freebayes.multibreak.norm.anno.path.vcf ${id}.freebayes.multibreak.norm.anno.path.vcf2 > ${id}.freebayes.multibreak.norm.anno.path.vcf3
+			filter_freebayes.pl ${id}.freebayes.multibreak.norm.anno.path.vcf3 > "${id}.pathfreebayes.vcf_no_header.tsv"
 
-// 	stub:
-// 		"""
-// 		touch "${id}.pathfreebayes.lines"
+			${freebayes_version(task)}
+			"""
+		}
+		else {
+			"""
+			touch "${id}.pathfreebayes.vcf_no_header.tsv"
 
-// 		${freebayes_version(task)}
-// 		"""
-// }
-// def freebayes_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    freebayes: \$(echo \$(freebayes --version 2>&1) | sed 's/version:\s*v//g')
-// 	    vcflib: 1.0.9
-// 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-// 	    vcfanno: \$(echo \$(vcfanno_linux64 2>&1 | grep version | cut -f3 -d' ')  )
-// 	END_VERSIONS
-// 	"""
-// }
+			${freebayes_version(task)}
+			"""
+		}
+
+	stub:
+		"""
+		touch "${id}.pathfreebayes.vcf_no_header.tsv"
+
+		${freebayes_version(task)}
+		"""
+}
+def freebayes_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    freebayes: \$(echo \$(freebayes --version 2>&1) | sed 's/version:\s*v//g')
+	    vcflib: 1.0.9
+	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	    vcfanno: \$(echo \$(vcfanno_linux64 2>&1 | grep version | cut -f3 -d' ')  )
+	END_VERSIONS
+	"""
+}
 
 // /////////////// MITOCHONDRIA SNV CALLING ///////////////
 // ///////////////                          ///////////////
