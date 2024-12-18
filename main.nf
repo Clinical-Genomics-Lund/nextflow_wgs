@@ -902,17 +902,17 @@ process melt_qc_val {
 	tag "$id"
 	time '20m'
 	memory '50 MB'
-
-	when:
-		params.run_melt
-
 	input:
 		tuple val(group), val(id), qc
 
 	output:
 		tuple id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV), emit: qc_melt_val
 		tuple val(group), val(id), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV), emit: qc_cnvkit_val
-	
+
+
+	when:
+		params.run_melt
+
 	script:
 		// Collect qc-data if possible
 		qc.readLines().each{
@@ -960,12 +960,12 @@ process melt {
 	input:
 		tuple val(id), val(group), path(bam), path(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV)
 
-	when:
-		params.run_melt
-
 	output:
 		tuple val(group), val(id), path("${id}.melt.merged.vcf"), emit: melt_vcf_nonfiltered
 		path "*versions.yml", emit: versions
+
+	when:
+		params.run_melt
 
 	script:
 		"""
@@ -1011,12 +1011,12 @@ process intersect_melt {
 	input:
 		tuple val(group), val(id), path(vcf)
 
-	when:
-		params.run_melt
-
 	output:
 		tuple val(group), val(id), path("${id}.melt.merged.intersected.vcf"), emit: ch_melt_vcf
 		path "*versions.yml", emit: versions
+
+	when:
+		params.run_melt
 
 	script:
 		"""
@@ -1048,9 +1048,6 @@ process dnascope {
 	tag "$id"
 	container  "${params.container_sentieon}"
 
-	when:
-		params.varcall
-
 	input:
 		tuple val(group), val(id), bam, bai, bqsr
 
@@ -1058,6 +1055,9 @@ process dnascope {
 		tuple val(group), val(id), path("${id}.dnascope.gvcf.gz"), path("${id}.dnascope.gvcf.gz.tbi"), emit: complete_vcf_choice
 		tuple val(group), val(id), path("${id}.dnascope.gvcf.gz"), emit: gvcf_gens_choice
 		path "*versions.yml", emit: versions
+
+	when:
+		params.varcall
 
 	script:
 		"""
@@ -1255,15 +1255,17 @@ process freebayes {
 	memory '10 GB'
 	container  "${params.container_twist_myeloid}"
 
-	when: 
-		params.antype == "panel"
-
 	input:
 		tuple val(group), val(id), path(bam), path(bai)
 
 	output:
 		tuple val(group), path("${id}.pathfreebayes.lines"), emit: freebayes_concat
 		path "*versions.yml", emit: versions
+
+
+	when:
+		params.antype == "panel"
+
 
 	script:
 		if (params.onco) {
@@ -1318,9 +1320,6 @@ process fetch_MTseqs {
 	tag "$id"
 	publishDir "${params.outdir}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
 
-	when:
-		params.antype == "wgs"
-
 	input:
 		tuple val(group), val(id), path(bam), path(bai)
 
@@ -1328,6 +1327,9 @@ process fetch_MTseqs {
         tuple val(group), val(id), file ("${id}_mito.bam"), path("${id}_mito.bam.bai"), emit: mutserve_bam, eklipse_bam, qc_mito_bam
 		tuple val(group), path("${group}_mtbam.INFO"), emit: mtBAM_INFO
 		path "*versions.yml", emit: versions
+
+	when:
+		params.antype == "wgs"
 
 	script:
 		"""
@@ -1369,15 +1371,15 @@ process sentieon_mitochondrial_qc {
 	time '2h'
 	container  "${params.container_sentieon}"
 
-	when:
-	    params.antype == "wgs"
-    
 	input:
         tuple val(group), val(id), path(bam), path(bai)
 
 	output:
     	tuple val(group), val(id), path("${id}_mito_coverage.tsv"), emit: qc_mito
 		path "*versions.yml", emit: versions
+
+	when:
+	    params.antype == "wgs"
 
 	script:	
 		"""
@@ -1439,15 +1441,15 @@ process run_mutect2 {
 	tag "$group"
 	publishDir "${params.outdir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 
-	when:
-		!params.onco
-	
 	input:
 		tuple val(group), val(id), path(bam), path(bai)
 
 	output:
 		tuple val(group), val(id), path("${group}.mutect2.vcf"), emit: ms_vcfs_1, ms_vcfs_2
 		path "*versions.yml", emit: versions
+
+	when:
+		!params.onco
 
 	script:
 		bams = bam.join(' -I ')
@@ -1693,9 +1695,6 @@ process split_normalize {
 	memory '50 GB'
 	time '1h'
 
-	when:
-		params.annotate
-
 	input:
 		tuple val(group), val(id), path(vcf), path(idx), path(vcfconcat)
 
@@ -1703,6 +1702,9 @@ process split_normalize {
 		tuple val(group), path("${group}.norm.uniq.DPAF.vcf"), emit: split_norm, vcf_gnomad
 		tuple val(group), val(id), path("${group}.intersected.vcf"), path("${group}.multibreak.vcf"), emit: split_vep, split_cadd, vcf_cnvkit
 		path "*versions.yml", emit: versions
+
+	when:
+		params.annotate
 
 	script:
 	id = id[0]
@@ -1801,14 +1803,16 @@ process qc_to_cdm {
 	tag "$id"
 	time '1h'
 
-	when:
-		!params.noupload
-	
 	input:
 		tuple id, path(qc), diagnosis, r1, r2
 
 	output:
 		path("${id}.cdm"), emit: cdm_done
+
+
+	when:
+		!params.noupload
+
 
 	script:
 		parts = r1.split('/')
@@ -2335,9 +2339,6 @@ process peddy {
 	time '1h'
 	memory '20GB'
 
-	when:
-		!params.annotate_only && params.run_peddy
-
 	input:
 		tuple val(group), val(type), path(vcf), path(idx), val(type), path(ped)
 
@@ -2345,6 +2346,9 @@ process peddy {
 		tuple path("${group}.ped_check.csv"),path("${group}.peddy.ped"), path("${group}.sex_check.csv"), emit: peddy_files
 		tuple val(group), path("${group}_peddy.INFO"), emit: peddy_INFO
 		path "*versions.yml", emit: versions
+
+	when:
+		!params.annotate_only && params.run_peddy
 
 	script:
 		"""
@@ -2581,11 +2585,12 @@ def gatkcov_version(task) {
 
 // Plot ROH, UPD and coverage in a genomic overview plot
 process overview_plot {
-	publishDir "${params.outdir}/plots", mode: 'copy' , overwrite: 'true', pattern: "*.png"
+
+	cpus 2
 	tag "$group"
 	time '1h'
 	memory '5 GB'
-	cpus 2
+	publishDir "${params.outdir}/plots", mode: 'copy' , overwrite: 'true', pattern: "*.png"
 
 	input:
 		path(upd)
@@ -2598,8 +2603,6 @@ process overview_plot {
 
 	script:
 		proband_idx = type.findIndexOf{ it == "proband" }
-
-	script:
 		"""
 		genome_plotter.pl --dict $params.GENOMEDICT \\
 			--sample ${id[proband_idx]} \\
@@ -3371,12 +3374,14 @@ process dummy_svvcf_for_loqusdb {
 	memory '10 MB'
 	time '10m'
 
-	when:
-		!params.sv
 	input:
-		tuple val(group), assay
+		tuple val(group), val(assay)
+
 	output:
 		tuple val(group), path("${group}.dummy.sv.vcf"), emit: dummy_svvcf_ch
+
+	when:
+		!params.sv
 
 	script:
 		"""
@@ -3395,16 +3400,16 @@ process add_to_loqusdb {
 	tag "$group"
 	memory '100 MB'
 	time '25m'
-
-	when:
-		!params.noupload && !params.reanalyze
-
 	input:
 		tuple val(group), val(type), path(vcf), path(tbi), val(type), path(ped)
 		tuple val(group), path(svvcf)
 
 	output:
 		path("${group}*.loqus"), emit: loqusdb_done
+
+
+	when:
+		!params.noupload && !params.reanalyze
 
 	script:
 		"""
@@ -3610,9 +3615,9 @@ process artefact {
 	memory '10 GB'
 	container  "${params.container_svdb}"
 
+
 	input:
 		tuple val(group), path(sv)
-
 	output:
 		tuple val(group), path("${group}.artefact.vcf"), emit: manip_vcf,manip_vcf_ma,manip_vcf_fa
 		path "*versions.yml", emit: versions
@@ -3780,9 +3785,6 @@ process compound_finder {
 	memory '10 GB'
 	time '2h'
 
-	when:
-		mode == "family" && params.assay == "wgs"
-
 	input:
 		tuple val(group), val(type), path(vcf), path(tbi), path(ped), path(snv), path(tbi)
 		//tuple val(group), path(snv), path(tbi)
@@ -3791,6 +3793,11 @@ process compound_finder {
 		tuple val(group), path("${group_score}.snv.rescored.sorted.vcf.gz"), path("${group_score}.snv.rescored.sorted.vcf.gz.tbi"), emit: vcf_yaml
 		tuple val(group), path("${group}_svp.INFO"), emit: svcompound_INFO
 		path "*versions.yml", emit: versions
+
+
+	when:
+		mode == "family" && params.assay == "wgs"
+
 
 	script:
 		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
@@ -3860,15 +3867,15 @@ process svvcf_to_bed {
 	time '1h'
 	cpus 2
 
-	when:
-		params.antype != "panel"
-
 	input:
 		tuple val(group), path(vcf)
 		tuple val(group), val(id), sex, type
 
 	output:
 		path("${group}.sv.bed")
+
+	when:
+		params.antype != "panel"
 
 
 	script:
