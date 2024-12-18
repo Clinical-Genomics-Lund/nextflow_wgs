@@ -1871,7 +1871,7 @@ process split_normalize {
 	memory '50 GB'
 	time '1h'
 	input:
-		tuple val(group), val(ids), path(vcf), path(idx)
+		tuple val(group), val(ids), path(vcf), path(idx) // is ids supposed to be tuple?
 		tuple val(group2), path(vcfconcat)
 
 	output:
@@ -1918,6 +1918,7 @@ process split_normalize {
 	}
 
 	stub:
+	id = ids[0]
 		"""
 		touch "${group}.norm.uniq.DPAF.vcf"
 		touch "${group}.intersected.vcf"
