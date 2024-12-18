@@ -25,7 +25,6 @@ workflow {
 	// Print active container
 	println("container: "+ file(params.container).toRealPath())
 
-
 	ch_versions = Channel.empty()
 	Channel
 		.fromPath(params.csv)
@@ -41,13 +40,10 @@ workflow {
 }
 
 workflow NEXTFLOW_WGS {
-	// GENERAL PATHS //
-
 	take:
 	ch_samplesheet
 
 	main:
-
 	ch_fastq = ch_samplesheet.map { row ->
 		def group = row.group
 		def id = row.id
@@ -138,7 +134,7 @@ workflow NEXTFLOW_WGS {
 	// }
 
 
-}
+//}
 
 // workflow.onComplete {
 
