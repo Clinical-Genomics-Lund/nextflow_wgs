@@ -66,18 +66,26 @@ workflow NEXTFLOW_WGS {
 		tuple(group, id, fastq_r1, fastq_r2) // TODO: filter non fq
 	}
 
-	fastp(ch_fastq)
-	bwa_align(fastp.out.fastq_trimmed)
+	if (params.umi) {
+		//TODO: versions!
+		fastp(ch_fastq)
+		ch_reads = fastp.out.fastq_trimmed_reads
+	}
+
+	bwa_align(ch_reads)
 	markdup(bwa_align.out.bam_bai)
 	bqsr(markdup.out.dedup_bam_bai)
 	dnascope(markdup.out.dedup_bam_bai, bqsr.out.dnascope_bqsr)
+	gvcf_combine(dnascope.out.gvcf_tbi.collect())
 
-	ch_versions = Channel.empty()
-	ch_versions.mix(fastp.out.versions)
+
+	// ch_versions.mix(fastp.out.versions)
 	ch_versions.mix(bwa_align.out.versions)
 	ch_versions.mix(markdup.out.versions)
 	ch_versions.mix(bqsr.out.versions)
 	ch_versions.mix(dnascope.out.versions)
+	ch_versions.mix(gvcf_combine.out.versions)
+	// TODO: yasnippet this above
 	ch_versions.view()
 
 	emit:
@@ -201,7 +209,7 @@ process fastp {
 		tuple val(group), val(id), path(fq_r1), path(fq_r2)
 
 	output:
-		tuple val(group), val(id), path("${id}_R1_a_q_u_trimmed.fq.gz"), path("${id}_R2_a_q_u_trimmed.fq.gz"), emit: fastq_trimmed
+		tuple val(group), val(id), path("${id}_R1_a_q_u_trimmed.fq.gz"), path("${id}_R2_a_q_u_trimmed.fq.gz"), emit: fastq_trimmed_reads
 		path("*versions.yml"), emit: versions
 
 	when:
