@@ -7,7 +7,7 @@ workflow {
 
 	// Print startup and conf output dirs and modes.
 
-	params.outdir = params.outdir + '/' + params.subdir
+	params.results_output_dir = params.outdir + '/' + params.subdir
 	params.cron_output_dir = params.crondir // TODO: switch back to crondir
 	params.mode = file(params.csv).countLines() > 2 ? "family" : "single"
 	params.trio = file(params.csv).countLines() > 3 ? true : false
@@ -21,7 +21,7 @@ workflow {
 	log.info("Input CSV: " + params.csv)
 	log.info("mode: " + params.mode)
 	log.info("trio analysis: " + params.trio)
-	log.info("Results output dir: " + params.outdir)
+	log.info("Results output dir: " + params.results_output_dir)
 	log.info("Results subdir: " + params.subdir)
 	log.info("CRON output dir: " + params.cron_output_dir)
 
