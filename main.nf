@@ -78,7 +78,7 @@ workflow NEXTFLOW_WGS {
 	if (params.align) {
 		bwa_align(ch_fastq)
 		markdup(bwa_align.out.bam_bai)
-		ch_bam_bai = markdup.out.bam_bai
+		ch_bam_bai = markdup.out.dedup_bam_bai
 	}
 
 
