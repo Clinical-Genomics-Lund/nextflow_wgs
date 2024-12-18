@@ -1728,7 +1728,7 @@ process run_haplogrep {
 	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
 
 	input:
-		tuple val(group), val(id), path(vcf)
+		tuple val(group), val(id), path(mito_snv_vcf)
 
 	output:
 		path "${group}.haplogrep.png"
@@ -1738,8 +1738,8 @@ process run_haplogrep {
 	script:
 		version_str = run_haplogrep_version(task)
 		'''
-		for sample in `bcftools query -l !{vcf}`; do
-			bcftools view -c1 -Oz -s $sample -o $sample.vcf.gz !{ms_vcf}
+		for sample in `bcftools query -l !{mito_snv_vcf}`; do
+			bcftools view -c1 -Oz -s $sample -o $sample.vcf.gz !{mito_snv_vcf}
 			java  -Xmx16G -Xms16G -jar /opt/bin/haplogrep.jar classify \
 			--in $sample.vcf.gz\
 			--out $sample.hg2.vcf \
