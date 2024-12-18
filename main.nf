@@ -97,10 +97,13 @@ workflow NEXTFLOW_WGS {
 	dnascope(ch_bam_bai, bqsr.out.dnascope_bqsr)
 	gvcf_combine(dnascope.out.gvcf_tbi.groupTuple())
 
+	ch_split_normalize_vcf_concat = Channel.empty()
 	// TODO: move antypes and similar to constants?
 	if (params.antype == "panel") {
 		freebayes(ch_bam_bai)
+		ch_split_normalize_vcf_concat.mix(freebayes.out.freebayes_variants)
 	}
+
 
 	// MITO
 	if (params.antype == "wgs") { // TODO: if params.mito etc ? will probably mess up split_normalize
@@ -115,6 +118,9 @@ workflow NEXTFLOW_WGS {
 		run_mutect2(fetch_MTseqs.out.bam_bai)
 		split_normalize_mito(run_mutect2.out.vcf, ch_meta)
 		run_hmtnote(split_normalize_mito.out.vcf)
+
+		ch_split_normalize_vcf_concat.mix(run_hmtnote.out.vcf)
+
 		run_haplogrep(run_mutect2.out.vcf)
 
 		// SVs
@@ -124,7 +130,7 @@ workflow NEXTFLOW_WGS {
 	// SNV ANNOTATION
 	if (params.annotate) {
 		// SNPs
-		split_normalize(gvcf_combine.out.combined_vcf.join(run_hmtnote.out.vcf).mix(freebayes.out.freebayes_variants))
+		split_normalize(gvcf_combine.out.combined_vcf.join(ch_split_normalize_vcf_concat))
 		annotate_vep(split_normalize.out.intersected_vcf)
 		vcfanno(annotate_vep.out.vcf)
 		modify_vcf(vcfanno.out.vcf)
