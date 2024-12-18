@@ -915,6 +915,9 @@ process melt_qc_val {
 
 	script:
 		// Collect qc-data if possible
+		def ins_dev
+		def coverage
+		def ins_size
 		qc.readLines().each{
 			if (it =~ /\"(ins_size_dev)\" : \"(\S+)\"/) {
 				ins_dev = it =~ /\"(ins_size_dev)\" : \"(\S+)\"/
