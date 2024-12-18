@@ -415,7 +415,7 @@ process bqsr {
 		sentieon driver -t ${task.cpus} \\
 			-r ${params.genome_file} -i $bam \\
 			--algo QualCal ${id}.bqsr.table \\
-			-k $params.KNOWN
+			-k $params.KNOWN_SITES
 
 		${bqsr_version(task)}
 		"""
