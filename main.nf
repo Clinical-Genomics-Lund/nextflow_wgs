@@ -1215,7 +1215,7 @@ process madeline {
 		path "*versions.yml", emit: versions
 
 	when:
-		mode == "family" && params.assay == "wgs"
+		params.mode == "family" && params.assay == "wgs"
 
 	script:
 		"""
@@ -3910,7 +3910,7 @@ process plot_pod {
 		tuple path("${id}_POD_karyotype.pdf"), path("${id}_POD_results.html")
 
 	when:
-		mode == "family" && trio == true
+		params.mode == "family" && params.trio
 
 	script:
 		"""
