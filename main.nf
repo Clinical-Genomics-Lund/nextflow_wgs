@@ -21,7 +21,7 @@ workflow {
 	log.info("mode: " + params.mode)
 	log.info("trio analysis: " + params.trio)
 	log.info("Results output dir: " + params.outdir)
-	log.debug("Results subdir: " + params.subdir)
+	log.info("Results subdir: " + params.subdir)
 	log.info("CRON output dir: " + params.cron_output_dir)
 
 	// Print commit-version of active deployment
