@@ -117,10 +117,16 @@ workflow NEXTFLOW_WGS {
 		split_normalize_mito(run_mutect2.out.vcf, ch_meta)
 		run_hmtnote(split_normalize_mito.out.vcf)
 		run_haplogrep(run_mutect2.out.vcf)
+
+		// SVs
 		run_eklipse(fetch_MTseqs.out.bam_bai, ch_meta)
 	}
 
-	// split_normalize()
+	// SNV ANNOTATION
+	if (params.annotate) {
+		split_normalize(gvcf_combine.out.combined_vcf.join(run_hmtnote.out.vcf).mix(freebayes.out.freebayes_variants))
+	}
+
 
 	ch_versions = Channel.empty()
 	// ch_versions.mix(fastp.out.versions)
@@ -1690,7 +1696,7 @@ process run_hmtnote {
 		tuple val(group), path(vcf)
 
 	output:
-		tuple val(group), path("${group}.fixinfo.vcf"), emit: mito_diplod_vep
+		tuple val(group), path("${group}.fixinfo.vcf"), emit: vcf
 		path "*versions.yml", emit: versions
 
 	script:
@@ -1851,9 +1857,6 @@ process split_normalize {
 		tuple val(group), path("${group}.norm.uniq.DPAF.vcf"), emit: norm_uniq_dpaf_vcf // TODO: fastgnomad
 		tuple val(group), val(id), path("${group}.intersected.vcf"), emit: intersected_vcf
 		path "*versions.yml", emit: versions
-
-	when:
-		params.annotate
 
 	script:
 	id = id[0]
