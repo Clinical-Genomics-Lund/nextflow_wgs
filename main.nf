@@ -123,7 +123,14 @@ workflow NEXTFLOW_WGS {
 
 	// SNV ANNOTATION
 	if (params.annotate) {
+		// SNPs
 		split_normalize(gvcf_combine.out.combined_vcf.join(run_hmtnote.out.vcf).mix(freebayes.out.freebayes_variants))
+		annotate_vep(split_normalize.out.intersected_vcf)
+		vcfanno(annotate_vep.out.vcf)
+		modify_vcf(vcfanno.out.vcf)
+		mark_splice(modify_vcf.out.vcf)
+
+		//INDELS
 	}
 
 
@@ -1976,154 +1983,155 @@ def split_normalize_version(task) {
 // }
 
 
-// process vep_annotate {
-// 	container  "${params.container_vep}"
-// 	cpus 30
-// 	tag "$group"
-// 	memory '50 GB'
-// 	time '5h'
+process annotate_vep {
+	container  "${params.container_vep}"
+	cpus 30
+	tag "$group"
+	memory '50 GB'
+	time '5h'
 
-// 	input:
-// 		tuple val(group), val(id), path(vcf), val(idx) //TODO: wtf is idx
+	input:
+		tuple val(group), val(id), path(vcf)
 
-// 	output:
-// 		tuple val(group), path("${group}.vep.vcf"), emit: vep
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), path("${group}.vep.vcf"), emit: vcf
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		vep \\
-// 			-i ${vcf} \\
-// 			-o ${group}.vep.vcf \\
-// 			--offline \\
-// 			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
-// 			--merged \\
-// 			--vcf \\
-// 			--no_stats \\
-// 			--synonyms $params.VEP_SYNONYMS \\
-// 			--fork ${task.cpus} \\
-// 			--force_overwrite \\
-// 			--fasta $params.VEP_FASTA \\
-// 			--dir_cache $params.VEP_CACHE \\
-// 			--dir_plugins $params.VEP_PLUGINS \\
-// 			--distance $params.VEP_TRANSCRIPT_DISTANCE \\
-// 			-cache \\
-// 			--plugin CADD,$params.CADD \\
-// 			--plugin LoFtool \\
-// 			--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
-// 			--plugin dbNSFP,$params.DBNSFP,transcript_match=1,REVEL_score,REVEL_rankscore \\
-// 			-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
-// 			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
-// 			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
-// 			-custom $params.PHYLOP,phyloP100way,bigwig \\
-// 			-custom $params.PHASTCONS,phastCons,bigwig
+	script:
+		"""
+		vep \\
+			-i ${vcf} \\
+			-o ${group}.vep.vcf \\
+			--offline \\
+			--sift b --polyphen b --ccds --hgvs --symbol --numbers --domains --regulatory --canonical --protein --biotype --af --af_1kg --max_af --pubmed --uniprot --mane --tsl --appris --variant_class --gene_phenotype --mirna \\
+			--merged \\
+			--vcf \\
+			--no_stats \\
+			--synonyms $params.VEP_SYNONYMS \\
+			--fork ${task.cpus} \\
+			--force_overwrite \\
+			--fasta $params.VEP_FASTA \\
+			--dir_cache $params.VEP_CACHE \\
+			--dir_plugins $params.VEP_PLUGINS \\
+			--distance $params.VEP_TRANSCRIPT_DISTANCE \\
+			-cache \\
+			--plugin CADD,$params.CADD \\
+			--plugin LoFtool \\
+			--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
+			--plugin dbNSFP,$params.DBNSFP,transcript_match=1,REVEL_score,REVEL_rankscore \\
+			-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_popmax,AF,popmax \\
+			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF_popmax,AF,popmax \\
+			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
+			-custom $params.PHYLOP,phyloP100way,bigwig \\
+			-custom $params.PHASTCONS,phastCons,bigwig
 
-// 		${annotate_vep_version(task)}
-// 		"""
+		${annotate_vep_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.vep.vcf"
-// 		${annotate_vep_version(task)}
-// 		"""
-// }
-// def annotate_vep_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    vep: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${group}.vep.vcf"
+		${annotate_vep_version(task)}
+		"""
+}
+def annotate_vep_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    vep: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
+	END_VERSIONS
+	"""
+}
 
 
 // // gene, clinvar, loqusdb, enigma(onco)
-// process vcfanno {
-// 	memory '1GB'
-// 	time '1h'
-// 	errorStrategy 'retry'
-// 	maxErrors 5
-// 	cpus 2
+process vcfanno {
+	memory '1GB'
+	time '1h'
+	errorStrategy 'retry'
+	maxErrors 5
+	cpus 2
 
-// 	input:
-// 		tuple val(group), path(vcf)
+	input:
+		tuple val(group), path(vcf)
 
-// 	output:
-// 		tuple val(group), path("${group}.clinvar.loqusdb.gene.vcf"), emit: vcfanno_vcf
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), path("${group}.clinvar.loqusdb.gene.vcf"), emit: vcf
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		vcfanno_linux64 -lua $params.VCFANNO_LUA $params.vcfanno $vcf > ${group}.clinvar.loqusdb.gene.vcf
-// 		${vcfanno_version(task)}
-// 		"""
+	script:
+		"""
+		vcfanno_linux64 -lua $params.VCFANNO_LUA $params.vcfanno $vcf > ${group}.clinvar.loqusdb.gene.vcf
+		${vcfanno_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.clinvar.loqusdb.gene.vcf"
-// 		${vcfanno_version(task)}
-// 		"""
-// }
-// def vcfanno_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    vcfanno: \$(echo \$(vcfanno_linux64 2>&1 | grep version | cut -f3 -d' ')  )
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${group}.clinvar.loqusdb.gene.vcf"
+		${vcfanno_version(task)}
+		"""
+}
+def vcfanno_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    vcfanno: \$(echo \$(vcfanno_linux64 2>&1 | grep version | cut -f3 -d' ')  )
+	END_VERSIONS
+	"""
+}
 
 
 // // Extracting most severe consequence:
 // // Modifying annotations by VEP-plugins, and adding to info-field:
 // // Modifying CLNSIG field to allow it to be used by genmod score properly:
-// process modify_vcf {
-// 	cpus 2
-// 	tag "$group"
-// 	memory '1 GB'
-// 	time '1h'
+// TODO: give process better name
+process modify_vcf {
+	cpus 2
+	tag "$group"
+	memory '1 GB'
+	time '1h'
 
-// 	input:
-// 		tuple val(group), path(vcf)
+	input:
+		tuple val(group), path(vcf)
 
-// 	output:
-// 		tuple val(group), path("${group}.mod.vcf"), emit: mod_vcf
+	output:
+		tuple val(group), path("${group}.mod.vcf"), emit: vcf
 
-// 	script:
-// 		"""
-// 		modify_vcf_scout.pl $vcf > ${group}.mod.vcf
-// 		"""
+	script:
+		"""
+		modify_vcf_scout.pl $vcf > ${group}.mod.vcf
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.mod.vcf"
-// 		"""
-// }
+	stub:
+		"""
+		touch "${group}.mod.vcf"
+		"""
+}
 
 
-// // Marking splice INDELs:
-// process mark_splice {
-// 	cpus 2
-// 	tag "$group"
-// 	memory '1 GB'
-// 	time '1h'
+// Marking splice INDELs:
+process mark_splice {
+	cpus 2
+	tag "$group"
+	memory '1 GB'
+	time '1h'
 
-// 	input:
-// 		tuple val(group), path(vcf)
+	input:
+		tuple val(group), path(vcf)
 
-// 	output:
-// 		tuple val(group), path("${group}.marksplice.vcf"), emit: splice_marked
+	output:
+		tuple val(group), path("${group}.marksplice.vcf"), emit: splice_marked
 
-// 	script:
-// 		"""
-// 		/opt/bin/mark_spliceindels.pl $vcf > ${group}.marksplice.vcf
-// 		"""
+	script:
+		"""
+		/opt/bin/mark_spliceindels.pl $vcf > ${group}.marksplice.vcf
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.marksplice.vcf"
-// 		"""
-// }
+	stub:
+		"""
+		touch "${group}.marksplice.vcf"
+		"""
+}
 
 // // Extract all INDELs
 // process extract_indels_for_cadd {
