@@ -68,6 +68,7 @@ workflow NEXTFLOW_WGS {
 	fastp(ch_fastq)
 	bwa_align(fastp.out.fastq_trimmed)
 	markdup(bwa_align.out.bam_bai)
+	bqsr()
 
 	ch_versions = Channel.empty()
 	ch_versions.mix(fastp.out.versions)
@@ -324,7 +325,7 @@ process markdup {
 			--metrics dedup_metrics.txt \\
 			--rmdup ${id}_dedup.bam
 
-		// TODO: To some separate process?
+		# TODO: To some separate process?
 		echo "BAM	$id	/access/${params.subdir}/bam/${id}_dedup.bam" > ${group}_bam.INFO
 
 		${markdup_versions(task)}
@@ -457,9 +458,10 @@ process dnascope {
 		params.varcall
 
 	script:
-		"""
 		//TODO: move them shards to config and
 		//      build outside shell block
+
+		"""
 		sentieon driver \\
 			-t ${task.cpus} \\
 			-r ${params.genome_file} \\
