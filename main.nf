@@ -3,7 +3,7 @@
 nextflow.enable.dsl=2
 
 params.outdir = params.outdir + '/' + params.subdir
-params.cron_output_dir = params.crondir
+params.cron_output_dir = params.crondir // TODO: switch back to crondir
 params.mode = file(params.csv).countLines() > 2 ? "family" : "single"
 params.trio = file(params.csv).countLines() > 3 ? true : false
 
@@ -11,13 +11,18 @@ workflow {
 
 	// Print startup and conf output dirs and modes.
 
+	log.info("Hello.")
+
 	def PON = [F: params.GATK_PON_FEMALE, M: params.GATK_PON_MALE]
 
 	// Count lines of input csv, if more than 2(header + 1 ind) then mode is set to family //
 
-	println(params.csv)
-	println("mode: " + params.mode)
-	println("trio: " + params.trio)
+	log.info("Input CSV: " + params.csv)
+	log.info("mode: " + params.mode)
+	log.info("trio analysis: " + params.trio)
+	log.info("Results output dir: " + params.outdir)
+	log.info("CRON output dir: " + params.cron_output_dir)
+
 	// Print commit-version of active deployment
 	file(params.git)
 		.readLines()
