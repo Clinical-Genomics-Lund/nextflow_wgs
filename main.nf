@@ -72,11 +72,15 @@ workflow NEXTFLOW_WGS {
 		ch_fastq = fastp.out.fastq_trimmed_reads
 	}
 
-	bwa_align(ch_fastq)
-	markdup(bwa_align.out.bam_bai)
+	//TODO: handle false or remove?
+	if (params.align) {
+		bwa_align(ch_fastq)
+		markdup(bwa_align.out.bam_bai)
+	}
+
 	bqsr(markdup.out.dedup_bam_bai)
 	dnascope(markdup.out.dedup_bam_bai, bqsr.out.dnascope_bqsr)
-	gvcf_combine(dnascope.out.gvcf_tbi.collect())
+	gvcf_combine(dnascope.out.gvcf_tbi)
 
 	ch_versions = Channel.empty()
 	// ch_versions.mix(fastp.out.versions)
@@ -1228,13 +1232,13 @@ process gvcf_combine {
 	input:
 		tuple val(group), val(id), path(vcf), path(idx)
 
-	output:
+	output: // Off to split_normalize, together with other stuff
 		tuple val(group), val(id), path("${group}.combined.vcf"), path("${group}.combined.vcf.idx"), emit: combined_vcf
 		path "*versions.yml", emit: versions
 
 	script:
 		all_gvcfs = vcf.collect { it.toString() }.sort().join(' -v ')
-
+		println(all_gvcfs)
 		"""
 		sentieon driver \\
 			-t ${task.cpus} \\
