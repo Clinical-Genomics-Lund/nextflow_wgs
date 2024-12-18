@@ -131,6 +131,11 @@ workflow NEXTFLOW_WGS {
 		mark_splice(modify_vcf.out.vcf)
 
 		//INDELS
+		extract_indels_for_cadd(split_normalize.out.intersected_vcf)
+		indel_vep(extract_indels_for_cadd.out.vcf)
+		calculate_indel_cadd(indel_vep.out.vcf)
+		bgzip_indel_cadd(calculate_indel_cadd.out.cadd_gz)
+		add_cadd_scores_to_vcf(mark_splice.out.splice_marked.join(bgzip_indel_cadd.out.cadd_tbi))
 	}
 
 
@@ -2133,204 +2138,205 @@ process mark_splice {
 		"""
 }
 
-// // Extract all INDELs
-// process extract_indels_for_cadd {
-// 	cpus 2
-// 	tag "$group"
-// 	memory '1 GB'
-// 	time '1h'
+// Extract all INDELs
+process extract_indels_for_cadd {
+	cpus 2
+	tag "$group"
+	memory '1 GB'
+	time '1h'
 
-// 	input:
-// 		tuple val(group), val(id), path(vcf), idx
+	input:
+		tuple val(group), val(id), path(vcf), path(idx)
 
-// 	output:
-// 		tuple val(group), path("${group}.only_indels.vcf"), emit: indel_cadd_vep
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), path("${group}.only_indels.vcf"), emit: vcf
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		bcftools view $vcf -V snps -o ${group}.only_indels.vcf
-// 		${extract_indels_for_cadd_version(task)}
-// 		"""
+	script:
+		"""
+		bcftools view $vcf -V snps -o ${group}.only_indels.vcf
+		${extract_indels_for_cadd_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.only_indels.vcf"
-// 		${extract_indels_for_cadd_version(task)}
-// 		"""
-// }
-// def extract_indels_for_cadd_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${group}.only_indels.vcf"
+		${extract_indels_for_cadd_version(task)}
+		"""
+}
+def extract_indels_for_cadd_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	END_VERSIONS
+	"""
+}
 
-// // Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
-// process indel_vep {
-// 	cpus 5
-// 	container  "${params.container_vep}"
-// 	tag "$group"
-// 	memory '10 GB'
-// 	time '3h'
+// Annotate Indels with VEP+Gnomad genomes. Filter variants below threshold
+process indel_vep {
+	cpus 5
+	container  "${params.container_vep}"
+	tag "$group"
+	memory '10 GB'
+	time '3h'
 
-// 	input:
-// 		tuple val(group), path(vcf)
+	input:
+		tuple val(group), path(vcf)
 
-// 	output:
-// 		tuple val(group), path("${group}.only_indels.vep.filtered.vcf"), emit: indel_cadd_vcf
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), path("${group}.only_indels.vep.filtered.vcf"), emit: vcf
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		vep \\
-// 			-i $vcf \\
-// 			-o ${group}.only_indels.vep.vcf \\
-// 			--offline \\
-// 			--cache \\
-// 			--merged \\
-// 			--vcf \\
-// 			--synonyms $params.VEP_SYNONYMS \\
-// 			--fasta $params.VEP_FASTA \\
-// 			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
-// 			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
-// 			--dir_cache $params.VEP_CACHE \\
-// 			--force_overwrite \\
-// 			--no_stats \\
-// 			--fork ${task.cpus}
-// 		filter_indels.pl ${group}.only_indels.vep.vcf > ${group}.only_indels.vep.filtered.vcf
-// 		${indel_vep_version(task)}
-// 		"""
+	script:
+		"""
+		vep \\
+			-i $vcf \\
+			-o ${group}.only_indels.vep.vcf \\
+			--offline \\
+			--cache \\
+			--merged \\
+			--vcf \\
+			--synonyms $params.VEP_SYNONYMS \\
+			--fasta $params.VEP_FASTA \\
+			-custom $params.GNOMAD_GENOMES,gnomADg,vcf,exact,0,AF \\
+			-custom $params.GNOMAD_MT,gnomAD_mt,vcf,exact,0,AF_hom,AF_het \\
+			--dir_cache $params.VEP_CACHE \\
+			--force_overwrite \\
+			--no_stats \\
+			--fork ${task.cpus}
+		filter_indels.pl ${group}.only_indels.vep.vcf > ${group}.only_indels.vep.filtered.vcf
+		${indel_vep_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.only_indels.vep.filtered.vcf"
-// 		${indel_vep_version(task)}
-// 		"""
-// }
-// def indel_vep_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    vep: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${group}.only_indels.vep.filtered.vcf"
+		${indel_vep_version(task)}
+		"""
+}
+def indel_vep_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    vep: \$( echo \$(vep --help 2>&1) | sed 's/^.*Versions:.*ensembl-vep : // ; s/ .*\$//')
+	END_VERSIONS
+	"""
+}
 
-// // Calculate CADD scores for all indels
-// process calculate_indel_cadd {
-// 	cpus 2
-// 	container  "${params.container_cadd}"
-// 	tag "$group"
-// 	memory '20 GB'
-// 	time '3h'
+// Calculate CADD scores for all indels
+process calculate_indel_cadd {
+	cpus 2
+	container  "${params.container_cadd}"
+	tag "$group"
+	memory '20 GB'
+	time '3h'
 
-// 	input:
-// 		tuple val(group), path(vcf)
+	input:
+		tuple val(group), path(vcf)
 
-// 	output:
-// 		tuple val(group), path("${group}.indel_cadd.gz"), emit: indel_cadd
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), path("${group}.indel_cadd.gz"), emit: cadd_gz
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		/CADD-scripts/CADD.sh -c ${task.cpus} -g GRCh38 -o ${group}.indel_cadd.gz $vcf
-// 		${calculate_indel_cadd_version(task)}
-// 		"""
+	//TODO: does this output a VCF? if so fix file ending.
+	script:
+		"""
+		/CADD-scripts/CADD.sh -c ${task.cpus} -g GRCh38 -o ${group}.indel_cadd.gz $vcf
+		${calculate_indel_cadd_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.indel_cadd.gz"
-// 		${calculate_indel_cadd_version(task)}
-// 		"""
-// }
-// def calculate_indel_cadd_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    cadd: \$(echo \$(/CADD-scripts/CADD.sh -v 2>&1) | sed -e "s/^.*CADD-v// ; s/ (c).*//")
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${group}.indel_cadd.gz"
+		${calculate_indel_cadd_version(task)}
+		"""
+}
+def calculate_indel_cadd_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    cadd: \$(echo \$(/CADD-scripts/CADD.sh -v 2>&1) | sed -e "s/^.*CADD-v// ; s/ (c).*//")
+	END_VERSIONS
+	"""
+}
 
-// process bgzip_indel_cadd {
+process bgzip_indel_cadd {
 
-// 	tag "$group"
-// 	cpus 4
-// 	memory '1 GB'
-// 	time '5m'
-// 	container  "${params.container_bcftools}"
+	tag "$group"
+	cpus 4
+	memory '1 GB'
+	time '5m'
+	container  "${params.container_bcftools}"
 
-// 	input:
-// 		tuple val(group), path(cadd_scores)
+	input:
+		tuple val(group), path(cadd_scores)
 
-// 	output:
-// 		tuple val(group), path("${group}.cadd.gz"), path("${group}.cadd.gz.tbi"), emit: indel_cadd_bgzip
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), path("${group}.cadd.gz"), path("${group}.cadd.gz.tbi"), emit: cadd_tbi
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		gunzip -c ${cadd_scores} > "${group}.cadd"
-// 		bgzip -@ ${task.cpus} "${group}.cadd"
-// 		tabix -p vcf "${group}.cadd.gz"
-// 		${bgzip_indel_cadd_version(task)}
-// 		"""
+	script:
+		"""
+		gunzip -c ${cadd_scores} > "${group}.cadd"
+		bgzip -@ ${task.cpus} "${group}.cadd"
+		tabix -p vcf "${group}.cadd.gz"
+		${bgzip_indel_cadd_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.cadd.gz"
-// 		touch "${group}.cadd.gz.tbi"
-// 		${bgzip_indel_cadd_version(task)}
-// 		"""
-// }
-// def bgzip_indel_cadd_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-// 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${group}.cadd.gz"
+		touch "${group}.cadd.gz.tbi"
+		${bgzip_indel_cadd_version(task)}
+		"""
+}
+def bgzip_indel_cadd_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	END_VERSIONS
+	"""
+}
 
-// // Add the calculated indel CADDs to the vcf
-// process add_cadd_scores_to_vcf {
-// 	cpus 4
-// 	tag "$group"
-// 	memory '1 GB'
-// 	time '5m'
-// 	container  "${params.container_genmod}"
+// Add the calculated indel CADDs to the vcf
+process add_cadd_scores_to_vcf {
+	cpus 4
+	tag "$group"
+	memory '1 GB'
+	time '5m'
+	container  "${params.container_genmod}"
 
-// 	input:
-// 		tuple val(group), path(vcf), path(cadd_scores), path(cadd_scores_tbi)
+	input:
+		tuple val(group), path(vcf), path(cadd_scores), path(cadd_scores_tbi)
 
-// 	output:
-// 		tuple val(group), path("${group}.cadd.vcf"), emit: ma_vcf, fa_vcf, base_vcf
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), path("${group}.cadd.vcf"), emit: vcf
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		genmod annotate --cadd-file ${cadd_scores} ${vcf} > ${group}.cadd.vcf
+	script:
+		"""
+		genmod annotate --cadd-file ${cadd_scores} ${vcf} > ${group}.cadd.vcf
 
-// 		${add_cadd_scores_to_vcf_version(task)}
-// 		"""
+		${add_cadd_scores_to_vcf_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.cadd.vcf"
-// 		${add_cadd_scores_to_vcf_version(task)}
-// 		"""
-// }
-// def add_cadd_scores_to_vcf_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${group}.cadd.vcf"
+		${add_cadd_scores_to_vcf_version(task)}
+		"""
+}
+def add_cadd_scores_to_vcf_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
+	END_VERSIONS
+	"""
+}
 
 
 // // # Annotating variant inheritance models:
