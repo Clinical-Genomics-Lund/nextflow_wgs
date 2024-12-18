@@ -179,7 +179,7 @@ process fastp {
 	container "${params.container_fastp}"
 
 	input:
-		tuple val(group), val(id), path(r1), path(r2)
+		tuple val(group), val(id), path(fq_r1), path(fq_r2)
 
 	output:
 		tuple val(group), val(id), file("${id}_R1_a_q_u_trimmed.fq.gz"), file("${id}_R2_a_q_u_trimmed.fq.gz"), emit: fastq_trimmed
@@ -190,7 +190,7 @@ process fastp {
 
 	script:
 		"""
-		fastp -i $r1 -I $r2 --stdout \\
+		fastp -i $fq_r1 -I $fq_r2 --stdout \\
 			-U --umi_loc=per_read --umi_len=3 \\
 			-w ${task.cpus} \\
 		| fastp --stdin --interleaved_in -f 2 -F 2 \\
