@@ -34,8 +34,8 @@ workflow NEXTFLOW_WGS {
 		.set { input_files }
 
 	fastq = Channel.create()
-	bam_choice = Channel.create()
-	//vcf_choice = Channel.create()
+	
+	
 	fastq_sharded = Channel.create()
 	fastq_umi = Channel.create()
 	annotate_only = Channel.create()
@@ -302,7 +302,7 @@ process copy_bam {
 		tuple val(group), val(id), path(bam), path(bai)
 	
 	output:
-		tuple val(group), val(id), path("${id}_dedup.bam"), path("${id}_dedup.bam.bai"), emit: expansionhunter_bam_choice, dnascope_bam_choice, bampath_start, cov_bam_choice, bam_manta_choice, bam_tiddit_choice, bam_mito_choice, bam_SMN_choice, bam_freebayes_choice, bam_mantapanel_choice, bam_cnvkitpanel_choice, bam_melt_choice, bam_qc_choice, dedup_dummy_choice, bam_bqsr_choice, bam_gatk_choice, verifybamid2_bam_choice
+		tuple val(group), val(id), path("${id}_dedup.bam"), path("${id}_dedup.bam.bai"), emit: bam_bai
 	script:
 		"""
 		ionice -c 2 -n 7 cp ${bam} "${id}_dedup.copy.bam"
