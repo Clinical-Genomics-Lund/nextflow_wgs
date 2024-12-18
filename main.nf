@@ -52,6 +52,7 @@ workflow {
 }
 
 workflow NEXTFLOW_WGS {
+
 	take:
 	ch_samplesheet
 
@@ -400,7 +401,7 @@ def markdup_versions(task) {
 // 	// 12gb peak giab //
 // 	time '5h'
 // 	container  "${params.container_sentieon}"
-// 	publishDir "${params.outdir}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
+// 	publishDir "${params.results_output_dir}/bqsr", mode: 'copy' , overwrite: 'true', pattern: '*.table'
 
 // 	input:
 // 		tuple val(id), val(group), path(bam), path(bai)
@@ -539,7 +540,7 @@ def markdup_versions(task) {
 // process d4_coverage {
 // 	cpus 16
 // 	memory '10 GB'
-// 	publishDir "${params.outdir}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
+// 	publishDir "${params.results_output_dir}/cov", mode: 'copy', overwrite: 'true', pattern: '*.d4'
 // 	tag "$id"
 // 	container  "${params.container_d4tools}"
 
@@ -587,7 +588,7 @@ def markdup_versions(task) {
 // process verifybamid2 {
 // 	cpus 16
 // 	memory '10 GB'
-// 	// publishDir "${params.outdir}/contamination", mode: 'copy', overwrite: 'true', pattern: '*.selfSM'
+// 	// publishDir "${params.results_output_dir}/contamination", mode: 'copy', overwrite: 'true', pattern: '*.selfSM'
 // 	tag "$id"
 // 	container  "${params.container_verifybamid2}"
 
@@ -649,7 +650,7 @@ def markdup_versions(task) {
 // 	cpus 2
 // 	time '1h'
 // 	memory '10 GB'
-// 	publishDir "${params.outdir}/cov", mode: 'copy', overwrite: 'true'
+// 	publishDir "${params.results_output_dir}/cov", mode: 'copy', overwrite: 'true'
 // 	tag "$id"
 // 	input:
 // 		tuple val(group), val(id), path(bam), path(bai)
@@ -677,7 +678,7 @@ def markdup_versions(task) {
 // 	cpus 10
 // 	memory '25GB'
 // 	time '2h'
-// 	publishDir "${params.outdir}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
+// 	publishDir "${params.results_output_dir}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
 // 	tag "$id"
 
 // 	input:
@@ -735,7 +736,7 @@ def markdup_versions(task) {
 // }
 // // collects each individual's SMNCNC-tsv and creates one tsv-file
 // smn_tsv
-// 	.collectPath(keepHeader: true, storeDir: "${params.outdir}/smn/")
+// 	.collectPath(keepHeader: true, storeDir: "${params.results_output_dir}/smn/")
 // def smn_copy_number_caller_version(task) {
 // 	"""
 // 	cat <<-END_VERSIONS > ${task.process}_versions.yml
@@ -851,7 +852,7 @@ def markdup_versions(task) {
 // 	memory '1 GB'
 // 	errorStrategy 'ignore'
 // 	container  "${params.container_reviewer}"
-// 	publishDir "${params.outdir}/plots/reviewer/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.svg'
+// 	publishDir "${params.results_output_dir}/plots/reviewer/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.svg'
 
 // 	input:
 // 		tuple val(group), val(id), path(bam), path(bai), path(vcf)
@@ -892,7 +893,7 @@ def markdup_versions(task) {
 // // split multiallelic sites in expansionhunter vcf
 // // FIXME: Use env variable for picard path...
 // process vcfbreakmulti_expansionhunter {
-// 	publishDir "${params.outdir}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf.gz'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf.gz'
 // 	tag "$group"
 // 	time '1h'
 // 	memory '50 GB'
@@ -1015,7 +1016,7 @@ def markdup_versions(task) {
 // 	// memory seems to scale with less number of reads?
 // 	memory '70 GB'
 // 	time '3h'
-// 	publishDir "${params.outdir}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf'
 
 // 	input:
 // 		tuple val(id), val(group), path(bam), path(bai), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV)
@@ -1066,7 +1067,7 @@ def markdup_versions(task) {
 // 	tag "$id"
 // 	memory '2 GB'
 // 	time '1h'
-// 	publishDir "${params.outdir}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf'
 
 // 	input:
 // 		tuple val(group), val(id), path(vcf)
@@ -1219,7 +1220,7 @@ def markdup_versions(task) {
 // process create_ped {
 // 	tag "$group"
 // 	time '20m'
-// 	publishDir "${params.outdir}/ped", mode: 'copy' , overwrite: 'true'
+// 	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true'
 // 	memory '1 GB'
 
 // 	input:
@@ -1257,7 +1258,7 @@ def markdup_versions(task) {
 
 // //madeline ped, run if family mode
 // process madeline {
-// 	publishDir "${params.outdir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.xml'
+// 	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.xml'
 // 	memory '1 GB'
 // 	time '1h'
 // 	cpus 2
@@ -1378,7 +1379,7 @@ def markdup_versions(task) {
 // 	memory '10GB'
 // 	time '1h'
 // 	tag "$id"
-// 	publishDir "${params.outdir}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
+// 	publishDir "${params.results_output_dir}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
 
 // 	input:
 // 		tuple val(group), val(id), path(bam), path(bai)
@@ -1499,7 +1500,7 @@ def markdup_versions(task) {
 // 	memory '50 GB'
 // 	time '1h'
 // 	tag "$group"
-// 	publishDir "${params.outdir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 
 // 	input:
 // 		tuple val(group), val(id), path(bam), path(bai)
@@ -1636,7 +1637,7 @@ def markdup_versions(task) {
 // 	time '1h'
 // 	memory '50 GB'
 // 	cpus 2
-// 	publishDir "${params.outdir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
+// 	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
 
 // 	input:
 // 		tuple val(group), val(id), path(ms_vcf)
@@ -1690,8 +1691,8 @@ def markdup_versions(task) {
 // 	// in rare cases with samples above 50 000x this can peak at 500+ GB of VMEM. Add downsampling!
 // 	memory '100GB'
 // 	time '60m'
-// 	publishDir "${params.outdir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.txt'
-// 	publishDir "${params.outdir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
+// 	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.txt'
+// 	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
 
 // 	input:
 // 		tuple val(group), val(id), path(bam), path(bai), sex, type
@@ -1750,7 +1751,7 @@ def markdup_versions(task) {
 // // Splitting & normalizing variants, merging with Freebayes/Mutect2, intersecting against exome/clinvar introns
 // process split_normalize {
 // 	cpus 2
-// 	publishDir "${params.outdir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 // 	tag "$group"
 // 	memory '50 GB'
 // 	time '1h'
@@ -1831,7 +1832,7 @@ def markdup_versions(task) {
 //     cpus 2
 //     errorStrategy 'retry'
 //     maxErrors 5
-//     publishDir "${params.outdir}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
+//     publishDir "${params.results_output_dir}/qc", mode: 'copy' , overwrite: 'true', pattern: '*.QC'
 //     tag "$id"
 //     time '1h'
 // 	memory '1 GB'
@@ -1879,7 +1880,7 @@ def markdup_versions(task) {
 // 		idx =  parts.findIndexOf {it ==~ /......_......_...._........../}
 // 		rundir = parts[0..idx].join("/")
 // 		"""
-// 		echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${params.outdir}/qc/${id}.QC" > ${id}.cdm
+// 		echo "--run-folder $rundir --sample-id $id --subassay $diagnosis --assay $params.assay --qc ${params.results_output_dir}/qc/${id}.QC" > ${id}.cdm
 // 		"""
 // }
 
@@ -2343,7 +2344,7 @@ def markdup_versions(task) {
 // // Bgzipping and indexing VCF:
 // process vcf_completion {
 // 	cpus 16
-// 	publishDir "${params.outdir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 // 	tag "$group"
 // 	time '1h'
 // 	memory '5 GB'
@@ -2391,8 +2392,8 @@ def markdup_versions(task) {
 
 // process peddy {
 
-// 	publishDir "${params.outdir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.ped'
-// 	publishDir "${params.outdir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.csv'
+// 	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.ped'
+// 	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.csv'
 
 // 	cpus 4
 // 	tag "$group"
@@ -2444,7 +2445,7 @@ def markdup_versions(task) {
 // 	cpus 2
 // 	memory '40 GB'
 // 	tag "$group"
-// 	publishDir "${params.outdir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 // 	time '2h'
 
 // 	input:
@@ -2522,7 +2523,7 @@ def markdup_versions(task) {
 
 
 // process upd_table {
-// 	publishDir "${params.outdir}/plots", mode: 'copy' , overwrite: 'true'
+// 	publishDir "${params.results_output_dir}/plots", mode: 'copy' , overwrite: 'true'
 // 	tag "$group"
 // 	time '1h'
 // 	memory '1 GB'
@@ -2586,7 +2587,7 @@ def markdup_versions(task) {
 
 // // Create coverage profile using GATK
 // process gatkcov {
-// 	publishDir "${params.outdir}/cov", mode: 'copy' , overwrite: 'true', pattern: '*.tsv'
+// 	publishDir "${params.results_output_dir}/cov", mode: 'copy' , overwrite: 'true', pattern: '*.tsv'
 // 	tag "$group"
 // 	cpus 2
 // 	memory '80 GB'
@@ -2650,7 +2651,7 @@ def markdup_versions(task) {
 // 	tag "$group"
 // 	time '1h'
 // 	memory '5 GB'
-// 	publishDir "${params.outdir}/plots", mode: 'copy' , overwrite: 'true', pattern: "*.png"
+// 	publishDir "${params.results_output_dir}/plots", mode: 'copy' , overwrite: 'true', pattern: "*.png"
 
 // 	input:
 // 		path(upd)
@@ -2682,7 +2683,7 @@ def markdup_versions(task) {
 // }
 
 // process generate_gens_data {
-// 	publishDir "${params.outdir}/plot_data", mode: 'copy' , overwrite: 'true', pattern: "*.gz*"
+// 	publishDir "${params.results_output_dir}/plot_data", mode: 'copy' , overwrite: 'true', pattern: "*.gz*"
 // 	publishDir "${params.crondir}/gens", mode: 'copy', overwrite: 'true', pattern: "*.gens"
 // 	tag "$group"
 // 	cpus 1
@@ -2893,7 +2894,7 @@ def markdup_versions(task) {
 // 	memory '50GB'
 // 	time '3h'
 // 	container  "${params.container_gatk}"
-// 	publishDir "${params.outdir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 // 	tag "$id"
 
 // 	input:
@@ -2966,7 +2967,7 @@ def markdup_versions(task) {
 // 	tag "$group"
 // 	time '2h'
 // 	memory '1 GB'
-// 	publishDir "${params.outdir}/sv_vcf", mode: 'copy', overwrite: 'true'
+// 	publishDir "${params.results_output_dir}/sv_vcf", mode: 'copy', overwrite: 'true'
 
 // 	input:
 // 		tuple val(group), val(id), path(inter), path(gatk), path(denoised)
@@ -2988,7 +2989,7 @@ def markdup_versions(task) {
 
 // process manta {
 // 	cpus  56
-// 	publishDir "${params.outdir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 // 	tag "$id"
 // 	time '10h'
 // 	memory '150 GB'
@@ -3032,7 +3033,7 @@ def markdup_versions(task) {
 
 // process manta_panel {
 // 	cpus  20
-// 	publishDir "${params.outdir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
 // 	tag "$id"
 // 	time '1h'
 // 	memory '50 GB'
@@ -3077,8 +3078,8 @@ def markdup_versions(task) {
 // process cnvkit_panel {
 // 	cpus  5
 // 	container  "${params.container_twist_myeloid}"
-// 	publishDir "${params.outdir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-// 	publishDir "${params.outdir}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
+// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
 // 	tag "$id"
 // 	time '1h'
 // 	memory '20 GB'
@@ -3134,7 +3135,7 @@ def markdup_versions(task) {
 // 	cpus 2
 // 	cache 'deep'
 // 	tag "$group"
-// 	publishDir "${params.outdir}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 // 	time '1h'
 // 	memory '1 GB'
 // 	input:
@@ -3222,7 +3223,7 @@ def markdup_versions(task) {
 // process postprocess_merged_panel_sv_vcf {
 // 	cpus 2
 // 	tag "$group"
-// 	publishDir "${params.outdir}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 // 	time '1h'
 // 	memory '1 GB'
 
@@ -3275,7 +3276,7 @@ def markdup_versions(task) {
 
 // process tiddit {
 // 	cpus  2
-// 	publishDir "${params.outdir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 // 	time '10h'
 // 	tag "$id"
 // 	memory '15 GB'
@@ -3317,7 +3318,7 @@ def markdup_versions(task) {
 // 	cpus 2
 // 	container  "${params.container_svdb}"
 // 	tag "$group"
-// 	publishDir "${params.outdir}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+// 	publishDir "${params.results_output_dir}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
 // 	time '2h'
 // 	memory '1 GB'
 
@@ -3494,7 +3495,7 @@ def markdup_versions(task) {
 // 	container  "${params.container_annotsv}"
 // 	cpus 2
 // 	tag "$group"
-// 	publishDir "${params.outdir}/annotsv/", mode: 'copy', overwrite: 'true', pattern: '*.tsv'
+// 	publishDir "${params.results_output_dir}/annotsv/", mode: 'copy', overwrite: 'true', pattern: '*.tsv'
 // 	time '5h'
 // 	memory '20 GB'
 
@@ -3796,8 +3797,8 @@ def markdup_versions(task) {
 // 	cpus 4
 // 	memory '1 GB'
 // 	time '5m'
-// 	publishDir "${params.outdir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
-// 	publishDir "${params.outdir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz.tbi'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz.tbi'
 // 	container  "${params.container_bcftools}"
 
 // 	input:
@@ -3842,7 +3843,7 @@ def markdup_versions(task) {
 // process compound_finder {
 // 	cpus 2
 // 	tag "$group ${params.mode}"
-// 	publishDir "${params.outdir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
 // 	memory '10 GB'
 // 	time '2h'
 
@@ -3921,7 +3922,7 @@ def markdup_versions(task) {
 
 
 // process svvcf_to_bed {
-// 	publishDir "${params.outdir}/bed", mode: 'copy' , overwrite: 'true'
+// 	publishDir "${params.results_output_dir}/bed", mode: 'copy' , overwrite: 'true'
 // 	tag "group"
 // 	memory '1 GB'
 // 	time '1h'
@@ -3951,7 +3952,7 @@ def markdup_versions(task) {
 
 // process plot_pod {
 // 	container  "${params.container_pod}"
-// 	publishDir "${params.outdir}/pod", mode: 'copy' , overwrite: 'true'
+// 	publishDir "${params.results_output_dir}/pod", mode: 'copy' , overwrite: 'true'
 // 	tag "$group"
 // 	time '1h'
 // 	memory '1 GB'
@@ -3981,8 +3982,8 @@ def markdup_versions(task) {
 // }
 
 // process create_yaml {
-// 	publishDir "${params.outdir}/yaml", mode: 'copy' , overwrite: 'true', pattern: '*.yaml'
-// 	publishDir "${params.outdir}/yaml/alt_affect", mode: 'copy' , overwrite: 'true', pattern: '*.yaml.*a'
+// 	publishDir "${params.results_output_dir}/yaml", mode: 'copy' , overwrite: 'true', pattern: '*.yaml'
+// 	publishDir "${params.results_output_dir}/yaml/alt_affect", mode: 'copy' , overwrite: 'true', pattern: '*.yaml.*a'
 // 	publishDir "${params.crondir}/scout", mode: 'copy' , overwrite: 'true', pattern: '*.yaml'
 // 	errorStrategy 'retry'
 // 	maxErrors 5
@@ -4017,7 +4018,7 @@ def markdup_versions(task) {
 // }
 
 // process combine_versions {
-// 	publishDir "${params.outdir}/versions", mode: 'copy', overwrite: 'true', pattern: '*.versions.yml'
+// 	publishDir "${params.results_output_dir}/versions", mode: 'copy', overwrite: 'true', pattern: '*.versions.yml'
 
 // 	// The point of "first" here is that when a process is present in multiple instances
 // 	// there is no need to include more than one instance of the versions
