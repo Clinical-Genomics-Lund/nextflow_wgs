@@ -2,14 +2,15 @@
 
 nextflow.enable.dsl=2
 
-params.outdir = params.outdir + '/' + params.subdir
-params.cron_output_dir = params.crondir // TODO: switch back to crondir
-params.mode = file(params.csv).countLines() > 2 ? "family" : "single"
-params.trio = file(params.csv).countLines() > 3 ? true : false
 
 workflow {
 
 	// Print startup and conf output dirs and modes.
+
+	params.outdir = params.outdir + '/' + params.subdir
+	params.cron_output_dir = params.crondir // TODO: switch back to crondir
+	params.mode = file(params.csv).countLines() > 2 ? "family" : "single"
+	params.trio = file(params.csv).countLines() > 3 ? true : false
 
 	log.info("Hello.")
 
