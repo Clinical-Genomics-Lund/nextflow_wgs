@@ -2775,12 +2775,13 @@ process gatk_call_cnv {
 	tag "$id"
 
 	input:
-		tuple val(group), val(id), path(tsv), path(ploidy), i, refpart \
+	tuple val(group), val(id), path(tsv), path(ploidy), val(i), val(refpart) //TODO: is reffart a path or val
 
 
 	output:
-		tuple val(group), val(id), i, path("${group}_${i}.tar"), emit: postprocessgatk
-		path "*versions.yml", emit: versions
+	//TODO: wtf is i
+	tuple val(group), val(id), val(i), path("${group}_${i}.tar"), emit: postprocessgatk
+	path "*versions.yml", emit: versions
 
 	script:
 		"""
