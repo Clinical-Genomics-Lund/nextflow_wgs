@@ -122,8 +122,9 @@ workflow NEXTFLOW_WGS {
 		split_normalize_mito(run_mutect2.out.vcf, ch_meta)
 		run_hmtnote(split_normalize_mito.out.vcf)
 
-		ch_split_normalize.mix(run_hmtnote.out.vcf)
-		ch_split_normalize.view()
+		run_hmtnote.out.vcf.view()
+		ch_split_normalize.join(run_hmtnote.out.vcf)
+
 		run_haplogrep(run_mutect2.out.vcf)
 
 		// SVs
