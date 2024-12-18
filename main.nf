@@ -2,8 +2,51 @@
 
 nextflow.enable.dsl=2
 
+workflow {
+
+	// Print startup
+	ch_versions = Channel.empty()
+	Channel
+		.fromPath(params.csv)
+		.splitCsv(header: true)
+		.set { ch_samplesheet }
+
+
+	NEXTFLOW_WGS(ch_samplesheet)
+
+	ch_versions.mix(NEXTFLOW_WGS.out.versions)
+	// OUTPUT_VERSIONS(ch_versions)
+
+}
+
 workflow NEXTFLOW_WGS {
 	// GENERAL PATHS //
+
+	take:
+	ch_samplesheet
+
+	main:
+
+	ch_fastq = ch_samplesheet.map { row ->
+		def group = row.group
+		def id = row.id
+		def fastq_r1 = row.read1
+		def fastq_r2 = row.read2
+		tuple(group, id, fastq_r1, fastq_r2) // TODO: filter non fq
+	}
+
+	fastp(ch_fastq)
+
+
+	ch_versions = Channel.empty()
+	ch_versions.mix(fastp.out.versions)
+
+	ch_versions.view()
+
+	emit:
+		versions = ch_versions
+}
+
 	params.outdir = params.outdir + '/' + params.subdir
 	params.cron_output_dir = params.crondir
 
