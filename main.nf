@@ -61,10 +61,12 @@ workflow NEXTFLOW_WGS {
 
 	fastp(ch_fastq)
 	bwa_align(fastp.out.fastq_trimmed)
+	markdup(bwa_align.out.bam_bai)
 
 	ch_versions = Channel.empty()
 	ch_versions.mix(fastp.out.versions)
 	ch_versions.mix(bwa_align.out.versions)
+	ch_versions.mix(markdup.out.version)
 	ch_versions.view()
 
 	emit:
@@ -280,54 +282,54 @@ def bwa_align_versions(task) {
 	"""
 }
 
-// process markdup {
-// 	cpus 40
-// 	errorStrategy 'retry'
-// 	maxErrors 5
-// 	tag "$id"
-// 	memory '50 GB' // 12GB peak GIAB
-// 	time '3h'
-// 	container  "${params.container_sentieon}"
-// 	publishDir "${params.outdir}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
+process markdup {
+	cpus 40
+	errorStrategy 'retry'
+	maxErrors 5
+	tag "$id"
+	memory '50 GB' // 12GB peak GIAB
+	time '3h'
+	container  "${params.container_sentieon}"
+	publishDir "${params.outdir}/bam", mode: 'copy' , overwrite: 'true', pattern: '*_dedup.bam*'
 
-// 	input:
-// 		tuple val(id), val(group), path(bam), path(bai)
+	input:
+		tuple val(id), val(group), path(bam), path(bai)
 
-// 	output:
-// 		tuple val(group), val(id), path("(${id}_dedup.bam"), path("${id}_dedup.bam.bai"), emit: dedup_bam_bai
-// 		tuple val(group), val(id), path("dedup_metrics.txt"), emit: dedup_metrics
-// 		tuple val(group), path("${group}_bam.INFO"), emit: bam_INFO
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("(${id}_dedup.bam"), path("${id}_dedup.bam.bai"), emit: dedup_bam_bai
+		tuple val(group), val(id), path("dedup_metrics.txt"), emit: dedup_metrics
+		tuple val(group), path("${group}_bam.INFO"), emit: bam_INFO
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		sentieon driver \\
-// 			--temp_dir /local/scratch/ \\
-// 			-t ${task.cpus} \\
-// 			-i $bam --shard 1:1-248956422 --shard 2:1-242193529 --shard 3:1-198295559 --shard 4:1-190214555 --shard 5:1-120339935 --shard 5:120339936-181538259 --shard 6:1-170805979 --shard 7:1-159345973 --shard 8:1-145138636 --shard 9:1-138394717 --shard 10:1-133797422 --shard 11:1-135086622 --shard 12:1-56232327 --shard 12:56232328-133275309 --shard 13:1-114364328 --shard 14:1-107043718 --shard 15:1-101991189 --shard 16:1-90338345 --shard 17:1-83257441 --shard 18:1-80373285 --shard 19:1-58617616 --shard 20:1-64444167 --shard 21:1-46709983 --shard 22:1-50818468 --shard X:1-124998478 --shard X:124998479-156040895 --shard Y:1-57227415 --shard M:1-16569 \\
-// 			--algo LocusCollector \\
-// 			--fun score_info ${id}.score
-// 		sentieon driver \\
-// 			--temp_dir /local/scratch/ \\
-// 			-t ${task.cpus} \\
-// 			-i $bam \\
-// 			--algo Dedup --score_info ${id}.score \\
-// 			--metrics dedup_metrics.txt \\
-// 			--rmdup ${id}_dedup.bam
-// 		echo "BAM	$id	/access/${params.subdir}/bam/${id}_dedup.bam" > ${group}_bam.INFO
+	script:
+		"""
+		sentieon driver \\
+			--temp_dir /local/scratch/ \\
+			-t ${task.cpus} \\
+			-i $bam --shard 1:1-248956422 --shard 2:1-242193529 --shard 3:1-198295559 --shard 4:1-190214555 --shard 5:1-120339935 --shard 5:120339936-181538259 --shard 6:1-170805979 --shard 7:1-159345973 --shard 8:1-145138636 --shard 9:1-138394717 --shard 10:1-133797422 --shard 11:1-135086622 --shard 12:1-56232327 --shard 12:56232328-133275309 --shard 13:1-114364328 --shard 14:1-107043718 --shard 15:1-101991189 --shard 16:1-90338345 --shard 17:1-83257441 --shard 18:1-80373285 --shard 19:1-58617616 --shard 20:1-64444167 --shard 21:1-46709983 --shard 22:1-50818468 --shard X:1-124998478 --shard X:124998479-156040895 --shard Y:1-57227415 --shard M:1-16569 \\
+			--algo LocusCollector \\
+			--fun score_info ${id}.score
+		sentieon driver \\
+			--temp_dir /local/scratch/ \\
+			-t ${task.cpus} \\
+			-i $bam \\
+			--algo Dedup --score_info ${id}.score \\
+			--metrics dedup_metrics.txt \\
+			--rmdup ${id}_dedup.bam
+		echo "BAM	$id	/access/${params.subdir}/bam/${id}_dedup.bam" > ${group}_bam.INFO
 
-// 		${markdup_versions(task)}
-// 		"""
+		${markdup_versions(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${id}_dedup.bam"
-// 		touch "${id}_dedup.bam.bai"
-// 		touch "dedup_metrics.txt"
-// 		touch "${group}_bam.INFO"
+	stub:
+		"""
+		touch "${id}_dedup.bam"
+		touch "${id}_dedup.bam.bai"
+		touch "dedup_metrics.txt"
+		touch "${group}_bam.INFO"
 
-// 		${markdup_versions(task)}
-// 		"""
+ 		${markdup_versions(task)}
+ 		"""
 // }
 // def markdup_versions(task) {
 // 	"""
