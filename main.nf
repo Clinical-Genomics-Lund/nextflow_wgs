@@ -128,8 +128,10 @@ workflow NEXTFLOW_WGS {
 	}
 
 	// SNV ANNOTATION
+	println("annotate: " + params.annotate)
 	if (params.annotate) {
 		// SNPs
+		ch_split_normalize_vcf_concat.view()
 		split_normalize(gvcf_combine.out.combined_vcf.join(ch_split_normalize_vcf_concat))
 		annotate_vep(split_normalize.out.intersected_vcf)
 		vcfanno(annotate_vep.out.vcf)
