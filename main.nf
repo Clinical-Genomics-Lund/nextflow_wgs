@@ -451,7 +451,7 @@ process dnascope {
 
 	input:
 		tuple val(group), val(id), val(bam), val(bai)
-		tuple val(group), val(id), val(bqsr)
+		tuple val(group2), val(id2), val(bqsr)
 
 	output:
 		tuple val(group), val(id), path("${id}.dnascope.gvcf.gz"), path("${id}.dnascope.gvcf.gz.tbi"), emit: gvcf_tbi
