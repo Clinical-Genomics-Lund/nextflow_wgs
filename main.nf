@@ -58,6 +58,9 @@ workflow NEXTFLOW_WGS {
 	ch_samplesheet
 
 	main:
+
+	// CHANNEL PREP //
+
 	ch_fastq = ch_samplesheet.map { row ->
 		def group = row.group
 		def id = row.id
@@ -66,14 +69,21 @@ workflow NEXTFLOW_WGS {
 		tuple(group, id, fastq_r1, fastq_r2) // TODO: filter non fq
 	}
 
+	// TODO: expand and implement across all processes:
+	ch_meta = ch_samplesheet.map{ row->
+		tuple(row.group, row.id, row.sex, row.type)
+	}
+
 	ch_bam_bai = Channel.empty()
 
+	// FASTQ //
 	if (params.umi) {
 		//TODO: versions!
 		fastp(ch_fastq)
 		ch_fastq = fastp.out.fastq_trimmed_reads
 	}
 
+	// ALIGN //
 	//TODO: handle false or remove?
 	if (params.align) {
 		bwa_align(ch_fastq)
@@ -82,6 +92,8 @@ workflow NEXTFLOW_WGS {
 	}
 
 	bqsr(ch_bam_bai)
+
+	// SNV CALLING //
 	dnascope(ch_bam_bai, bqsr.out.dnascope_bqsr)
 	gvcf_combine(dnascope.out.gvcf_tbi.groupTuple())
 
@@ -90,6 +102,25 @@ workflow NEXTFLOW_WGS {
 		freebayes(ch_bam_bai)
 	}
 
+
+	// MITO
+	if (params.antype == "wgs") { // TODO: if params.mito etc ? will probably mess up split_normalize
+
+		fetch_MTseqs(ch_bam_bai)
+
+		// MITO BAM QC
+		sentieon_mitochondrial_qc(fetch_MTseqs.out.bam_bai)
+		build_mitochondrial_qc_json(sentieon_mitochondrial_qc.out.qc_tsv)
+
+		// SNVs
+		run_mutect2(fetch_MTseqs.out.bam_bai)
+		split_normalize_mito(run_mutect2.out.vcf, ch_meta)
+		run_hmtnote(split_normalize_mito.out.vcf)
+		run_haplogrep(run_mutect2.out.vcf)
+		run_eklipse(fetch_MTseqs.out.bam_bai, ch_meta)
+	}
+
+	// split_normalize()
 
 	ch_versions = Channel.empty()
 	// ch_versions.mix(fastp.out.versions)
@@ -1428,461 +1459,460 @@ def freebayes_version(task) {
 	"""
 }
 
-// /////////////// MITOCHONDRIA SNV CALLING ///////////////
-// ///////////////                          ///////////////
-
-// // create an MT BAM file
-// process fetch_MTseqs {
-// 	cpus 2
-// 	memory '10GB'
-// 	time '1h'
-// 	tag "$id"
-// 	publishDir "${params.results_output_dir}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
-
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai)
-
-//     output:
-//         tuple val(group), val(id), file ("${id}_mito.bam"), path("${id}_mito.bam.bai"), emit: mutserve_bam, eklipse_bam, qc_mito_bam
-// 		tuple val(group), path("${group}_mtbam.INFO"), emit: mtBAM_INFO
-// 		path "*versions.yml", emit: versions
-
-// 	when:
-// 		params.antype == "wgs"
-
-// 	script:
-// 		"""
-// 		sambamba view -f bam $bam M > ${id}_mito.bam
-// 		samtools index -b ${id}_mito.bam
-// 		echo "mtBAM	$id	/access/${params.subdir}/bam/${id}_mito.bam" > ${group}_mtbam.INFO
-
-// 		${fetch_MTseqs_version(task)}
-// 		"""
-
-// 	stub:
-// 		"""
-// 		touch "${id}_mito.bam"
-// 		touch "${id}_mito.bam.bai"
-// 		touch "${group}_mtbam.INFO"
-
-// 		${fetch_MTseqs_version(task)}
-// 		"""
-// }
-// def fetch_MTseqs_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    sambamba: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
-// 	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-// 	END_VERSIONS
-// 	"""
-// }
-
-
-// process sentieon_mitochondrial_qc {
-
-//     // Fetch mitochondrial coverage statistics
-//     // Calculate mean_coverage and pct_above_500x
-
-//     cpus 30
-//     memory '20 GB'
-// 	tag "$id"
-// 	time '2h'
-// 	container  "${params.container_sentieon}"
-
-// 	input:
-//         tuple val(group), val(id), path(bam), path(bai)
-
-// 	output:
-//     	tuple val(group), val(id), path("${id}_mito_coverage.tsv"), emit: qc_mito
-// 		path "*versions.yml", emit: versions
-
-// 	when:
-// 	    params.antype == "wgs"
-
-// 	script:
-// 		"""
-// 		sentieon driver \\
-// 			-r ${params.genome_file} \\
-// 			-t ${task.cpus} \\
-// 			-i $bam \\
-// 			--algo CoverageMetrics \\
-// 			--cov_thresh 500 \\
-// 			mt_cov_metrics.txt
-
-// 		head -1 mt_cov_metrics.txt.sample_interval_summary > "${id}_mito_coverage.tsv"
-// 		grep "^M" mt_cov_metrics.txt.sample_interval_summary >> "${id}_mito_coverage.tsv"
-// 		${sentieon_mitochondrial_qc_version(task)}
-// 		"""
-
-// 	stub:
-// 		"""
-// 		touch "${id}_mito_coverage.tsv"
-// 		${sentieon_mitochondrial_qc_version(task)}
-// 		"""
-// }
-// def sentieon_mitochondrial_qc_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-// 	END_VERSIONS
-// 	"""
-// }
-
-// process build_mitochondrial_qc_json {
-//     memory '1 GB'
-//     cpus 2
-//     tag "$id"
-//     time "1h"
-
-//     input:
-//         tuple val(group), val(id), path(mito_qc_file)
-//     output:
-//         tuple val(group), val(id), path("${id}_mito_qc.json"), emit: qc_mito_json
-
-// 	script:
-// 		"""
-// 		mito_tsv_to_json.py ${mito_qc_file} > "${id}_mito_qc.json"
-// 		"""
-// 	stub:
-// 		"""
-// 		touch "${id}_mito_qc.json"
-// 		"""
-// }
-
-
-// // gatk FilterMutectCalls in future if FPs overwhelms tord/sofie/carro
-// process run_mutect2 {
-// 	cpus 4
-// 	memory '50 GB'
-// 	time '1h'
-// 	tag "$group"
-// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai)
-
-// 	output:
-// 		tuple val(group), val(id), path("${group}.mutect2.vcf"), emit: ms_vcfs_1, ms_vcfs_2
-// 		path "*versions.yml", emit: versions
-
-// 	when:
-// 		!params.onco
-
-// 	script:
-// 		bams = bam.join(' -I ')
-
-// 		"""
-// 		source activate gatk4-env
-// 		gatk Mutect2 \
-// 		--mitochondria-mode \
-// 		-R $params.genome_file \
-// 		-L M \
-// 		-I $bams \
-// 		-O ${group}.mutect2.vcf
-
-// 		${run_mutect2_version(task)}
-// 		"""
-
-// 	stub:
-// 		"""
-// 		source activate gatk4-env
-// 		touch "${group}.mutect2.vcf"
-
-// 		${run_mutect2_version(task)}
-// 		"""
-// }
-// def run_mutect2_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-// 	END_VERSIONS
-// 	"""
-// }
-
-// // split and left-align variants
-// process split_normalize_mito {
-// 	cpus 2
-// 	memory '1GB'
-// 	time '1h'
-
-// 	input:
-// 		tuple val(group), val(id), path(ms_vcf)
-// 		tuple g2, id2, sex, type
-
-// 	output:
-// 		tuple val(group), path("${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf"), emit: adj_vcfs
-// 		path "*versions.yml", emit: versions
-
-// 	script:
-// 		proband_idx = type.findIndexOf{ it == "proband" }
-
-// 		"""
-// 		grep -vP "^M\\s+955" $ms_vcf > ${ms_vcf}.fix
-// 		bcftools norm -m-both -o ${ms_vcf}.breakmulti ${ms_vcf}.fix
-// 		bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
-// 		tabix -p vcf ${ms_vcf}.breakmulti.fix
-// 		bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix
-// 		bcftools view -i 'FMT/AF[*]>0.05' ${ms_vcf.baseName}.adjusted.vcf -o ${group}.mutect2.breakmulti.filtered5p.vcf
-// 		bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf
-// 		filter_mutect2_mito.pl ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf ${id2[proband_idx]} > ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
-
-// 		${split_normalize_mito_version(task)}
-// 		"""
-
-// 	stub:
-// 		"""
-// 		touch "${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf"
-// 		${split_normalize_mito_version(task)}
-// 		"""
-// }
-// def split_normalize_mito_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    vcflib: 1.0.9
-// 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-// 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-// 	END_VERSIONS
-// 	"""
-// }
-
-// // use python tool HmtNote for annotating vcf
-// // future merging with diploid genome does not approve spaces in info-string
-// process run_hmtnote {
-// 	cpus 2
-// 	memory '5GB'
-// 	time '1h'
-
-// 	input:
-// 		tuple val(group), path(adj_vcf)
-
-// 	output:
-// 		tuple val(group), path("${group}.fixinfo.vcf"), emit: mito_diplod_vep
-// 		path "*versions.yml", emit: versions
-
-// 	script:
-// 		"""
-// 		source activate tools
-// 		hmtnote annotate ${adj_vcf} ${group}.hmtnote --offline
-// 		grep ^# ${group}.hmtnote > ${group}.fixinfo.vcf
-// 		grep -v ^# ${group}.hmtnote | sed 's/ /_/g' >> ${group}.fixinfo.vcf
-
-// 		${run_hmtnote_version(task)}
-// 		"""
-
-// 	stub:
-// 		"""
-// 		source activate tools
-// 		touch "${group}.fixinfo.vcf"
-
-// 		${run_hmtnote_version(task)}
-// 		"""
-// }
-// def run_hmtnote_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    hmtnote: \$(echo \$(hmtnote --version 2>&1) | sed 's/^.*hmtnote, version //; s/Using.*\$//' )
-// 	END_VERSIONS
-// 	"""
-// }
-
-// // run haplogrep 2 on resulting vcf
-// process run_haplogrep {
-// 	time '1h'
-// 	memory '50 GB'
-// 	cpus 2
-// 	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
-
-// 	input:
-// 		tuple val(group), val(id), path(ms_vcf)
-
-// 	output:
-// 		path("${group}.haplogrep.png")
-// 		tuple val(group), path("${group}_haplo.INFO"), emit: haplogrep_INFO
-// 		path "*versions.yml", emit: versions
-
-// 	shell:
-// 		version_str = run_haplogrep_version(task)
-// 		'''
-// 		for sample in `bcftools query -l !{ms_vcf}`; do
-// 			bcftools view -c1 -Oz -s $sample -o $sample.vcf.gz !{ms_vcf}
-// 			java  -Xmx16G -Xms16G -jar /opt/bin/haplogrep.jar classify \
-// 			--in $sample.vcf.gz\
-// 			--out $sample.hg2.vcf \
-// 			--format vcf \
-// 			--lineage 1
-// 			dot $sample.hg2.vcf.dot -Tps2 > $sample.hg2.vcf.ps
-// 			gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -dGraphicsAlphaBits=4 -r1200 -dDownScaleFactor=3 -sOutputFile=${sample}.hg2.vcf.png ${sample}.hg2.vcf.ps
-// 		done
-// 		montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
-// 		echo "IMG haplogrep !{params.accessdir}/plots/mito/!{group}.haplogrep.png" > !{group}_haplo.INFO
-
-// 		echo "!{version_str}" > "!{task.process}_versions.yml"
-// 		'''
-
-// 	stub:
-// 		version_str = run_haplogrep_version(task)
-// 		"""
-// 		touch "${group}.haplogrep.png"
-// 		touch "${group}_haplo.INFO"
-
-// 		echo "${version_str}" > "${task.process}_versions.yml"
-// 		"""
-// }
-// def run_haplogrep_version(task) {
-// 	// This docstring looks different
-// 	// If spaces similarly to the others, this leads to additional whitespace above and below the version text
-// 	"""${task.process}:
-// 	    haplogrep: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/htt.*Classify v// ; s/ .*//")
-// 	    montage: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )"""
-// }
-
-// // use eKLIPse for detecting mitochondrial deletions
-// process run_eklipse {
-
-// 	tag "$id"
-// 	cpus 2
-// 	// in rare cases with samples above 50 000x this can peak at 500+ GB of VMEM. Add downsampling!
-// 	memory '100GB'
-// 	time '60m'
-// 	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.txt'
-// 	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
-
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai), sex, type
-
-// 	output:
-// 		tuple path("*.png"), path("${id}.hetplasmid_frequency.txt")
-// 		tuple val(group), path("${id}_eklipse.INFO"), emit: eklipse_INFO, optional: true
-// 		path "*versions.yml", emit: versions
-
-// 	script:
-// 		yml_info_command = ""
-// 		if (type == "proband") {
-// 			yml_info_command = "echo 'IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png' > ${id}_eklipse.INFO"
-// 		}
-// 		"""
-// 		source activate htslib10
-// 		echo "${bam}\tsample" > infile.txt
-// 		python /eKLIPse/eKLIPse.py \
-// 		-in infile.txt \
-// 		-ref /eKLIPse/data/NC_012920.1.gb
-// 		mv eKLIPse_*/eKLIPse_deletions.csv ./${id}_deletions.csv
-// 		mv eKLIPse_*/eKLIPse_genes.csv ./${id}_genes.csv
-// 		mv eKLIPse_*/eKLIPse_sample.png ./${id}_eklipse.png
-// 		hetplasmid_frequency_eKLIPse.pl --bam ${bam} --in ${id}_deletions.csv
-// 		mv hetplasmid_frequency.txt ${id}.hetplasmid_frequency.txt
-// 		$yml_info_command
-
-// 		${run_eklipse_version(task)}
-// 		"""
-
-// 	stub:
-// 		yml_info_command = ""
-// 		if (type == "proband") {
-// 			yml_info_command = "echo 'IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png' > ${id}_eklipse.INFO"
-// 		}
-// 		"""
-// 		source activate htslib10
-// 		touch "${id}.hetplasmid_frequency.txt"
-// 		touch "${id}.png"
-// 		$yml_info_command
-
-// 		${run_eklipse_version(task)}
-// 		"""
-// }
-// def run_eklipse_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    eklipse: 1.8
-// 	END_VERSIONS
-// 	"""
-// }
-
-// //eklipseM_INFO.collectPath(name: "eklipse.INFO").set{ eklipse_INFO }
-
-// // Splitting & normalizing variants, merging with Freebayes/Mutect2, intersecting against exome/clinvar introns
-// process split_normalize {
-// 	cpus 2
-// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-// 	tag "$group"
-// 	memory '50 GB'
-// 	time '1h'
-
-// 	input:
-// 		tuple val(group), val(id), path(vcf), path(idx), path(vcfconcat)
-
-// 	output:
-// 		tuple val(group), path("${group}.norm.uniq.DPAF.vcf"), emit: split_norm, vcf_gnomad
-// 		tuple val(group), val(id), path("${group}.intersected.vcf"), path("${group}.multibreak.vcf"), emit: split_vep, split_cadd, vcf_cnvkit
-// 		path "*versions.yml", emit: versions
-
-// 	when:
-// 		params.annotate
-
-// 	script:
-// 	id = id[0]
-// 	// rename M to MT because genmod does not recognize M
-// 	if (params.onco || params.assay == "modycf") {
-// 		"""
-// 		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
-// 		vcfbreakmulti ${id}.concat.freebayes.vcf > ${group}.multibreak.vcf
-// 		bcftools norm -m-both -c w -O v -f ${params.genome_file} -o ${group}.norm.vcf ${group}.multibreak.vcf
-// 		bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
-// 		wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
-// 		bedtools intersect \
-// 			-a ${group}.norm.uniq.DPAF.vcf \\
-// 			-b $params.intersect_bed \\
-// 			-u -header > ${group}.intersected.vcf
-
-// 		${split_normalize_version(task)}
-// 		"""
-// 	}
-
-// 	else {
-// 		"""
-// 		vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
-// 		bcftools norm -m-both -c w -O v -f ${params.genome_file} -o ${group}.norm.vcf ${group}.multibreak.vcf
-// 		bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
-// 		wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
-// 		bedtools intersect \\
-// 			-a ${group}.norm.uniq.DPAF.vcf \\
-// 			-b $params.intersect_bed \\
-// 			-u -header > ${group}.intersected_diploid.vcf
-// 		java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs \
-// 		I=${group}.intersected_diploid.vcf I=$vcfconcat O=${group}.intersected.vcf
-// 		sed 's/^M/MT/' -i ${group}.intersected.vcf
-// 		sed 's/ID=M,length/ID=MT,length/' -i ${group}.intersected.vcf
-
-// 		${split_normalize_version(task)}
-// 		"""
-// 	}
-
-// 	stub:
-// 		"""
-// 		touch "${group}.norm.uniq.DPAF.vcf"
-// 		touch "${group}.intersected.vcf"
-// 		touch "${group}.multibreak.vcf"
-
-// 		${split_normalize_version(task)}
-// 		"""
-// }
-// def split_normalize_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    vcflib: 1.0.9
-// 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-// 	    bedtools: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
-// 	    merge-vcfs: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs --version 2>&1 | sed 's/-SNAPSHOT//'))
-// 	END_VERSIONS
-// 	"""
-// }
+/////////////// MITOCHONDRIA SNV CALLING ///////////////
+///////////////                          ///////////////
+
+// create an MT BAM file
+process fetch_MTseqs {
+	cpus 2
+	memory '10GB'
+	time '1h'
+	tag "$id"
+	publishDir "${params.results_output_dir}/bam", mode: 'copy', overwrite: 'true', pattern: '*.bam*'
+
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
+
+    output:
+        tuple val(group), val(id), file ("${id}_mito.bam"), path("${id}_mito.bam.bai"), emit: bam_bai
+		tuple val(group), path("${group}_mtbam.INFO"), emit: mtBAM_INFO
+		path "*versions.yml", emit: versions
+
+	script:
+		"""
+		sambamba view -f bam $bam M > ${id}_mito.bam
+		samtools index -b ${id}_mito.bam
+		echo "mtBAM	$id	/access/${params.subdir}/bam/${id}_mito.bam" > ${group}_mtbam.INFO
+
+		${fetch_MTseqs_version(task)}
+		"""
+
+	stub:
+		"""
+		touch "${id}_mito.bam"
+		touch "${id}_mito.bam.bai"
+		touch "${group}_mtbam.INFO"
+
+		${fetch_MTseqs_version(task)}
+		"""
+}
+def fetch_MTseqs_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sambamba: \$(echo \$(sambamba --version 2>&1) | awk '{print \$2}' )
+	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	END_VERSIONS
+	"""
+}
+
+
+process sentieon_mitochondrial_qc {
+
+    // Fetch mitochondrial coverage statistics
+    // Calculate mean_coverage and pct_above_500x
+
+    cpus 30
+    memory '20 GB'
+	tag "$id"
+	time '2h'
+	container  "${params.container_sentieon}"
+
+	input:
+        tuple val(group), val(id), path(bam), path(bai)
+
+	output:
+    	tuple val(group), val(id), path("${id}_mito_coverage.tsv"), emit: qc_tsv
+		path "*versions.yml", emit: versions
+
+	when:
+	    params.antype == "wgs"
+
+	script:
+		"""
+		sentieon driver \\
+			-r ${params.genome_file} \\
+			-t ${task.cpus} \\
+			-i $bam \\
+			--algo CoverageMetrics \\
+			--cov_thresh 500 \\
+			mt_cov_metrics.txt
+
+		head -1 mt_cov_metrics.txt.sample_interval_summary > "${id}_mito_coverage.tsv"
+		grep "^M" mt_cov_metrics.txt.sample_interval_summary >> "${id}_mito_coverage.tsv"
+		${sentieon_mitochondrial_qc_version(task)}
+		"""
+
+	stub:
+		"""
+		touch "${id}_mito_coverage.tsv"
+		${sentieon_mitochondrial_qc_version(task)}
+		"""
+}
+def sentieon_mitochondrial_qc_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	END_VERSIONS
+	"""
+}
+
+process build_mitochondrial_qc_json {
+    memory '1 GB'
+    cpus 2
+    tag "$id"
+    time "1h"
+
+    input:
+        tuple val(group), val(id), path(mito_qc_file)
+    output:
+        tuple val(group), val(id), path("${id}_mito_qc.json"), emit: qc_json
+
+	script:
+		"""
+		mito_tsv_to_json.py ${mito_qc_file} > "${id}_mito_qc.json"
+		"""
+	stub:
+		"""
+		touch "${id}_mito_qc.json"
+		"""
+}
+
+
+// gatk FilterMutectCalls in future if FPs overwhelms tord/sofie/carro
+process run_mutect2 {
+	cpus 4
+	memory '50 GB'
+	time '1h'
+	tag "$group"
+	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
+
+	output:
+		tuple val(group), val(id), path("${group}.mutect2.vcf"), emit: vcf
+		path "*versions.yml", emit: versions
+
+	when:
+		!params.onco
+
+	script:
+		bams = bam.join(' -I ')
+
+		"""
+		source activate gatk4-env
+		gatk Mutect2 \
+		--mitochondria-mode \
+		-R $params.genome_file \
+		-L M \
+		-I $bams \
+		-O ${group}.mutect2.vcf
+
+		${run_mutect2_version(task)}
+		"""
+
+	stub:
+		bams = bam.join(' -I ')
+		println(bams)
+		"""
+		source activate gatk4-env
+		touch "${group}.mutect2.vcf"
+
+		${run_mutect2_version(task)}
+		"""
+}
+def run_mutect2_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	END_VERSIONS
+	"""
+}
+
+// split and left-align variants
+process split_normalize_mito {
+	cpus 2
+	memory '1GB'
+	time '1h'
+
+	input:
+		tuple val(group), val(id), path(ms_vcf)
+		tuple val(g2), val(id2), val(sex), val(type)
+
+	output:
+		tuple val(group), path("${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf"), emit: vcf
+		path "*versions.yml", emit: versions
+
+	script:
+		proband_idx = type.findIndexOf{ it == "proband" }
+
+		"""
+		grep -vP "^M\\s+955" $ms_vcf > ${ms_vcf}.fix
+		bcftools norm -m-both -o ${ms_vcf}.breakmulti ${ms_vcf}.fix
+		bcftools sort ${ms_vcf}.breakmulti | bgzip > ${ms_vcf}.breakmulti.fix
+		tabix -p vcf ${ms_vcf}.breakmulti.fix
+		bcftools norm -f $params.rCRS_fasta -o ${ms_vcf.baseName}.adjusted.vcf ${ms_vcf}.breakmulti.fix
+		bcftools view -i 'FMT/AF[*]>0.05' ${ms_vcf.baseName}.adjusted.vcf -o ${group}.mutect2.breakmulti.filtered5p.vcf
+		bcftools filter -S 0 --exclude 'FMT/AF[*]<0.05' ${group}.mutect2.breakmulti.filtered5p.vcf -o ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf
+		filter_mutect2_mito.pl ${group}.mutect2.breakmulti.filtered5p.0genotyped.vcf ${id2[proband_idx]} > ${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf
+
+		${split_normalize_mito_version(task)}
+		"""
+
+	stub:
+		"""
+		touch "${group}.mutect2.breakmulti.filtered5p.0genotyped.proband.vcf"
+		${split_normalize_mito_version(task)}
+		"""
+}
+def split_normalize_mito_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    vcflib: 1.0.9
+	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	END_VERSIONS
+	"""
+}
+
+// use python tool HmtNote for annotating vcf
+// future merging with diploid genome does not approve spaces in info-string
+process run_hmtnote {
+	cpus 2
+	memory '5GB'
+	time '1h'
+
+	input:
+		tuple val(group), path(vcf)
+
+	output:
+		tuple val(group), path("${group}.fixinfo.vcf"), emit: mito_diplod_vep
+		path "*versions.yml", emit: versions
+
+	script:
+		"""
+		source activate tools
+		hmtnote annotate ${vcf} ${group}.hmtnote --offline
+		grep ^# ${group}.hmtnote > ${group}.fixinfo.vcf
+		grep -v ^# ${group}.hmtnote | sed 's/ /_/g' >> ${group}.fixinfo.vcf
+
+		${run_hmtnote_version(task)}
+		"""
+
+	stub:
+		"""
+		source activate tools
+		touch "${group}.fixinfo.vcf"
+
+		${run_hmtnote_version(task)}
+		"""
+}
+def run_hmtnote_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    hmtnote: \$(echo \$(hmtnote --version 2>&1) | sed 's/^.*hmtnote, version //; s/Using.*\$//' )
+	END_VERSIONS
+	"""
+}
+
+// run haplogrep 2 on resulting vcf
+process run_haplogrep {
+	time '1h'
+	memory '50 GB'
+	cpus 2
+	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
+
+	input:
+		tuple val(group), val(id), path(vcf)
+
+	output:
+		path "${group}.haplogrep.png"
+		tuple val(group), path("${group}_haplo.INFO"), emit: haplogrep_INFO
+		path "*versions.yml", emit: versions
+
+	script:
+		version_str = run_haplogrep_version(task)
+		'''
+		for sample in `bcftools query -l !{vcf}`; do
+			bcftools view -c1 -Oz -s $sample -o $sample.vcf.gz !{ms_vcf}
+			java  -Xmx16G -Xms16G -jar /opt/bin/haplogrep.jar classify \
+			--in $sample.vcf.gz\
+			--out $sample.hg2.vcf \
+			--format vcf \
+			--lineage 1
+			dot $sample.hg2.vcf.dot -Tps2 > $sample.hg2.vcf.ps
+			gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -dGraphicsAlphaBits=4 -r1200 -dDownScaleFactor=3 -sOutputFile=${sample}.hg2.vcf.png ${sample}.hg2.vcf.ps
+		done
+		montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
+		echo "IMG haplogrep !{params.accessdir}/plots/mito/!{group}.haplogrep.png" > !{group}_haplo.INFO
+
+		echo "!{version_str}" > "!{task.process}_versions.yml"
+		'''
+
+	stub:
+		version_str = run_haplogrep_version(task)
+		"""
+		touch "${group}.haplogrep.png"
+		touch "${group}_haplo.INFO"
+
+		echo "${version_str}" > "${task.process}_versions.yml"
+		"""
+}
+def run_haplogrep_version(task) {
+	// This docstring looks different
+	// If spaces similarly to the others, this leads to additional whitespace above and below the version text
+	"""${task.process}:
+	    haplogrep: \$(echo \$(java -jar /opt/bin/haplogrep.jar classify 2>&1) | sed "s/htt.*Classify v// ; s/ .*//")
+	    montage: \$(echo \$(gm -version 2>&1) | head -1 | sed -e "s/GraphicsMagick //" | cut -d" " -f1 )"""
+}
+
+// use eKLIPse for detecting mitochondrial deletions
+process run_eklipse {
+
+	tag "$id"
+	cpus 2
+	// in rare cases with samples above 50 000x this can peak at 500+ GB of VMEM. Add downsampling!
+	memory '100GB'
+	time '60m'
+	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.txt'
+	publishDir "${params.results_output_dir}/plots/mito", mode: 'copy', overwrite: 'true', pattern: '*.png'
+
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
+		tuple val(group2), val(id2), val(sex), val(type)
+
+	output:
+		tuple path("*.png"), path("${id}.hetplasmid_frequency.txt")
+		tuple val(group), path("${id}_eklipse.INFO"), emit: eklipse_INFO, optional: true
+		path "*versions.yml", emit: versions
+
+	script:
+		yml_info_command = ""
+		if (type == "proband") {
+			yml_info_command = "echo 'IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png' > ${id}_eklipse.INFO"
+		}
+		"""
+		source activate htslib10
+		echo "${bam}\tsample" > infile.txt
+		python /eKLIPse/eKLIPse.py \
+		-in infile.txt \
+		-ref /eKLIPse/data/NC_012920.1.gb
+		mv eKLIPse_*/eKLIPse_deletions.csv ./${id}_deletions.csv
+		mv eKLIPse_*/eKLIPse_genes.csv ./${id}_genes.csv
+		mv eKLIPse_*/eKLIPse_sample.png ./${id}_eklipse.png
+		hetplasmid_frequency_eKLIPse.pl --bam ${bam} --in ${id}_deletions.csv
+		mv hetplasmid_frequency.txt ${id}.hetplasmid_frequency.txt
+		$yml_info_command
+
+		${run_eklipse_version(task)}
+		"""
+
+	stub:
+		yml_info_command = ""
+		if (type == "proband") {
+			yml_info_command = "echo 'IMG eklipse ${params.accessdir}/plots/mito/${id}_eklipse.png' > ${id}_eklipse.INFO"
+		}
+		"""
+		source activate htslib10
+		touch "${id}.hetplasmid_frequency.txt"
+		touch "${id}.png"
+		$yml_info_command
+
+		${run_eklipse_version(task)}
+		"""
+}
+def run_eklipse_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    eklipse: 1.8
+	END_VERSIONS
+	"""
+}
+
+//eklipseM_INFO.collectPath(name: "eklipse.INFO").set{ eklipse_INFO }
+
+// Splitting & normalizing variants, merging with Freebayes/Mutect2, intersecting against exome/clinvar introns
+process split_normalize {
+	cpus 2
+	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	tag "$group"
+	memory '50 GB'
+	time '1h'
+	input:
+		tuple val(group), val(id), path(vcf), path(idx), path(vcfconcat)
+
+	output:
+		tuple val(group), path("${group}.norm.uniq.DPAF.vcf"), emit: norm_uniq_dpaf_vcf // TODO: fastgnomad
+		tuple val(group), val(id), path("${group}.intersected.vcf"), emit: intersected_vcf
+		path "*versions.yml", emit: versions
+
+	when:
+		params.annotate
+
+	script:
+	id = id[0]
+	// rename M to MT because genmod does not recognize M
+	if (params.onco || params.assay == "modycf") {
+		"""
+		cat $vcf $vcfconcat > ${id}.concat.freebayes.vcf
+		vcfbreakmulti ${id}.concat.freebayes.vcf > ${group}.multibreak.vcf
+		bcftools norm -m-both -c w -O v -f ${params.genome_file} -o ${group}.norm.vcf ${group}.multibreak.vcf
+		bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
+		wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
+		bedtools intersect \
+			-a ${group}.norm.uniq.DPAF.vcf \\
+			-b $params.intersect_bed \\
+			-u -header > ${group}.intersected.vcf
+
+		${split_normalize_version(task)}
+		"""
+	}
+
+	else {
+		"""
+		vcfbreakmulti ${vcf} > ${group}.multibreak.vcf
+		bcftools norm -m-both -c w -O v -f ${params.genome_file} -o ${group}.norm.vcf ${group}.multibreak.vcf
+		bcftools sort ${group}.norm.vcf | vcfuniq > ${group}.norm.uniq.vcf
+		wgs_DPAF_filter.pl ${group}.norm.uniq.vcf > ${group}.norm.uniq.DPAF.vcf
+		bedtools intersect \\
+			-a ${group}.norm.uniq.DPAF.vcf \\
+			-b $params.intersect_bed \\
+			-u -header > ${group}.intersected_diploid.vcf
+		java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs \
+		I=${group}.intersected_diploid.vcf I=$vcfconcat O=${group}.intersected.vcf
+		sed 's/^M/MT/' -i ${group}.intersected.vcf
+		sed 's/ID=M,length/ID=MT,length/' -i ${group}.intersected.vcf
+
+		${split_normalize_version(task)}
+		"""
+	}
+
+	stub:
+		"""
+		touch "${group}.norm.uniq.DPAF.vcf"
+		touch "${group}.intersected.vcf"
+		touch "${group}.multibreak.vcf"
+
+		${split_normalize_version(task)}
+		"""
+}
+def split_normalize_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    vcflib: 1.0.9
+	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	    bedtools: \$(echo \$(bedtools --version 2>&1) | sed -e "s/^.*bedtools v//" )
+	    merge-vcfs: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar MergeVcfs --version 2>&1 | sed 's/-SNAPSHOT//'))
+	END_VERSIONS
+	"""
+}
 
 // /////////////// Collect QC, emit: single file ///////////////
 
