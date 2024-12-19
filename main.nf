@@ -60,7 +60,7 @@ workflow NEXTFLOW_WGS {
 	main:
 
 	// CHANNEL PREP //
-
+	ch_samplesheet.view()
 	ch_fastq = ch_samplesheet
 		.filter {
 			row -> file(row.read1).baseName.endsWith("fastq.gz") && file(row.read2).baseName.endsWith("fastq.gz")
