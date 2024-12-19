@@ -63,7 +63,7 @@ workflow NEXTFLOW_WGS {
 
 	ch_fastq = ch_samplesheet
 		.filter {
-			row -> file(row.read1).baseName.endsWith(".fastq.gz") && file(row.read2).baseName.endsWith(".fastq.gz")
+			row -> file(row.read1).baseName.endsWith("fastq.gz") && file(row.read2).baseName.endsWith("fastq.gz")
 		}
 		.map { row ->
 		def group = row.group
@@ -82,9 +82,10 @@ workflow NEXTFLOW_WGS {
 
 	ch_bam_start = ch_samplesheet
 		.filter {
-			row -> file(row.read1).baseName.endsWith(".bam") && file(row.read2).baseName.endsWith(".bai")
+			row -> file(row.read1).baseName.endsWith("bam") && file(row.read2).baseName.endsWith("bai")
 		}
 		.map {
+			row ->
 			def group = row.group
 			def id = row.id
 			def bam = row.read1
