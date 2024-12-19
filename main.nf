@@ -1831,7 +1831,7 @@ process run_haplogrep {
 			gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -dGraphicsAlphaBits=4 -r1200 -dDownScaleFactor=3 -sOutputFile=\${sample}.hg2.vcf.png \${sample}.hg2.vcf.ps
 
 		done
-		montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
+		montage -mode concatenate -tile 3x1 *.png ${group}.haplogrep.png
 		echo "IMG haplogrep ${params.accessdir}/plots/mito/${group}.haplogrep.png" > "${group}_haplo.INFO"
 
 		echo "${version_str}" > "${task.process}_versions.yml"
