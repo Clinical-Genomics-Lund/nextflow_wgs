@@ -248,6 +248,25 @@ workflow NEXTFLOW_WGS {
 
 	}
 
+	if (params.sv) {
+
+		// TODO: define elsewhere
+		ch_gatk_ref = Channel
+			.fromPath(params.gatkreffolders)
+			.splitCsv(header:true)
+			.map{ row-> tuple(row.i, row.refpart) }
+
+
+		gatk_coverage(ch_bam_bai)
+		ch_gatk_coverage = gatk_coverage.out.coverage_tsv
+		gatk_call_ploidy(ch_gatk_coverage)
+		ch_gatk_ploidy = gatk_call_ploidy.out.call_ploidy
+
+		// TODO: do the joining and combining outside
+		gatk_call_cnv(ch_gatk_coverage.join(ch_gatk_ploidy, by: [0,1]).combine(ch_gatk_ref))
+		//postprocessgatk(gatk_call_cnv.out.gatk_calls)
+	}
+
 
 	ch_versions = Channel.empty()
 	// ch_versions.mix(fastp.out.versions)
@@ -2936,275 +2955,275 @@ def roh_version(task) {
 // 		"""
 // }
 
-// // SV-calling //
+// SV-calling //
 
-// // GATK panel+wgs //
+// GATK panel+wgs //
 
-// process gatk_coverage {
-// 	cpus 2
-// 	memory '50GB'
-// 	time '2h'
-// 	container  "${params.container_gatk}"
-// 	tag "$id"
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai)
+process gatk_coverage {
+	cpus 2
+	memory '50GB'
+	time '2h'
+	container  "${params.container_gatk}"
+	tag "$id"
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
 
-// 	output:
-// 		tuple val(group), val(id), path("${id}.tsv"), emit: coverage
-// 		path "*versions.yml", emit: versions
-
-
-// 	when:
-// 		params.sv && params.gatkcnv
-
-// 	script:
-// 		"""
-// 		export THEANO_FLAGS="base_compiledir=."
-// 		export MKL_NUM_THREADS=${task.cpus}
-// 		export OMP_NUM_THREADS=${task.cpus}
-// 		set +u
-// 		source activate gatk
-// 		gatk --java-options "-Xmx20g" CollectReadCounts \\
-// 			-L $params.gatk_intervals \\
-// 			-R $params.genome_file \\
-// 			-imr OVERLAPPING_ONLY \\
-// 			-I $bam \\
-// 			--format TSV -O ${id}.tsv
-
-// 		${gatk_coverage_version(task)}
-// 		"""
-
-// 	stub:
-// 		"""
-// 		export THEANO_FLAGS="base_compiledir=."
-// 		export MKL_NUM_THREADS=${task.cpus}
-// 		export OMP_NUM_THREADS=${task.cpus}
-// 		set +u
-// 		source activate gatk
-// 		touch "${id}.tsv"
-
-// 		${gatk_coverage_version(task)}
-// 		"""
-// }
-// def gatk_coverage_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-// 	END_VERSIONS
-// 	"""
-// }
-
-// process gatk_call_ploidy {
-// 	cpus 10
-// 	memory '50GB'
-// 	time '2h'
-// 	container  "${params.container_gatk}"
-// 	tag "$id"
-
-// 	input:
-// 		tuple val(group), val(id), path(tsv)
-
-// 	output:
-// 		tuple val(group), val(id), path("ploidy.tar"), emit: call_ploidy
-// 		path "*versions.yml", emit: versions
-
-// 	script:
-// 		"""
-// 		export THEANO_FLAGS="base_compiledir=."
-// 		export MKL_NUM_THREADS=${task.cpus}
-// 		export OMP_NUM_THREADS=${task.cpus}
-// 		set +u
-// 		source activate gatk
-// 		gatk --java-options "-Xmx20g" DetermineGermlineContigPloidy \\
-// 			--model $params.ploidymodel \\
-// 			-I $tsv \\
-// 			-O ploidy/ \\
-// 			--output-prefix $group
-// 		tar -cvf ploidy.tar ploidy/
-
-// 		${gatk_call_ploidy_version(task)}
-// 		"""
-
-// 	stub:
-// 		"""
-// 		export THEANO_FLAGS="base_compiledir=."
-// 		export MKL_NUM_THREADS=${task.cpus}
-// 		export OMP_NUM_THREADS=${task.cpus}
-// 		set +u
-// 		source activate gatk
-// 		touch "ploidy.tar"
-
-// 		${gatk_call_ploidy_version(task)}
-// 		"""
-// }
-// def gatk_call_ploidy_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-// 	END_VERSIONS
-// 	"""
-// }
-
-// process gatk_call_cnv {
-// 	cpus 8
-// 	memory '50GB'
-// 	time '3h'
-// 	container  "${params.container_gatk}"
-// 	tag "$id"
-
-// 	input:
-// 	tuple val(group), val(id), path(tsv), path(ploidy), val(i), val(refpart) //TODO: is reffart a path or val
+	output:
+		tuple val(group), val(id), path("${id}.tsv"), emit: coverage_tsv
+		path "*versions.yml", emit: versions
 
 
-// 	output:
-// 	//TODO: wtf is i
-// 	tuple val(group), val(id), val(i), path("${group}_${i}.tar"), emit: postprocessgatk
-// 	path "*versions.yml", emit: versions
+	when:
+		params.gatkcnv
 
-// 	script:
-// 		"""
-// 		export THEANO_FLAGS="base_compiledir=."
-// 		set +u
-// 		source activate gatk
-// 		export HOME=/local/scratch
-// 		export MKL_NUM_THREADS=${task.cpus}
-// 		export OMP_NUM_THREADS=${task.cpus}
-// 		tar -xvf ploidy.tar
-// 		mkdir ${group}_${i}
-// 		gatk --java-options "-Xmx25g" GermlineCNVCaller \\
-// 			--run-mode CASE \\
-// 			-I $tsv \\
-// 			--contig-ploidy-calls ploidy/${group}-calls/ \\
-// 			--model ${refpart} \\
-// 			--output ${group}_${i}/ \\
-// 			--output-prefix ${group}_${i}
-// 		tar -cvf ${group}_${i}.tar ${group}_${i}/
+	script:
+		"""
+		export THEANO_FLAGS="base_compiledir=."
+		export MKL_NUM_THREADS=${task.cpus}
+		export OMP_NUM_THREADS=${task.cpus}
+		set +u
+		source activate gatk
+		gatk --java-options "-Xmx20g" CollectReadCounts \\
+			-L $params.gatk_intervals \\
+			-R $params.genome_file \\
+			-imr OVERLAPPING_ONLY \\
+			-I $bam \\
+			--format TSV -O ${id}.tsv
 
-// 		${gatk_call_cnv_version(task)}
-// 		"""
+		${gatk_coverage_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		export THEANO_FLAGS="base_compiledir=."
-// 		set +u
-// 		source activate gatk
-// 		export HOME=/local/scratch
-// 		export MKL_NUM_THREADS=${task.cpus}
-// 		export OMP_NUM_THREADS=${task.cpus}
-// 		source activate gatk
-// 		touch "${group}_${i}.tar"
+	stub:
+		"""
+		export THEANO_FLAGS="base_compiledir=."
+		export MKL_NUM_THREADS=${task.cpus}
+		export OMP_NUM_THREADS=${task.cpus}
+		set +u
+		source activate gatk
+		touch "${id}.tsv"
 
-// 		${gatk_call_cnv_version(task)}
-// 		"""
-// }
-// def gatk_call_cnv_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
-// 	END_VERSIONS
-// 	"""
-// }
+		${gatk_coverage_version(task)}
+		"""
+}
+def gatk_coverage_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	END_VERSIONS
+	"""
+}
 
-// process postprocessgatk {
-// 	cpus 5
-// 	memory '50GB'
-// 	time '3h'
-// 	container  "${params.container_gatk}"
-// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
-// 	tag "$id"
+process gatk_call_ploidy {
+	cpus 10
+	memory '50GB'
+	time '2h'
+	container  "${params.container_gatk}"
+	tag "$id"
 
-// 	input:
-// 	// TODO: wtf is i
-// 	tuple val(group), val(id), val(i), path(tar), path(ploidy), val(shard_no), val(shard)
+	input:
+		tuple val(group), val(id), path(coverage_tsv)
 
-// 	output:
-// 		tuple val(group), val(id),path("genotyped-intervals-${group}-vs-cohort30.vcf.gz"), path("genotyped-segments-${group}-vs-cohort30.vcf.gz"), path("denoised-${group}-vs-cohort30.vcf.gz"), emit: called_gatk
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("ploidy.tar"), emit: call_ploidy
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		modelshards = shard.join(' --model-shard-path ') // join each reference shard
-// 		caseshards = []
-// 	// TODO: lsp complains about indexing var
-// 		// for (idx = 1; n <= i.size(); n++) { // join each shard(n) that's been called
-// 		// 	tmp = group+'_'+i[n-1]+'/'+group+'_'+i[n-1]+'-calls'
-// 		// 	caseshards = caseshards + tmp
-// 		// }
-// 		caseshards = caseshards.join( ' --calls-shard-path ')
-// 		version_str = postprocessgatk_version(task)
-// 		'''
-// 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
-// 		for model in !{tar}; do
-// 		tar -xvf $model
-// 		done
-// 		tar -xvf !{ploidy}
-// 		set +u
-// 		source activate gatk
-// 		export MKL_NUM_THREADS=!{task.cpus}
-// 		export OMP_NUM_THREADS=!{task.cpus}
-// 		gatk --java-options "-Xmx25g" PostprocessGermlineCNVCalls \
-// 			--allosomal-contig X --allosomal-contig Y \
-// 			--contig-ploidy-calls ploidy/!{group}-calls/ \
-// 			--sample-index 0 \\
-// 			--output-genotyped-intervals genotyped-intervals-!{group}-vs-cohort30.vcf.gz \
-// 			--output-genotyped-segments genotyped-segments-!{group}-vs-cohort30.vcf.gz \
-// 			--output-denoised-copy-ratios denoised-!{group}-vs-cohort30.vcf.gz \
-// 			--sequence-dictionary !{params.GENOMEDICT} \
-// 			--calls-shard-path !{caseshards} \
-// 			--model-shard-path !{modelshards}
+	script:
+		"""
+		export THEANO_FLAGS="base_compiledir=."
+		export MKL_NUM_THREADS=${task.cpus}
+		export OMP_NUM_THREADS=${task.cpus}
+		set +u
+		source activate gatk
+		gatk --java-options "-Xmx20g" DetermineGermlineContigPloidy \\
+			--model $params.ploidymodel \\
+			-I $coverage_tsv \\
+			-O ploidy/ \\
+			--output-prefix $group
+		tar -cvf ploidy.tar ploidy/
 
-// 		echo "!{version_str}" > "!{task.process}_versions.yml"
-// 		'''
+		${gatk_call_ploidy_version(task)}
+		"""
 
-// 	stub:
-// 		version_str = postprocessgatk_version(task)
-// 		"""
-// 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
-// 		set +u
-// 		source activate gatk
-// 		export MKL_NUM_THREADS=!{task.cpus}
-// 		export OMP_NUM_THREADS=!{task.cpus}
-// 		source activate gatk
-// 		touch "genotyped-intervals-${group}-vs-cohort30.vcf.gz"
-// 		touch "genotyped-segments-${group}-vs-cohort30.vcf.gz"
-// 		touch "denoised-${group}-vs-cohort30.vcf.gz"
+	stub:
+		"""
+		export THEANO_FLAGS="base_compiledir=."
+		export MKL_NUM_THREADS=${task.cpus}
+		export OMP_NUM_THREADS=${task.cpus}
+		set +u
+		source activate gatk
+		touch "ploidy.tar"
 
-// 		echo "${version_str}" > "${task.process}_versions.yml"
-// 		"""
-// }
-// def postprocessgatk_version(task) {
-// 	// This docstring looks different
-// 	// If spaces similarly to the others, this leads to additional whitespace above and below the version text
-// 	"""${task.process}:
-// 	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')"""
-// }
+		${gatk_call_ploidy_version(task)}
+		"""
+}
+def gatk_call_ploidy_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	END_VERSIONS
+	"""
+}
 
-// process filter_merge_gatk {
-// 	cpus 2
-// 	tag "$group"
-// 	time '2h'
-// 	memory '1 GB'
-// 	publishDir "${params.results_output_dir}/sv_vcf", mode: 'copy', overwrite: 'true'
+process gatk_call_cnv {
+	cpus 8
+	memory '50GB'
+	time '3h'
+	container  "${params.container_gatk}"
+	tag "$id"
 
-// 	input:
-// 		tuple val(group), val(id), path(inter), path(gatk), path(denoised)
+	input:
+	tuple val(group), val(id), path(tsv), path(ploidy), val(i), val(refpart) //TODO: is reffart a path or val
 
-// 	output:
-// 		tuple val(group), val(id), path("${id}.gatk.filtered.merged.vcf"), emit: merged_gatk, merged_gatk_panel
 
-// 	script:
-// 		"""
-// 		filter_gatk.pl $gatk > ${id}.gatk.filtered.vcf
-// 		mergeGATK.pl ${id}.gatk.filtered.vcf > ${id}.gatk.filtered.merged.vcf
-// 		"""
+	output:
+	//TODO: wtf is i
+	tuple val(group), val(id), val(i), path("${group}_${i}.tar"), emit: gatk_calls
+	path "*versions.yml", emit: versions
 
-// 	stub:
-// 		"""
-// 		touch "${id}.gatk.filtered.merged.vcf"
-// 		"""
-// }
+	script:
+		"""
+		export THEANO_FLAGS="base_compiledir=."
+		set +u
+		source activate gatk
+		export HOME=/local/scratch
+		export MKL_NUM_THREADS=${task.cpus}
+		export OMP_NUM_THREADS=${task.cpus}
+		tar -xvf ploidy.tar
+		mkdir ${group}_${i}
+		gatk --java-options "-Xmx25g" GermlineCNVCaller \\
+			--run-mode CASE \\
+			-I $tsv \\
+			--contig-ploidy-calls ploidy/${group}-calls/ \\
+			--model ${refpart} \\
+			--output ${group}_${i}/ \\
+			--output-prefix ${group}_${i}
+		tar -cvf ${group}_${i}.tar ${group}_${i}/
+
+		${gatk_call_cnv_version(task)}
+		"""
+
+	stub:
+		"""
+		export THEANO_FLAGS="base_compiledir=."
+		set +u
+		source activate gatk
+		export HOME=/local/scratch
+		export MKL_NUM_THREADS=${task.cpus}
+		export OMP_NUM_THREADS=${task.cpus}
+		source activate gatk
+		touch "${group}_${i}.tar"
+
+		${gatk_call_cnv_version(task)}
+		"""
+}
+def gatk_call_cnv_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')
+	END_VERSIONS
+	"""
+}
+
+process postprocessgatk {
+	cpus 5
+	memory '50GB'
+	time '3h'
+	container  "${params.container_gatk}"
+	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+	tag "$id"
+
+	input:
+	// TODO: wtf is i
+	tuple val(group), val(id), val(i), path(tar), path(ploidy), val(shard_no), val(shard)
+
+	output:
+		tuple val(group), val(id),path("genotyped-intervals-${group}-vs-cohort30.vcf.gz"), path("genotyped-segments-${group}-vs-cohort30.vcf.gz"), path("denoised-${group}-vs-cohort30.vcf.gz"), emit: called_gatk
+		path "*versions.yml", emit: versions
+
+	script:
+		modelshards = shard.join(' --model-shard-path ') // join each reference shard
+		caseshards = []
+	// TODO: lsp complains about indexing var
+		// for (idx = 1; n <= i.size(); n++) { // join each shard(n) that's been called
+		// 	tmp = group+'_'+i[n-1]+'/'+group+'_'+i[n-1]+'-calls'
+		// 	caseshards = caseshards + tmp
+		// }
+		caseshards = caseshards.join( ' --calls-shard-path ')
+		version_str = postprocessgatk_version(task)
+		'''
+		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
+		for model in !{tar}; do
+		tar -xvf $model
+		done
+		tar -xvf !{ploidy}
+		set +u
+		source activate gatk
+		export MKL_NUM_THREADS=!{task.cpus}
+		export OMP_NUM_THREADS=!{task.cpus}
+		gatk --java-options "-Xmx25g" PostprocessGermlineCNVCalls \
+			--allosomal-contig X --allosomal-contig Y \
+			--contig-ploidy-calls ploidy/!{group}-calls/ \
+			--sample-index 0 \\
+			--output-genotyped-intervals genotyped-intervals-!{group}-vs-cohort30.vcf.gz \
+			--output-genotyped-segments genotyped-segments-!{group}-vs-cohort30.vcf.gz \
+			--output-denoised-copy-ratios denoised-!{group}-vs-cohort30.vcf.gz \
+			--sequence-dictionary !{params.GENOMEDICT} \
+			--calls-shard-path !{caseshards} \
+			--model-shard-path !{modelshards}
+
+		echo "!{version_str}" > "!{task.process}_versions.yml"
+		'''
+
+	stub:
+		version_str = postprocessgatk_version(task)
+		"""
+		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
+		set +u
+		source activate gatk
+		export MKL_NUM_THREADS=!{task.cpus}
+		export OMP_NUM_THREADS=!{task.cpus}
+		source activate gatk
+		touch "genotyped-intervals-${group}-vs-cohort30.vcf.gz"
+		touch "genotyped-segments-${group}-vs-cohort30.vcf.gz"
+		touch "denoised-${group}-vs-cohort30.vcf.gz"
+
+		echo "${version_str}" > "${task.process}_versions.yml"
+		"""
+}
+def postprocessgatk_version(task) {
+	// This docstring looks different
+	// If spaces similarly to the others, this leads to additional whitespace above and below the version text
+	"""${task.process}:
+	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')"""
+}
+
+process filter_merge_gatk {
+	cpus 2
+	tag "$group"
+	time '2h'
+	memory '1 GB'
+	publishDir "${params.results_output_dir}/sv_vcf", mode: 'copy', overwrite: 'true'
+
+	input:
+		tuple val(group), val(id), path(inter), path(gatk), path(denoised)
+
+	output:
+		tuple val(group), val(id), path("${id}.gatk.filtered.merged.vcf"), emit: merged_gatk
+
+	script:
+		"""
+		filter_gatk.pl $gatk > ${id}.gatk.filtered.vcf
+		mergeGATK.pl ${id}.gatk.filtered.vcf > ${id}.gatk.filtered.merged.vcf
+		"""
+
+	stub:
+		"""
+		touch "${id}.gatk.filtered.merged.vcf"
+		"""
+}
 
 // process manta {
 // 	cpus  56
