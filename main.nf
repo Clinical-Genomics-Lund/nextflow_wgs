@@ -242,8 +242,10 @@ workflow NEXTFLOW_WGS {
 		// upd
 		upd(fastgnomad.out.vcf, ch_upd_meta)
 		upd_table(upd.out.upd_sites)
+
 		// roh
-		// pod
+		roh(fastgnomad.out.vcf)
+
 	}
 
 
@@ -2767,40 +2769,40 @@ process upd_table {
 }
 
 
-// // Call ROH regions
-// process roh {
-// 	tag "$group"
-// 	time '1h'
-// 	memory '1 GB'
-// 	cpus 2
+// Call ROH regions
+process roh {
+	tag "$group"
+	time '1h'
+	memory '1 GB'
+	cpus 2
 
-// 	input:
-// 		tuple val(group), path(vcf)
+	input:
+		tuple val(group), path(vcf)
 
-// 	output:
-// 		tuple val(group), path("roh.txt"), emit: roh_plot
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), path("roh.txt"), emit: roh_plot
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		bcftools roh --rec-rate 1e-9 --AF-tag GNOMADAF ${vcf} -o roh.txt
-// 		${roh_version(task)}
-// 		"""
+	script:
+		"""
+		bcftools roh --rec-rate 1e-9 --AF-tag GNOMADAF ${vcf} -o roh.txt
+		${roh_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "roh.txt"
-// 		${roh_version(task)}
-// 		"""
-// }
-// def roh_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "roh.txt"
+		${roh_version(task)}
+		"""
+}
+def roh_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    bcftools: \$(echo \$(bcftools --version 2>&1) | head -n1 | sed 's/^.*bcftools //; s/ .*\$//')
+	END_VERSIONS
+	"""
+}
 
 // // Create coverage profile using GATK
 // process gatkcov {
