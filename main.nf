@@ -215,6 +215,9 @@ workflow NEXTFLOW_WGS {
 
 		inher_models(ch_inher_models_input)
 
+		// SCORE VARIANTS //
+		genmodscore(inher_models.out.vcf)
+		vcf_completion(genmodscore.out.scored_vcf)
 	}
 
 
@@ -2433,7 +2436,7 @@ process inher_models {
 		tuple val(group), path(vcf), val(type), path(ped)
 
 	output:
-		tuple val(group), val(type), path("${group}.models.vcf"), emit: inhermod
+		tuple val(group), val(type), path("${group}.models.vcf"), emit: vcf
 		path "*versions.yml", emit: versions
 
 	script:
@@ -2458,124 +2461,124 @@ def inher_models_version(task) {
 }
 
 
-// // Scoring variants:
-// // Adjusting compound scores:
-// // Sorting VCF according to score:
-// process genmodscore {
-// 	tag "$group"
-// 	cpus 2
-// 	memory '20 GB'
-// 	time '1h'
-// 	container  "${params.container_genmod}"
+// Scoring variants:
+// Adjusting compound scores:
+// Sorting VCF according to score:
+process genmodscore {
+	tag "$group"
+	cpus 2
+	memory '20 GB'
+	time '1h'
+	container  "${params.container_genmod}"
 
-// 	input:
-// 		tuple val(group), val(type), path(vcf)
+	input:
+		tuple val(group), val(type), path(vcf)
 
-// 	output:
-// 		tuple val(group), val(type), path("${group_score}.scored.vcf"), emit: scored_vcf
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(type), path("${group_score}.scored.vcf"), emit: scored_vcf
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+	script:
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
-// 		if ( params.mode == "family" && params.antype == "wgs" ) {
-// 			"""
-// 			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.only_rankscore.vcf
-// 			genmod compound \
-// 				--threshold ${params.genmod_compound_trio_threshold} \
-// 				--penalty ${params.genmod_compound_trio_penalty} \
-// 				-o ${group_score}.with_compounds.vcf \
-// 				${group_score}.only_rankscore.vcf
-// 			sed 's/RankScore=${group}:/RankScore=${group_score}:/g' -i ${group_score}.with_compounds.vcf
-// 			genmod sort -p -f $group_score ${group_score}.with_compounds.vcf -o ${group_score}.scored.vcf
+		if ( params.mode == "family" && params.antype == "wgs" ) {
+			"""
+			genmod score -i $group_score -c $params.rank_model -r $vcf -o ${group_score}.only_rankscore.vcf
+			genmod compound \
+				--threshold ${params.genmod_compound_trio_threshold} \
+				--penalty ${params.genmod_compound_trio_penalty} \
+				-o ${group_score}.with_compounds.vcf \
+				${group_score}.only_rankscore.vcf
+			sed 's/RankScore=${group}:/RankScore=${group_score}:/g' -i ${group_score}.with_compounds.vcf
+			genmod sort -p -f $group_score ${group_score}.with_compounds.vcf -o ${group_score}.scored.vcf
 
-// 			${genmodscore_version(task)}
-// 			"""
-// 		}
-// 		else {
-// 			"""
-// 			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.only_rankscore.vcf
+			${genmodscore_version(task)}
+			"""
+		}
+		else {
+			"""
+			genmod score -i $group_score -c $params.rank_model_s -r $vcf -o ${group_score}.only_rankscore.vcf
 
-// 			# To get compounds without applying rank score penalty
-// 			genmod compound \
-// 				--penalty 0 \
-// 				-o ${group_score}.with_compounds.vcf \
-// 				${group_score}.only_rankscore.vcf
+			# To get compounds without applying rank score penalty
+			genmod compound \
+				--penalty 0 \
+				-o ${group_score}.with_compounds.vcf \
+				${group_score}.only_rankscore.vcf
 
-// 			genmod sort \
-// 				-p \
-// 				-f $group_score \
-// 				-o ${group_score}.scored.vcf \
-// 				${group_score}.with_compounds.vcf
+			genmod sort \
+				-p \
+				-f $group_score \
+				-o ${group_score}.scored.vcf \
+				${group_score}.with_compounds.vcf
 
-// 			${genmodscore_version(task)}
-// 			"""
-// 		}
+			${genmodscore_version(task)}
+			"""
+		}
 
-// 	stub:
-// 		group_score = group
-// 		"""
-// 		touch "${group_score}.scored.vcf"
-// 		${genmodscore_version(task)}
-// 		"""
-// }
-// def genmodscore_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		group_score = group
+		"""
+		touch "${group_score}.scored.vcf"
+		${genmodscore_version(task)}
+		"""
+}
+def genmodscore_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
+	END_VERSIONS
+	"""
+}
 
-// // Bgzipping and indexing VCF:
-// process vcf_completion {
-// 	cpus 16
-// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
-// 	tag "$group"
-// 	time '1h'
-// 	memory '5 GB'
+// Bgzipping and indexing VCF:
+process vcf_completion {
+	cpus 16
+	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz*'
+	tag "$group"
+	time '1h'
+	memory '5 GB'
 
-// 	input:
-// 		tuple val(group), val(type), path(vcf)
+	input:
+		tuple val(group), val(type), path(vcf)
 
-// 	output:
-// 		tuple val(group), val(type), path("${group_score}.scored.vcf.gz"), path("${group_score}.scored.vcf.gz.tbi"), emit: vcf_peddy, snv_sv_vcf, snv_sv_vcf_ma, snv_sv_vcf_fa, vcf_loqus
-// 		tuple val(group), path("${group}_snv.INFO"), emit: snv_INFO
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(type), path("${group_score}.scored.vcf.gz"), path("${group_score}.scored.vcf.gz.tbi"), emit: vcf_tbi
+		tuple val(group), path("${group}_snv.INFO"), emit: snv_INFO
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+	script:
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
-// 		"""
-// 		sed 's/^MT/M/' -i $vcf
-// 		sed 's/ID=MT,length/ID=M,length/' -i $vcf
-// 		bgzip -@ ${task.cpus} $vcf -f
-// 		tabix ${vcf}.gz -f
-// 		echo "SNV	$type	${params.accessdir}/vcf/${group_score}.scored.vcf.gz" > ${group}_snv.INFO
+		"""
+		sed 's/^MT/M/' -i $vcf
+		sed 's/ID=MT,length/ID=M,length/' -i $vcf
+		bgzip -@ ${task.cpus} $vcf -f
+		tabix ${vcf}.gz -f
+		echo "SNV	$type	${params.accessdir}/vcf/${group_score}.scored.vcf.gz" > ${group}_snv.INFO
 
-// 		${vcf_completion_version(task)}
-// 		"""
+		${vcf_completion_version(task)}
+		"""
 
-// 	stub:
-// 		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
+	stub:
+		group_score = ( type == "ma" || type == "fa" ) ? "${group}_${type}" : group
 
-// 		"""
-// 		touch "${group_score}.scored.vcf.gz"
-// 		touch "${group_score}.scored.vcf.gz.tbi"
-// 		touch "${group}_snv.INFO"
+		"""
+		touch "${group_score}.scored.vcf.gz"
+		touch "${group_score}.scored.vcf.gz.tbi"
+		touch "${group}_snv.INFO"
 
-// 		${vcf_completion_version(task)}
-// 		"""
-// }
-// def vcf_completion_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-// 	END_VERSIONS
-// 	"""
-// }
+		${vcf_completion_version(task)}
+		"""
+}
+def vcf_completion_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	END_VERSIONS
+	"""
+}
 
 // process peddy {
 
