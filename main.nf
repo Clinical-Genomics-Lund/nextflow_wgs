@@ -73,6 +73,8 @@ workflow NEXTFLOW_WGS {
 		tuple(group, id, fastq_r1, fastq_r2) // TODO: filter non fq
 	}
 
+	ch_fastq.view()
+
 	// TODO: expand and implement across all processes:
 	ch_meta = ch_samplesheet.map{ row->
 		tuple(row.group, row.id, row.sex, row.type)
@@ -93,6 +95,7 @@ workflow NEXTFLOW_WGS {
 	ch_bam_bai = Channel.empty()
 	ch_bam_bai = ch_bam_bai.mix(ch_bam_start)
 
+	ch_bam_bai.view()
 
 	// FASTQ //
 	if (params.umi) {
