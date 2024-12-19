@@ -1413,8 +1413,8 @@ process create_ped {
 
 	output:
 		tuple val(group), val(type), path("${group}_base.ped"), emit: ped_base
-		tuple val(group), type_ma, path("${group}_ma.ped"), emit: ped_ma, optional: true
-		tuple val(group), type_fa, path("${group}_fa.ped"), emit: ped_fa, optional: true
+		tuple val(group), val(type_ma), path("${group}_ma.ped"), emit: ped_ma, optional: true
+		tuple val(group), val(type_fa), path("${group}_fa.ped"), emit: ped_fa, optional: true
 
 	script:
 		if ( father == "" ) {
