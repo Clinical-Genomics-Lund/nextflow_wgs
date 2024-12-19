@@ -82,7 +82,7 @@ workflow NEXTFLOW_WGS {
 
 	ch_bam_start = ch_samplesheet
 		.filter {
-			row -> row.read1.baseName.endsWith("bam")
+			row -> row.read1.endsWith("bam")
 		}
 		.map {
 			row ->
