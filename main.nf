@@ -1763,22 +1763,26 @@ process run_haplogrep {
 
 	script:
 		version_str = run_haplogrep_version(task)
-		'''
-		for sample in `bcftools query -l !{mito_snv_vcf}`; do
-			bcftools view -c1 -Oz -s $sample -o $sample.vcf.gz !{mito_snv_vcf}
+		"""
+		for sample in "\$(bcftools query -l "${mito_snv_vcf}")"; do
+
+			bcftools view -c1 -Oz -s \$sample -o \${sample}.vcf.gz !{mito_snv_vcf}
 			java  -Xmx16G -Xms16G -jar /opt/bin/haplogrep.jar classify \
-			--in $sample.vcf.gz\
-			--out $sample.hg2.vcf \
+			--in \${sample}.vcf.gz \
+			--out \${sample}.hg2.vcf \
 			--format vcf \
 			--lineage 1
-			dot $sample.hg2.vcf.dot -Tps2 > $sample.hg2.vcf.ps
-			gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -dGraphicsAlphaBits=4 -r1200 -dDownScaleFactor=3 -sOutputFile=${sample}.hg2.vcf.png ${sample}.hg2.vcf.ps
+
+			dot "\${sample}.hg2.vcf.dot" -Tps2 > "\${sample}.hg2.vcf.ps"
+
+			gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -dGraphicsAlphaBits=4 -r1200 -dDownScaleFactor=3 -sOutputFile=\${sample}.hg2.vcf.png \${sample}.hg2.vcf.ps
+
 		done
 		montage -mode concatenate -tile 3x1 *.png !{group}.haplogrep.png
-		echo "IMG haplogrep !{params.accessdir}/plots/mito/!{group}.haplogrep.png" > !{group}_haplo.INFO
+		echo "IMG haplogrep ${params.accessdir}/plots/mito/${group}.haplogrep.png" > "${group}_haplo.INFO"
 
-		echo "!{version_str}" > "!{task.process}_versions.yml"
-		'''
+		echo "${version_str}" > "${task.process}_versions.yml"
+		"""
 
 	stub:
 		version_str = run_haplogrep_version(task)
