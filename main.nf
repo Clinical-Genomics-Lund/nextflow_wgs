@@ -2587,55 +2587,56 @@ def vcf_completion_version(task) {
 	"""
 }
 
-// process peddy {
+process peddy {
 
-// 	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.ped'
-// 	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.csv'
+	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.ped'
+	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.csv'
 
-// 	cpus 4
-// 	tag "$group"
-// 	time '1h'
-// 	memory '20GB'
+	cpus 4
+	tag "$group"
+	time '1h'
+	memory '20GB'
 
-// 	input:
-// 		tuple val(group), val(type), path(vcf), path(idx), val(type), path(ped)
+	input:
+		tuple val(group), val(type), path(vcf), val(idx)
+		tuple val(group1), val(type1), path(ped)
 
-// 	output:
-// 		tuple path("${group}.ped_check.csv"),path("${group}.peddy.ped"), path("${group}.sex_check.csv"), emit: peddy_files
-// 		tuple val(group), path("${group}_peddy.INFO"), emit: peddy_INFO
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple path("${group}.ped_check.csv"),path("${group}.peddy.ped"), path("${group}.sex_check.csv"), emit: peddy_files
+		tuple val(group), path("${group}_peddy.INFO"), emit: peddy_INFO
+		path "*versions.yml", emit: versions
 
-// 	when:
-// 		!params.annotate_only && params.run_peddy
+	when:
+		!params.annotate_only && params.run_peddy
 
-// 	script:
-// 		"""
-// 		source activate py3-env
-// 		python -m peddy --sites hg38 -p ${task.cpus} $vcf $ped --prefix $group
-// 		echo "PEDDY	${params.accessdir}/ped/${group}.ped_check.csv,${params.accessdir}/ped/${group}.peddy.ped,${params.accessdir}/ped/${group}.sex_check.csv" > ${group}_peddy.INFO
+	script:
+		"""
+		source activate py3-env
+		python -m peddy --sites hg38 -p ${task.cpus} $vcf $ped --prefix $group
+		echo "PEDDY	${params.accessdir}/ped/${group}.ped_check.csv,${params.accessdir}/ped/${group}.peddy.ped,${params.accessdir}/ped/${group}.sex_check.csv" > ${group}_peddy.INFO
 
-// 		${peddy_version(task)}
-// 		"""
+		${peddy_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		source activate py3-env
-// 		touch "${group}.ped_check.csv"
-// 		touch "${group}.peddy.ped"
-// 		touch "${group}.sex_check.csv"
-// 		touch "${group}_peddy.INFO"
+	stub:
+		"""
+		source activate py3-env
+		touch "${group}.ped_check.csv"
+		touch "${group}.peddy.ped"
+		touch "${group}.sex_check.csv"
+		touch "${group}_peddy.INFO"
 
-// 		${peddy_version(task)}
-// 		"""
-// }
-// def peddy_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    peddy: \$(echo \$(python -m peddy --version 2>&1) | sed 's/^.*peddy, version //')
-// 	END_VERSIONS
-// 	"""
-// }
+		${peddy_version(task)}
+		"""
+}
+def peddy_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    peddy: \$(echo \$(python -m peddy --version 2>&1) | sed 's/^.*peddy, version //')
+	END_VERSIONS
+	"""
+}
 
 // // Extract all variants (
 // process fastgnomad {
