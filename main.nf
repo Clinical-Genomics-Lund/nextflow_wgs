@@ -93,10 +93,41 @@ workflow NEXTFLOW_WGS {
 			tuple(group, id, bam, bai)
 		}
 
+	copy_bam(ch_bam_start)
+	ch_bam_start = copy_bam.out.bam_bai
+
 	ch_bam_bai = Channel.empty()
 	ch_bam_bai = ch_bam_bai.mix(ch_bam_start)
-
 	ch_bam_bai.view()
+
+	// PED //
+	ch_ped_input = ch_samplesheet
+		.filter { row -> row.type == "proband" }
+		.map { row ->
+			def group = row.group
+			def id = row.id
+			def type = row.type
+			def sex = row.sex
+			def father = row.father
+			def mother = row.mother
+			tuple(group, id, type, sex, mother, father)
+			}
+
+	create_ped(ch_ped_input)
+	ch_ped_base = create_ped.out.ped_base
+	ch_ped_fa = Channel.empty()
+	ch_ped_ma = Channel.empty()
+
+	ch_madeline_out = Channel.empty()
+	if(params.mode == "family" && params.assay == "wgs") {
+
+		ch_ped_fa.mix(create_ped.out.ped_fa)
+		ch_ped_ma.mix(create_ped.out.ped_ma)
+
+		ch_madeline_input = ch_ped_base.mix(ch_ped_fa, ch_ped_ma)
+		madeline(ch_madeline_input)
+		ch_madeline_out
+	}
 
 	// FASTQ //
 	if (params.umi) {
@@ -453,30 +484,30 @@ def markdup_versions(task) {
 	"""
 }
 
-// process copy_bam {
+process copy_bam {
 
-// 	tag "$id"
-// 	cpus 1
-// 	memory '2GB'
-// 	time '1h'
+	tag "$id"
+	cpus 1
+	memory '2GB'
+	time '1h'
 
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai)
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
 
-// 	output:
-// 		tuple val(group), val(id), path("${id}_dedup.bam"), path("${id}_dedup.bam.bai"), emit: bam_bai
-// 	script:
-// 		"""
-// 		ionice -c 2 -n 7 cp ${bam} "${id}_dedup.copy.bam"
-// 		ionice -c 2 -n 7 cp ${bai} "${id}_dedup.copy.bam.bai"
-// 		"""
+	output:
+		tuple val(group), val(id), path("${id}_dedup.bam"), path("${id}_dedup.bam.bai"), emit: bam_bai
+	script:
+		"""
+		ionice -c 2 -n 7 cp ${bam} "${id}_dedup.copy.bam"
+		ionice -c 2 -n 7 cp ${bai} "${id}_dedup.copy.bam.bai"
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${id}_dedup.copy.bam"
-// 		touch "${id}_dedup.copy.bam.bai"
-// 		"""
-// }
+	stub:
+		"""
+		touch "${id}_dedup.copy.bam"
+		touch "${id}_dedup.copy.bam.bai"
+		"""
+}
 
 
 // // TODO: no
