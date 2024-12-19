@@ -218,6 +218,13 @@ workflow NEXTFLOW_WGS {
 		// SCORE VARIANTS //
 		genmodscore(inher_models.out.vcf)
 		vcf_completion(genmodscore.out.scored_vcf)
+
+		ch_peddy_input_vcf = vcf_completion.out.vcf_tbi
+			.filter { vcf ->
+				def type = vcf[1]
+				vcf[1] == "proband"
+			}
+		peddy(ch_peddy_input_vcf, ch_ped_base)
 	}
 
 
