@@ -239,6 +239,7 @@ workflow NEXTFLOW_WGS {
 				tuple(row.group, row.id, row.mother, row.father)
 			}
 
+		// upd
 		upd(fastgnomad.out.vcf, ch_upd_meta)
 		upd_table(upd.out.upd_sites)
 		// roh
@@ -2703,7 +2704,7 @@ process upd {
 		path "*versions.yml", emit: versions
 
 	script:
-		if( params.mode == "family" && trio == true ) {
+		if( params.mode == "family" && params.trio ) {
 			"""
 			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
 			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
