@@ -101,33 +101,34 @@ workflow NEXTFLOW_WGS {
 	ch_bam_bai.view()
 
 	// PED //
-	// ch_ped_input = ch_samplesheet
-	// 	.filter { row -> row.type == "proband" }
-	// 	.map { row ->
-	// 		def group = row.group
-	// 		def id = row.id
-	// 		def type = row.type
-	// 		def sex = row.sex
-	// 		def father = row.father
-	// 		def mother = row.mother
-	// 		tuple(group, id, type, sex, mother, father)
-	// 		}
+	ch_ped_input = ch_samplesheet
+		.filter { row -> row.type == "proband" }
+		.map { row ->
+			def group = row.group
+			def id = row.id
+			def type = row.type
+			def sex = row.sex
+			def father = row.father
+			def mother = row.mother
+			tuple(group, id, type, sex, mother, father)
+			}
 
-	// create_ped(ch_ped_input)
-	// ch_ped_base = create_ped.out.ped_base
-	// ch_ped_fa = Channel.empty()
-	// ch_ped_ma = Channel.empty()
+	create_ped(ch_ped_input)
+	ch_ped_base = create_ped.out.ped_base
+	ch_ped_fa = Channel.empty()
+	ch_ped_ma = Channel.empty()
 
-	// ch_madeline_out = Channel.empty()
-	// if(params.mode == "family" && params.assay == "wgs") {
+	ch_ped_trio = Channel.empty()
+	ch_ped_trio = ch_ped_trio.mix(ch_ped_base)
+	if(params.mode == "family" && params.assay == "wgs") {
 
-	// 	ch_ped_fa.mix(create_ped.out.ped_fa)
-	// 	ch_ped_ma.mix(create_ped.out.ped_ma)
+		ch_ped_fa.mix(create_ped.out.ped_fa)
+		ch_ped_ma.mix(create_ped.out.ped_ma)
 
-	// 	ch_madeline_input = ch_ped_base.mix(ch_ped_fa, ch_ped_ma)
-	// 	madeline(ch_madeline_input)
-	// 	ch_madeline_out
-	// }
+		ch_ped_trio = ch_ped_base.mix(ch_ped_fa, ch_ped_ma)
+		madeline(ch_ped_trio) // TODO: fetch info
+
+	}
 
 	// FASTQ //
 	if (params.umi) {
@@ -198,6 +199,22 @@ workflow NEXTFLOW_WGS {
 		calculate_indel_cadd(indel_vep.out.vcf)
 		bgzip_indel_cadd(calculate_indel_cadd.out.cadd_gz)
 		add_cadd_scores_to_vcf(mark_splice.out.splice_marked.join(bgzip_indel_cadd.out.cadd_tbi))
+
+		// INHERITANCE MODELS
+
+		ch_inher_models_input = add_cadd_scores_to_vcf.out.vcf
+			.cross(ch_ped_trio)
+			.map { vcf_tuple, ped_tuple ->
+				def group = vcf_tuple[0]
+				def vcf = vcf_tuple[1]
+				def type = ped_tuple[1]
+				def ped = ped_tuple[2]
+				tuple(group, vcf, type, ped) // Combine elements as desired
+			}
+			.view()
+
+		inher_models(ch_inher_models_input)
+
 	}
 
 
@@ -1384,99 +1401,96 @@ def gvcf_combine_version(task) {
 	"""
 }
 
-// // Create ped
-// process create_ped {
-// 	tag "$group"
-// 	time '20m'
-// 	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true'
-// 	memory '1 GB'
+// Create ped
+process create_ped {
+	tag "$group"
+	time '20m'
+	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true'
+	memory '1 GB'
 
-// 	input:
-// 		tuple val(group), val(id), val(sex), val(mother), val(father), val(phenotype), val(diagnosis), val(type), val(assay), val(clarity_sample_id), val(ffpe), val(analysis)
+	input:
+	tuple val(group), val(id), val(type), val(sex), val(mother), val(father)
 
-// 	output:
-// 		tuple val(group), val(type), path("${group}_base.ped"), emit: ped_inher
-// 		tuple val(group), type_ma, path("${group}_ma.ped"), emit: ped_inher_ma, optional: true
-// 		tuple val(group), type_fa, path("${group}_fa.ped"), emit: ped_inher_fa, optional: true
+	output:
+		tuple val(group), val(type), path("${group}_base.ped"), emit: ped_base
+		tuple val(group), type_ma, path("${group}_ma.ped"), emit: ped_ma, optional: true
+		tuple val(group), type_fa, path("${group}_fa.ped"), emit: ped_fa, optional: true
 
-// 	script:
-// 		if ( father == "" ) {
-// 			father = "0"
-// 		}
-// 		if ( mother == "" ) {
-// 			mother = "0"
-// 		}
-// 		type_fa = "fa"
-// 		type_ma = "ma"
-// 		"""
-// 		create_ped.pl --mother $mother --father $father --group $group --id $id --sex $sex
-// 		"""
+	script:
+		if ( father == "" ) {
+			father = "0"
+		}
+		if ( mother == "" ) {
+			mother = "0"
+		}
+		type_fa = "fa"
+		type_ma = "ma"
+		"""
+		create_ped.pl --mother $mother --father $father --group $group --id $id --sex $sex
+		"""
 
-// 	stub:
-// 		type_fa = "fa"
-// 		type_ma = "ma"
-// 		"""
-// 		touch "${group}_base.ped"
-// 		touch "${group}_ma.ped"
-// 		touch "${group}_fa.ped"
+	stub:
+		type_fa = "fa"
+		type_ma = "ma"
+		"""
+		touch "${group}_base.ped"
+		touch "${group}_ma.ped"
+		touch "${group}_fa.ped"
 
-//         echo $type_fa $type_ma > type.val
-// 		"""
-// }
+        echo $type_fa $type_ma > type.val
+		"""
+}
 
-// //madeline ped, run if family mode
-// process madeline {
-// 	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.xml'
-// 	memory '1 GB'
-// 	time '1h'
-// 	cpus 2
-// 	container  "${params.container_madeline}"
+//madeline ped, run if family mode
+process madeline {
+	publishDir "${params.results_output_dir}/ped", mode: 'copy' , overwrite: 'true', pattern: '*.xml'
+	memory '1 GB'
+	time '1h'
+	cpus 2
+	container  "${params.container_madeline}"
 
-// 	input:
-// 		tuple val(group), val(type), path(ped)
+	input:
+		tuple val(group), val(type), path(ped)
 
-// 	output:
-// 		path("${ped}.madeline.xml"), emit: madeline_ped
-// 		tuple val(group), path("${group}_madde.INFO"), emit: madde_INFO
-// 		path "*versions.yml", emit: versions
+	output:
+		path("${ped}.madeline.xml")
+		tuple val(group), path("${group}_madde.INFO"), emit: madde_INFO
+		path "*versions.yml", emit: versions
 
-// 	when:
-// 		params.mode == "family" && params.assay == "wgs"
+	script:
+		"""
+		source activate tools
+		ped_parser \\
+			-t ped $ped \\
+			--to_madeline \\
+			-o ${ped}.madeline
+		madeline2 \\
+			-L "IndividualId" ${ped}.madeline \\
+			-o ${ped}.madeline \\
+			-x xml
+		echo "MADDE	$type ${params.accessdir}/ped/${ped}.madeline.xml" > ${group}_madde.INFO
 
-// 	script:
-// 		"""
-// 		source activate tools
-// 		ped_parser \\
-// 			-t ped $ped \\
-// 			--to_madeline \\
-// 			-o ${ped}.madeline
-// 		madeline2 \\
-// 			-L "IndividualId" ${ped}.madeline \\
-// 			-o ${ped}.madeline \\
-// 			-x xml
-// 		echo "MADDE	$type ${params.accessdir}/ped/${ped}.madeline.xml" > ${group}_madde.INFO
+		${madeline_version(task)}
+		"""
 
-// 		${madeline_version(task)}
-// 		"""
+	stub:
+		"""
+		source activate tools
+		touch "${group}_madde.INFO"
+		touch "${ped}.madeline.xml"
 
-// 	stub:
-// 		"""
-// 		source activate tools
-// 		touch "${group}_madde.INFO"
-// 		touch "${ped}.madeline.xml"
-
-// 		${madeline_version(task)}
-// 		"""
-// }
-// def madeline_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    ped-parser: \$(echo \$(ped_parser --version 2>&1) | sed -e "s/^.*ped_parser version: //")
-// 	    madeline: \$(echo \$(madeline2 --version 2>&1) | grep : | sed -e"s/^.*Madeline //; s/PDE : 1.*//")
-// 	END_VERSIONS
-// 	"""
-// }
+		${madeline_version(task)}
+		"""
+}
+def madeline_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    ped-parser: \$(echo \$(ped_parser --version 2>&1) | sed -e "s/^.*ped_parser version: //")
+	    madeline: \$(echo \$(madeline2 --version 2>&1) | grep : | sed -e"s/^.*Madeline //; s/PDE : 1.*//")
+	END_VERSIONS
+	"""
+}
 
 process freebayes {
 	cpus 1
@@ -2407,41 +2421,41 @@ def add_cadd_scores_to_vcf_version(task) {
 }
 
 
-// // # Annotating variant inheritance models:
-// process inher_models {
-// 	tag "$group"
-// 	cpus 3
-// 	memory '80 GB'
-// 	time '1h'
-// 	container  "${params.container_genmod}"
+// # Annotating variant inheritance models:
+process inher_models {
+	tag "$group"
+	cpus 3
+	memory '80 GB'
+	time '1h'
+	container  "${params.container_genmod}"
 
-// 	input:
-// 		tuple val(group), path(vcf), val(type), path(ped)
+	input:
+		tuple val(group), path(vcf), val(type), path(ped)
 
-// 	output:
-// 		tuple val(group), val(type), path("${group}.models.vcf"), emit: inhermod
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(type), path("${group}.models.vcf"), emit: inhermod
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		"""
-// 		genmod models $vcf -p ${task.cpus} -f $ped > ${group}.models.vcf
-// 		${inher_models_version(task)}
-// 		"""
+	script:
+		"""
+		genmod models $vcf -p ${task.cpus} -f $ped > ${group}.models.vcf
+		${inher_models_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.models.vcf"
-// 		${inher_models_version(task)}
-// 		"""
-// }
-// def inher_models_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${group}.models.vcf"
+		${inher_models_version(task)}
+		"""
+}
+def inher_models_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    genmod: \$(echo \$(genmod --version 2>&1) | sed -e "s/^.*genmod version: //")
+	END_VERSIONS
+	"""
+}
 
 
 // // Scoring variants:
