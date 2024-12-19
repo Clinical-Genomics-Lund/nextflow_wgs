@@ -61,7 +61,11 @@ workflow NEXTFLOW_WGS {
 
 	// CHANNEL PREP //
 
-	ch_fastq = ch_samplesheet.map { row ->
+	ch_fastq = ch_samplesheet
+		.filter {
+			row -> file(row.read1).baseName.endsWith(".fastq.gz") && file(row.read2).baseName.endsWith(".fastq.gz")
+		}
+		.map { row ->
 		def group = row.group
 		def id = row.id
 		def fastq_r1 = row.read1
