@@ -171,7 +171,8 @@ workflow NEXTFLOW_WGS {
 		build_mitochondrial_qc_json(sentieon_mitochondrial_qc.out.qc_tsv)
 
 		// SNVs
-		run_mutect2(fetch_MTseqs.out.bam_bai)
+		ch_mutect2_input = fetch_MTseqs.out.bam_bai.groupTuple()
+		run_mutect2(ch_mutect2_input)
 		split_normalize_mito(run_mutect2.out.vcf, ch_meta)
 		run_hmtnote(split_normalize_mito.out.vcf)
 
