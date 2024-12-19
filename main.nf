@@ -221,10 +221,28 @@ workflow NEXTFLOW_WGS {
 
 		ch_peddy_input_vcf = vcf_completion.out.vcf_tbi
 			.filter { vcf ->
-				def type = vcf[1]
-				vcf[1] == "proband"
+				def type = vcf[1] // TODO: how to proof against position change?
+				type == "proband"
 			}
+
+		// TODO: Move this guy to QC:
 		peddy(ch_peddy_input_vcf, ch_ped_base)
+
+		// fastgnomad
+		fastgnomad(split_normalize.out.norm_uniq_dpaf_vcf)
+		// upd
+		ch_upd_meta = ch_samplesheet
+			.filter { row ->
+				row.type == "proband"
+			}
+			.map { row ->
+				tuple(row.group, row.id, row.mother, row.father)
+			}
+
+		upd(fastgnomad.out.vcf, ch_upd_meta)
+		upd_table(upd.out.upd_sites)
+		// roh
+		// pod
 	}
 
 
@@ -1957,7 +1975,7 @@ process split_normalize {
 		tuple val(group2), path(vcfconcat)
 
 	output:
-		tuple val(group), path("${group}.norm.uniq.DPAF.vcf"), emit: norm_uniq_dpaf_vcf // TODO: fastgnomad
+		tuple val(group), path("${group}.norm.uniq.DPAF.vcf"), emit: norm_uniq_dpaf_vcf
 		tuple val(group), val(id), path("${group}.intersected.vcf"), emit: intersected_vcf
 		path "*versions.yml", emit: versions
 
@@ -2638,114 +2656,114 @@ def peddy_version(task) {
 	"""
 }
 
-// // Extract all variants (
-// process fastgnomad {
-// 	cpus 2
-// 	memory '40 GB'
-// 	tag "$group"
-// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-// 	time '2h'
+// Extract all variants (
+process fastgnomad {
+	cpus 2
+	memory '40 GB'
+	tag "$group"
+	publishDir "${params.results_output_dir}/vcf", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	time '2h'
 
-// 	input:
-// 		tuple val(group), path(vcf)
+	input:
+		tuple val(group), path(vcf)
 
-// 	output:
-// 		tuple val(group), path("${group}.SNPs.vcf"), emit: vcf_upd, vcf_roh, vcf_pod
+	output:
+		tuple val(group), path("${group}.SNPs.vcf"), emit: vcf
 
-// 	when:
-// 		params.antype == "wgs"
+	when:
+		params.antype == "wgs"
 
-// 	script:
-// 		"""
-// 		gzip -c $vcf > ${vcf}.gz
-// 		annotate -g $params.FASTGNOMAD_REF -i ${vcf}.gz > ${group}.SNPs.vcf
-// 		"""
+	script:
+		"""
+		gzip -c $vcf > ${vcf}.gz
+		annotate -g $params.FASTGNOMAD_REF -i ${vcf}.gz > ${group}.SNPs.vcf
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${group}.SNPs.vcf"
-// 		"""
-// }
-
-
-// // Call UPD regions
-// process upd {
-// 	tag "$group"
-// 	time '1h'
-// 	memory '1 GB'
-// 	cpus 2
-
-// 	input:
-// 		tuple val(group), path(vcf)
-// 		tuple val(group), val(id), sex, mother, father, phenotype, diagnosis, val(type), assay, clarity_sample_id, ffpe, analysis
-
-// 	output:
-// 		path("upd.bed"), emit: upd_plot
-// 		tuple val(group), path("upd.sites.bed"), emit: upd_table
-// 		path "*versions.yml", emit: versions
-
-// 	script:
-// 		if( params.mode == "family" && trio == true ) {
-// 			"""
-// 			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
-// 			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
-
-// 			${upd_version(task)}
-// 			"""
-// 		}
-// 		else {
-// 			"""
-// 			touch "upd.bed"
-// 			touch "upd.sites.bed"
-
-// 			${upd_version(task)}
-// 			"""
-// 		}
-
-// 	stub:
-// 		"""
-// 		touch "upd.bed"
-// 		touch "upd.sites.bed"
-
-// 		${upd_version(task)}
-// 		"""
-// }
-// def upd_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    upd: \$(echo \$(upd --version 2>&1))
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${group}.SNPs.vcf"
+		"""
+}
 
 
-// process upd_table {
-// 	publishDir "${params.results_output_dir}/plots", mode: 'copy' , overwrite: 'true'
-// 	tag "$group"
-// 	time '1h'
-// 	memory '1 GB'
-// 	cpus 2
+// Call UPD regions
+process upd {
+	tag "$group"
+	time '1h'
+	memory '1 GB'
+	cpus 2
 
-// 	input:
-// 		tuple val(group), path(upd_sites)
+	input:
+		tuple val(group), path(vcf)
+		tuple val(group2), val(id), val(mother), val(father)
 
-// 	output:
-// 		path("${group}.UPDtable.xls")
+	output:
+		path("upd.bed"), emit: upd_bed
+		tuple val(group), path("upd.sites.bed"), emit: upd_sites
+		path "*versions.yml", emit: versions
 
-// 	when:
-// 		params.mode == "family" && params.trio
+	script:
+		if( params.mode == "family" && trio == true ) {
+			"""
+			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF regions > upd.bed
+			upd --vcf $vcf --proband $id --mother $mother --father $father --af-tag GNOMADAF sites > upd.sites.bed
 
-// 	script:
-// 		"""
-// 		upd_table.pl $upd_sites > ${group}.UPDtable.xls
-// 		"""
+			${upd_version(task)}
+			"""
+		}
+		else {
+			"""
+			touch "upd.bed"
+			touch "upd.sites.bed"
 
-// 	stub:
-// 		"""
-// 		touch "${group}.UPDtable.xls"
-// 		"""
-// }
+			${upd_version(task)}
+			"""
+		}
+
+	stub:
+		"""
+		touch "upd.bed"
+		touch "upd.sites.bed"
+
+		${upd_version(task)}
+		"""
+}
+def upd_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    upd: \$(echo \$(upd --version 2>&1))
+	END_VERSIONS
+	"""
+}
+
+
+process upd_table {
+	publishDir "${params.results_output_dir}/plots", mode: 'copy' , overwrite: 'true'
+	tag "$group"
+	time '1h'
+	memory '1 GB'
+	cpus 2
+
+	input:
+		tuple val(group), path(upd_sites)
+
+	output:
+		path("${group}.UPDtable.xls")
+
+	when:
+		params.mode == "family" && params.trio
+
+	script:
+		"""
+		upd_table.pl $upd_sites > ${group}.UPDtable.xls
+		"""
+
+	stub:
+		"""
+		touch "${group}.UPDtable.xls"
+		"""
+}
 
 
 // // Call ROH regions
