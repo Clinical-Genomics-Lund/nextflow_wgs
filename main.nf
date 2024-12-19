@@ -101,33 +101,33 @@ workflow NEXTFLOW_WGS {
 	ch_bam_bai.view()
 
 	// PED //
-	ch_ped_input = ch_samplesheet
-		.filter { row -> row.type == "proband" }
-		.map { row ->
-			def group = row.group
-			def id = row.id
-			def type = row.type
-			def sex = row.sex
-			def father = row.father
-			def mother = row.mother
-			tuple(group, id, type, sex, mother, father)
-			}
+	// ch_ped_input = ch_samplesheet
+	// 	.filter { row -> row.type == "proband" }
+	// 	.map { row ->
+	// 		def group = row.group
+	// 		def id = row.id
+	// 		def type = row.type
+	// 		def sex = row.sex
+	// 		def father = row.father
+	// 		def mother = row.mother
+	// 		tuple(group, id, type, sex, mother, father)
+	// 		}
 
-	create_ped(ch_ped_input)
-	ch_ped_base = create_ped.out.ped_base
-	ch_ped_fa = Channel.empty()
-	ch_ped_ma = Channel.empty()
+	// create_ped(ch_ped_input)
+	// ch_ped_base = create_ped.out.ped_base
+	// ch_ped_fa = Channel.empty()
+	// ch_ped_ma = Channel.empty()
 
-	ch_madeline_out = Channel.empty()
-	if(params.mode == "family" && params.assay == "wgs") {
+	// ch_madeline_out = Channel.empty()
+	// if(params.mode == "family" && params.assay == "wgs") {
 
-		ch_ped_fa.mix(create_ped.out.ped_fa)
-		ch_ped_ma.mix(create_ped.out.ped_ma)
+	// 	ch_ped_fa.mix(create_ped.out.ped_fa)
+	// 	ch_ped_ma.mix(create_ped.out.ped_ma)
 
-		ch_madeline_input = ch_ped_base.mix(ch_ped_fa, ch_ped_ma)
-		madeline(ch_madeline_input)
-		ch_madeline_out
-	}
+	// 	ch_madeline_input = ch_ped_base.mix(ch_ped_fa, ch_ped_ma)
+	// 	madeline(ch_madeline_input)
+	// 	ch_madeline_out
+	// }
 
 	// FASTQ //
 	if (params.umi) {
