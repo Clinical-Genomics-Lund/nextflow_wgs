@@ -74,7 +74,21 @@ workflow NEXTFLOW_WGS {
 		tuple(row.group, row.id, row.sex, row.type)
 	}
 
+	ch_bam_start = ch_samplesheet
+		.filter {
+			row -> file(row.read1).baseName.endsWith(".bam") && file(row.read2).baseName.endsWith(".bai")
+		}
+		.map {
+			def group = row.group
+			def id = row.id
+			def bam = row.read1
+			def bai = row.read2
+			tuple(group, id, bam, bai)
+		}
+
 	ch_bam_bai = Channel.empty()
+	ch_bam_bai = ch_bam_bai.mix(ch_bam_start)
+
 
 	// FASTQ //
 	if (params.umi) {
@@ -88,10 +102,10 @@ workflow NEXTFLOW_WGS {
 	if (params.align) {
 		bwa_align(ch_fastq)
 		markdup(bwa_align.out.bam_bai)
-		ch_bam_bai = markdup.out.dedup_bam_bai
+		ch_bam_bai = ch_bam_bai.mix(markdup.out.dedup_bam_bai)
 	}
-	bqsr(ch_bam_bai)
 
+	bqsr(ch_bam_bai)
 
 
 	// SNV CALLING //
