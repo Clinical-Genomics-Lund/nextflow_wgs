@@ -1819,7 +1819,7 @@ process run_haplogrep {
 		"""
 		for sample in "\$(bcftools query -l "${mito_snv_vcf}")"; do
 
-			bcftools view -c1 -Oz -s \$sample -o \${sample}.vcf.gz \${mito_snv_vcf}
+			bcftools view -c1 -Oz -s \$sample -o \${sample}.vcf.gz ${mito_snv_vcf}
 			java  -Xmx16G -Xms16G -jar /opt/bin/haplogrep.jar classify \
 			--in \${sample}.vcf.gz \
 			--out \${sample}.hg2.vcf \
