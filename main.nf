@@ -3160,41 +3160,56 @@ process postprocessgatk {
 		tuple val(group), val(id),path("genotyped-intervals-${group}-vs-cohort30.vcf.gz"), path("genotyped-segments-${group}-vs-cohort30.vcf.gz"), path("denoised-${group}-vs-cohort30.vcf.gz"), emit: called_gatk
 		path "*versions.yml", emit: versions
 
+
 	script:
-		modelshards = shard.join(' --model-shard-path ') // join each reference shard
-		caseshards = []
-	// TODO: lsp complains about indexing var
-		// for (idx = 1; n <= i.size(); n++) { // join each shard(n) that's been called
-		// 	tmp = group+'_'+i[n-1]+'/'+group+'_'+i[n-1]+'-calls'
-		// 	caseshards = caseshards + tmp
-		// }
+		def modelshards = shard.join(' --model-shard-path ') // join each reference shard
+		def caseshards = []
+		// TODO: lsp complains about indexing var
+		// // join each shard(n) that's been called
+	    i.each { shard_name ->
+        	def shard_path = group + '_' + shard_name + '/' + group + '_' + shard_name + '-calls'
+        	caseshards << shard_path // Append to the list
+    	}
 		caseshards = caseshards.join( ' --calls-shard-path ')
 		version_str = postprocessgatk_version(task)
-		'''
+		"""
 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
-		for model in !{tar}; do
-		tar -xvf $model
+
+		for model in ${tar}; do
+			tar -xvf \$model
 		done
-		tar -xvf !{ploidy}
+
+		tar -xvf ${ploidy}
+
 		set +u
 		source activate gatk
-		export MKL_NUM_THREADS=!{task.cpus}
-		export OMP_NUM_THREADS=!{task.cpus}
+		export MKL_NUM_THREADS=${task.cpus}
+		export OMP_NUM_THREADS=${task.cpus}
+
 		gatk --java-options "-Xmx25g" PostprocessGermlineCNVCalls \
 			--allosomal-contig X --allosomal-contig Y \
-			--contig-ploidy-calls ploidy/!{group}-calls/ \
+			--contig-ploidy-calls ploidy/${group}-calls/ \
 			--sample-index 0 \\
-			--output-genotyped-intervals genotyped-intervals-!{group}-vs-cohort30.vcf.gz \
-			--output-genotyped-segments genotyped-segments-!{group}-vs-cohort30.vcf.gz \
-			--output-denoised-copy-ratios denoised-!{group}-vs-cohort30.vcf.gz \
-			--sequence-dictionary !{params.GENOMEDICT} \
-			--calls-shard-path !{caseshards} \
-			--model-shard-path !{modelshards}
+			--output-genotyped-intervals genotyped-intervals-${group}-vs-cohort30.vcf.gz \
+			--output-genotyped-segments genotyped-segments-${group}-vs-cohort30.vcf.gz \
+			--output-denoised-copy-ratios denoised-${group}-vs-cohort30.vcf.gz \
+			--sequence-dictionary ${params.GENOMEDICT} \
+			--calls-shard-path ${caseshards} \
+			--model-shard-path ${modelshards}
 
-		echo "!{version_str}" > "!{task.process}_versions.yml"
-		'''
+		echo "${version_str}" > "${task.process}_versions.yml"
+		"""
 
 	stub:
+		def modelshards = shard.join(' --model-shard-path ') // join each reference shard
+		def caseshards = []
+		// TODO: lsp complains about indexing var
+		// // join each shard(n) that's been called
+	    i.each { shard_name ->
+        	def shard_path = group + '_' + shard_name + '/' + group + '_' + shard_name + '-calls'
+        	caseshards << shard_path // Append to the list
+    	}
+		caseshards = caseshards.join( ' --calls-shard-path ')
 		version_str = postprocessgatk_version(task)
 		"""
 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
