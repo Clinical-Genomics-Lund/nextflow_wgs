@@ -265,7 +265,13 @@ workflow NEXTFLOW_WGS {
 
 		// TODO: do the joining and combining outside
 		gatk_call_cnv(ch_gatk_coverage.join(ch_gatk_ploidy, by: [0,1]).combine(ch_gatk_ref))
-		//postprocessgatk(gatk_call_cnv.out.gatk_calls)
+
+		ch_gatk_postprocess_input = gatk_call_cnv.out.gatk_calls
+			.groupTuple(by : [0,1])
+			.join(ch_gatk_ploidy, by: [0, 1])
+			.combine(ch_gatk_ref.groupTuple(by : 3))
+
+		postprocessgatk(ch_gatk_postprocess_input)
 
 		// TODO: these two processes can be merged.
 		//       antype.panel has an additional arg to manta
@@ -3153,8 +3159,8 @@ process postprocessgatk {
 	tag "$id"
 
 	input:
-	// TODO: wtf is i
-	tuple val(group), val(id), val(i), path(tar), path(ploidy), val(shard_no), val(shard)
+
+		tuple val(group), val(id), val(i), path(tar), path(ploidy), val(shard_no), val(shard)
 
 	output:
 		tuple val(group), val(id),path("genotyped-intervals-${group}-vs-cohort30.vcf.gz"), path("genotyped-segments-${group}-vs-cohort30.vcf.gz"), path("denoised-${group}-vs-cohort30.vcf.gz"), emit: called_gatk
