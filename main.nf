@@ -326,6 +326,8 @@ workflow NEXTFLOW_WGS {
 			// postprocess_merged_panel_sv_vcf()
 		}
 
+		ch_loqusdb_sv_input = Channel.empty()
+
 
 	}
 
@@ -1227,119 +1229,114 @@ def reviewer_version(task) {
 	    reviewer: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')"""
 }
 
-// // split multiallelic sites in expansionhunter vcf
-// // FIXME: Use env variable for picard path...
-// process vcfbreakmulti_expansionhunter {
-// 	publishDir "${params.results_output_dir}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf.gz'
-// 	tag "$group"
-// 	time '1h'
-// 	memory '50 GB'
+// split multiallelic sites in expansionhunter vcf
+// FIXME: Use env variable for picard path...
+process vcfbreakmulti_expansionhunter {
+	publishDir "${params.results_output_dir}/vcf", mode: 'copy' , overwrite: 'true', pattern: '*.vcf.gz'
+	tag "$group"
+	time '1h'
+	memory '50 GB'
 
-// 	input:
-// 		tuple val(group), val(id), path(eh_vcf_anno), val(sex), val(mother), val(father), val(phenotype), val(diagnosis), val(type), val(assay), val(clarity_sample_id), val(ffpe), val(analysis)
+	input:
+		tuple val(group), val(id), path(eh_vcf_anno), val(sex), val(mother), val(father), val(phenotype), val(diagnosis), val(type), val(assay), val(clarity_sample_id), val(ffpe), val(analysis)
 
-// 	output:
-// 		path("${group}.expansionhunter.vcf.gz"), emit: expansionhunter_scout
-// 		tuple val(group), path("${group}_str.INFO"), emit: str_INFO
-// 		path "*versions.yml", emit: versions
+	output:
+		path("${group}.expansionhunter.vcf.gz"), emit: expansionhunter_scout
+		tuple val(group), path("${group}_str.INFO"), emit: str_INFO
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		if (father == "") { father = "null" }
-// 		if (mother == "") { mother = "null" }
-// 		if (params.mode == "family") {
-// 			"""
-// 			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
-// 			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf.tmp
-// 			familyfy_str.pl --vcf ${group}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${group}.expansionhunter.vcf
-// 			bgzip ${group}.expansionhunter.vcf
-// 			tabix ${group}.expansionhunter.vcf.gz
-// 			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
+	script:
+		if (father == "") { father = "null" }
+		if (mother == "") { mother = "null" }
+		if (params.mode == "family") {
+			"""
+			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
+			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf.tmp
+			familyfy_str.pl --vcf ${group}.expansionhunter.vcf.tmp --mother $mother --father $father --out ${group}.expansionhunter.vcf
+			bgzip ${group}.expansionhunter.vcf
+			tabix ${group}.expansionhunter.vcf.gz
+			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
 
-// 			${vcfbreakmulti_expansionhunter_version(task)}
-// 			"""
-// 		}
-// 		else {
-// 			"""
-// 			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
-// 			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf
-// 			bgzip ${group}.expansionhunter.vcf
-// 			tabix ${group}.expansionhunter.vcf.gz
-// 			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
+			${vcfbreakmulti_expansionhunter_version(task)}
+			"""
+		}
+		else {
+			"""
+			java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf INPUT=${eh_vcf_anno} OUTPUT=${eh_vcf_anno}.rename.vcf NEW_SAMPLE_NAME=${id}
+			vcfbreakmulti ${eh_vcf_anno}.rename.vcf > ${group}.expansionhunter.vcf
+			bgzip ${group}.expansionhunter.vcf
+			tabix ${group}.expansionhunter.vcf.gz
+			echo "STR	${params.accessdir}/vcf/${group}.expansionhunter.vcf.gz" > ${group}_str.INFO
 
-// 			${vcfbreakmulti_expansionhunter_version(task)}
-// 			"""
+			${vcfbreakmulti_expansionhunter_version(task)}
+			"""
 
-// 		}
+		}
 
-// 	stub:
-// 		"""
-// 		touch "${group}.expansionhunter.vcf.gz"
-// 		touch "${group}_str.INFO"
+	stub:
+		"""
+		touch "${group}.expansionhunter.vcf.gz"
+		touch "${group}_str.INFO"
 
-// 		${vcfbreakmulti_expansionhunter_version(task)}
-// 		"""
-// }
-// def vcfbreakmulti_expansionhunter_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    vcflib: 1.0.9
-// 	    rename-sample-in-vcf: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf --version 2>&1) | sed 's/-SNAPSHOT//')
-// 	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
-// 	END_VERSIONS
-// 	"""
-// }
+		${vcfbreakmulti_expansionhunter_version(task)}
+		"""
+}
+def vcfbreakmulti_expansionhunter_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    vcflib: 1.0.9
+	    rename-sample-in-vcf: \$(echo \$(java -jar /opt/conda/envs/CMD-WGS/share/picard-2.21.2-1/picard.jar RenameSampleInVcf --version 2>&1) | sed 's/-SNAPSHOT//')
+	    tabix: \$(echo \$(tabix --version 2>&1) | sed 's/^.*(htslib) // ; s/ Copyright.*//')
+	END_VERSIONS
+	"""
+}
 
-// //////////////////////////////////////////////////////////////////////////
-// //////////////////////////////////////////////////////////////////////////
-// /////////////////////////////////////////////////////////////////////////
-// process melt_qc_val {
-// 	tag "$id"
-// 	time '20m'
-// 	memory '50 MB'
-// 	input:
-// 		tuple val(group), val(id), qc
+//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+process melt_qc_val {
+	tag "$id"
+	time '20m'
+	memory '50 MB'
+	input:
+	tuple val(group), val(id), path(qc_json)
 
-// 	output:
-// 		tuple id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV), emit: qc_melt_val
-// 		tuple val(group), val(id), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV), emit: qc_cnvkit_val
+	output:
+		tuple id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV), emit: qc_melt_val
+		tuple val(group), val(id), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV), emit: qc_cnvkit_val
 
 
-// 	when:
-// 		params.run_melt
+	when:
+		params.run_melt
 
-// 	script:
-// 		// Collect qc-data if possible
-// 		def ins_dev
-// 		def coverage
-// 		def ins_size
-// 		qc.readLines().each{
-// 			if (it =~ /\"(ins_size_dev)\" : \"(\S+)\"/) {
-// 				ins_dev = it =~ /\"(ins_size_dev)\" : \"(\S+)\"/
-// 			}
-// 			if (it =~ /\"(mean_coverage)\" : \"(\S+)\"/) {
-// 				coverage = it =~ /\"(mean_coverage)\" : \"(\S+)\"/
-// 			}
-// 			if (it =~ /\"(ins_size)\" : \"(\S+)\"/) {
-// 				ins_size = it =~ /\"(ins_size)\" : \"(\S+)\"/
-// 			}
-// 		}
-// 		// might need to be defined for -resume to work "def INS_SIZE" and so on....
-// 		INS_SIZE = ins_size[0][2]
-// 		MEAN_DEPTH = coverage[0][2]
-// 		COV_DEV = ins_dev[0][2]
-// 		"""
-// 		echo hej > hej
-// 		"""
+	script:
+		// Collect qc-data if possible
+		def ins_dev
+		def coverage
+		def ins_size
+		qc_json.readLines().each{
+			if (it =~ /\"(ins_size_dev)\" : \"(\S+)\"/) {
+				ins_dev = it =~ /\"(ins_size_dev)\" : \"(\S+)\"/
+			}
+			if (it =~ /\"(mean_coverage)\" : \"(\S+)\"/) {
+				coverage = it =~ /\"(mean_coverage)\" : \"(\S+)\"/
+			}
+			if (it =~ /\"(ins_size)\" : \"(\S+)\"/) {
+				ins_size = it =~ /\"(ins_size)\" : \"(\S+)\"/
+			}
+		}
+		// might need to be defined for -resume to work "def INS_SIZE" and so on....
+		INS_SIZE = ins_size[0][2]
+		MEAN_DEPTH = coverage[0][2]
+		COV_DEV = ins_dev[0][2]
 
-// 	stub:
-// 		INS_SIZE = 0
-// 		MEAN_DEPTH = 0
-// 		COV_DEV = 0
-// 		"""
-// 		echo $INS_SIZE $MEAN_DEPTH $COV_DEV > qc.val
-// 		"""
-// }
+	stub:
+		INS_SIZE = 0
+		MEAN_DEPTH = 0
+		COV_DEV = 0
+
+}
 
 // // MELT always give VCFs for each type of element defined in mei_list
 // // If none found -> 0 byte vcf. merge_melt.pl merges the three, if all empty
@@ -3768,40 +3765,40 @@ def svdb_merge_version(task) {
 // 		"""
 // }
 
-// process add_to_loqusdb {
-// 	cpus 1
-// 	publishDir "${params.crondir}/loqus", mode: 'copy' , overwrite: 'true'
-// 	tag "$group"
-// 	memory '100 MB'
-// 	time '25m'
-// 	input:
-// 		tuple val(group), val(type), path(vcf), path(tbi), val(type), path(ped)
-// 		tuple val(group), path(svvcf)
+process add_to_loqusdb {
+	cpus 1
+	publishDir "${params.crondir}/loqus", mode: 'copy' , overwrite: 'true'
+	tag "$group"
+	memory '100 MB'
+	time '25m'
+	input:
+		tuple val(group), val(type), path(vcf), path(tbi), path(ped), path(svvcf)
 
-// 	output:
-// 		path("${group}*.loqus"), emit: loqusdb_done
+	output:
+		path("${group}*.loqus"), emit: loqusdb_done
 
 
-// 	when:
-// 		!params.noupload && !params.reanalyze
+	when:
+		!params.noupload && !params.reanalyze
 
-// 	script:
-// 		"""
-// 		sv_variants=""
-// 		nbr_svvcf_records=\$(grep -v '^#' ${svvcf} | wc -l)
+	script:
 
-// 		if (( \$nbr_svvcf_records > 0 )); then
-// 			sv_variants="--sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}"
-// 		fi
+		def sv_variants_arg=""
 
-// 		echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf} \$sv_variants" > ${group}.loqus
-// 		"""
+		// Handle missing svvcf:
+		if(svvcf.baseName != "NONE") {
+			sv_variants_arg="--sv-variants ${params.accessdir}/sv_vcf/merged/${svvcf}"
+		}
 
-// 	stub:
-// 		"""
-// 		touch "${group}.loqus"
-// 		"""
-// }
+		"""
+		echo "-db $params.loqusdb load -f ${params.accessdir}/ped/${ped} --variant-file ${params.accessdir}/vcf/${vcf}  > ${group}.loqus
+		"""
+
+	stub:
+		"""
+		touch "${group}.loqus"
+		"""
+}
 
 // process annotsv {
 // 	container  "${params.container_annotsv}"
