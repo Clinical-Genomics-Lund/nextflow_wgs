@@ -225,6 +225,7 @@ workflow NEXTFLOW_WGS {
 				type == "proband"
 			}
 
+		ch_peddy_input_vcf.view()
 		// TODO: Move this guy to QC:
 		peddy(ch_peddy_input_vcf, ch_ped_base)
 
