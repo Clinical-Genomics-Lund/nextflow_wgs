@@ -271,8 +271,8 @@ workflow NEXTFLOW_WGS {
 			.combine(ch_gatk_ref.groupTuple(by : 3))
 
 		postprocessgatk(ch_gatk_postprocess_input)
-		// ch_filtered_merged_gatk_calls = postprocessgatk.out.called_gatk
-		// filter_merge_gatk()
+		filter_merge_gatk(postprocessgatk.out.called_gatk)
+		ch_filtered_merged_gatk_calls = filter_merge_gatk.out.merged_filtered_vcf
 
 		// TODO: these two processes can be merged.
 		//       antype.panel has an additional arg to manta
@@ -282,11 +282,11 @@ workflow NEXTFLOW_WGS {
 			manta(ch_bam_bai)
 			ch_manta_out = ch_manta_out.mix(manta.out.vcf)
 			tiddit(ch_bam_bai)
-			// svdb_merge(
-			// 	ch_manta_out.groupTuple(),
-			// 	tiddit.out.vcf.groupTuple(),
-			// 	ch_filtered_merged_gatk_calls.groupTuple()
-			// )
+			svdb_merge(
+				ch_manta_out.groupTuple(),
+				tiddit.out.vcf.groupTuple(),
+				ch_filtered_merged_gatk_calls.groupTuple()
+			)
 		}
 
 		if (params.antype == "panel") {
@@ -3174,7 +3174,7 @@ process postprocessgatk {
 		tuple val(group), val(id), val(i), path(tar), path(ploidy), val(shard_no), val(shard)
 
 	output:
-		tuple val(group), val(id),path("genotyped-intervals-${group}-vs-cohort30.vcf.gz"), path("genotyped-segments-${group}-vs-cohort30.vcf.gz"), path("denoised-${group}-vs-cohort30.vcf.gz"), emit: called_gatk
+		tuple val(group), val(id), path("genotyped-intervals-${group}-vs-cohort30.vcf.gz"), path("genotyped-segments-${group}-vs-cohort30.vcf.gz"), path("denoised-${group}-vs-cohort30.vcf.gz"), emit: called_gatk
 		path "*versions.yml", emit: versions
 
 
@@ -3261,14 +3261,14 @@ process filter_merge_gatk {
 	publishDir "${params.results_output_dir}/sv_vcf", mode: 'copy', overwrite: 'true'
 
 	input:
-		tuple val(group), val(id), path(inter), path(gatk), path(denoised)
+		tuple val(group), val(id), path(gentotyped_intervals), path(genotyped_segments), path(denoised_copy_ration)
 
 	output:
-		tuple val(group), val(id), path("${id}.gatk.filtered.merged.vcf"), emit: merged_gatk
+		tuple val(group), val(id), path("${id}.gatk.filtered.merged.vcf"), emit: merged_filtered_vcf
 
 	script:
 		"""
-		filter_gatk.pl $gatk > ${id}.gatk.filtered.vcf
+		filter_gatk.pl $genotyped_segments > ${id}.gatk.filtered.vcf
 		mergeGATK.pl ${id}.gatk.filtered.vcf > ${id}.gatk.filtered.merged.vcf
 		"""
 
