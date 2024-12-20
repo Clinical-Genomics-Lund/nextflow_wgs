@@ -249,7 +249,24 @@ workflow NEXTFLOW_WGS {
 	}
 
 	if (params.sv) {
+		ch_smn_tsv = Channel.empty()
+		if(params.antype  == "wgs") {
+			SMNCopyNumberCaller(ch_bam_bai)
 
+			// Collects each individual's SMNCNC-tsv and creates one tsv-file
+			ch_smn_tsv = ch_smn_tsv.mix(
+				SMNCopyNumberCaller.out
+					.smn_tsv.collectFile(
+						keepHeader: true,
+						storeDir: "${params.results_output_dir}/smn/")
+			)
+			ch_smn_tsv.view()
+		}
+		// SMN CALLING //
+
+		// CALL REPEATS //
+
+		// BIG SV //
 		// TODO: define elsewhere
 		ch_gatk_ref = Channel
 			.fromPath(params.gatkreffolders)
@@ -989,78 +1006,73 @@ def dnascope_version(task) {
 // 		"""
 // }
 
-// process SMNCopyNumberCaller {
-// 	cpus 10
-// 	memory '25GB'
-// 	time '2h'
-// 	publishDir "${params.results_output_dir}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
-// 	tag "$id"
+process SMNCopyNumberCaller {
+	cpus 10
+	memory '25GB'
+	time '2h'
+	publishDir "${params.results_output_dir}/plots/SMNcnc", mode: 'copy' , overwrite: 'true', pattern: '*.pdf*'
+	tag "$id"
 
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai)
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
 
-// 	output:
-// 		path("*.tsv"), emit: smn_tsv
-// 		tuple path("*.pdf"), path("*.json")
-// 		tuple val(group), path("${group}_smn.INFO"), emit: smn_INFO
-// 		path "*versions.yml", emit: versions
+	output:
+		path("*.tsv"), emit: smn_tsv
+		tuple path("*.pdf"), path("*.json")
+		tuple val(group), path("${group}_smn.INFO"), emit: smn_INFO
+		path "*versions.yml", emit: versions
 
-// 	when:
-// 		params.antype == "wgs"
+	// TODO: split off the plotting into own process?
+	script:
+		"""
+		samtools view -H $bam | \\
+			sed -e 's/SN:1/SN:chr1/' | sed -e 's/SN:2/SN:chr2/' |  \\
+			sed -e 's/SN:3/SN:chr3/' | sed -e 's/SN:4/SN:chr4/' |  \\
+			sed -e 's/SN:5/SN:chr5/' | sed -e 's/SN:6/SN:chr6/' |  \\
+			sed -e 's/SN:7/SN:chr7/' | sed -e 's/SN:8/SN:chr8/' |  \\
+			sed -e 's/SN:9/SN:chr9/' | sed -e 's/SN:10/SN:chr10/' | \\
+			sed -e 's/SN:11/SN:chr11/' | sed -e 's/SN:12/SN:chr12/' |  \\
+			sed -e 's/SN:13/SN:chr13/' | sed -e 's/SN:14/SN:chr14/' |  \\
+			sed -e 's/SN:15/SN:chr15/' | sed -e 's/SN:16/SN:chr16/' |  \\
+			sed -e 's/SN:17/SN:chr17/' | sed -e 's/SN:18/SN:chr18/' |  \\
+			sed -e 's/SN:19/SN:chr19/' | sed -e 's/SN:20/SN:chr20/' |  \\
+			sed -e 's/SN:21/SN:chr21/' | sed -e 's/SN:22/SN:chr22/' |  \\
+			sed -e 's/SN:X/SN:chrX/' | sed -e 's/SN:Y/SN:chrY/' |   \\
+			sed -e 's/SN:MT/SN:chrM/' | \\
+			samtools reheader - $bam > ${id}.bam
+		samtools index -b ${id}.bam -@ ${task.cpus}
+		echo ${id}.bam > manifest.txt
+		smn_caller.py --manifest manifest.txt --genome 38 --prefix ${id} --outDir . --threads ${task.cpus}
+		rm ${id}.bam
+		source activate py3-env
+		python /SMNCopyNumberCaller/smn_charts.py -s ${id}.json -o .
+		mv ${id}.tsv ${group}_SMN.tsv
+		echo "SMN ${params.accessdir}/smn/${group}_SMN.tsv" > ${group}_smn.INFO
 
-// 	script:
-// 		"""
-// 		samtools view -H $bam | \\
-// 			sed -e 's/SN:1/SN:chr1/' | sed -e 's/SN:2/SN:chr2/' |  \\
-// 			sed -e 's/SN:3/SN:chr3/' | sed -e 's/SN:4/SN:chr4/' |  \\
-// 			sed -e 's/SN:5/SN:chr5/' | sed -e 's/SN:6/SN:chr6/' |  \\
-// 			sed -e 's/SN:7/SN:chr7/' | sed -e 's/SN:8/SN:chr8/' |  \\
-// 			sed -e 's/SN:9/SN:chr9/' | sed -e 's/SN:10/SN:chr10/' | \\
-// 			sed -e 's/SN:11/SN:chr11/' | sed -e 's/SN:12/SN:chr12/' |  \\
-// 			sed -e 's/SN:13/SN:chr13/' | sed -e 's/SN:14/SN:chr14/' |  \\
-// 			sed -e 's/SN:15/SN:chr15/' | sed -e 's/SN:16/SN:chr16/' |  \\
-// 			sed -e 's/SN:17/SN:chr17/' | sed -e 's/SN:18/SN:chr18/' |  \\
-// 			sed -e 's/SN:19/SN:chr19/' | sed -e 's/SN:20/SN:chr20/' |  \\
-// 			sed -e 's/SN:21/SN:chr21/' | sed -e 's/SN:22/SN:chr22/' |  \\
-// 			sed -e 's/SN:X/SN:chrX/' | sed -e 's/SN:Y/SN:chrY/' |   \\
-// 			sed -e 's/SN:MT/SN:chrM/' | \\
-// 			samtools reheader - $bam > ${id}.bam
-// 		samtools index -b ${id}.bam -@ ${task.cpus}
-// 		echo ${id}.bam > manifest.txt
-// 		smn_caller.py --manifest manifest.txt --genome 38 --prefix ${id} --outDir . --threads ${task.cpus}
-// 		rm ${id}.bam
-// 		source activate py3-env
-// 		python /SMNCopyNumberCaller/smn_charts.py -s ${id}.json -o .
-// 		mv ${id}.tsv ${group}_SMN.tsv
-// 		echo "SMN ${params.accessdir}/smn/${group}_SMN.tsv" > ${group}_smn.INFO
+		${smn_copy_number_caller_version(task)}
+		"""
 
-// 		${smn_copy_number_caller_version(task)}
-// 		"""
+	stub:
+		"""
+		touch "${id}.bam"
+		touch "${id}.tsv"
+		touch "${id}.pdf"
+		touch "${id}.json"
+		touch "${group}_SMN.tsv"
+		touch "${group}_smn.INFO"
 
-// 	stub:
-// 		"""
-// 		touch "${id}.bam"
-// 		touch "${id}.tsv"
-// 		touch "${id}.pdf"
-// 		touch "${id}.json"
-// 		touch "${group}_SMN.tsv"
-// 		touch "${group}_smn.INFO"
-
-// 		${smn_copy_number_caller_version(task)}
-// 		"""
-// }
-// // collects each individual's SMNCNC-tsv and creates one tsv-file
-// smn_tsv
-// 	.collectPath(keepHeader: true, storeDir: "${params.results_output_dir}/smn/")
-// def smn_copy_number_caller_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-// 	    smn-copy-number-caller: 1.1.2
-// 	END_VERSIONS
-// 	"""
-// }
+		${smn_copy_number_caller_version(task)}
+		"""
+}
+def smn_copy_number_caller_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	    smn-copy-number-caller: 1.1.2
+	END_VERSIONS
+	"""
+}
 
 
 // ////////////////////////////////////////////////////////////////////////
