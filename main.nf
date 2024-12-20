@@ -218,7 +218,6 @@ workflow NEXTFLOW_WGS {
 		// SCORE VARIANTS //
 		genmodscore(inher_models.out.vcf)
 		vcf_completion(genmodscore.out.scored_vcf)
-
 		ch_peddy_input_vcf = vcf_completion.out.vcf_tbi
 			.filter { vcf ->
 				def type = vcf[1] // TODO: how to proof against position change?
@@ -3645,17 +3644,17 @@ process svdb_merge {
 			def vcf_idx = 1
 
 			mantaV.each { _manta_vcf ->
-			def tmp = mantaV[vcf_idx - 1] + ":manta" + "${vcf_idx}"
-			def tmp1 = tidditV[vcf_idx - 1] + ":tiddit" + "${vcf_idx}"
-			def tmp2 = gatkV[vcf_idx - 1] + ":gatk" + "${vcf_idx}"
-			vcfs = vcfs + tmp + tmp1 + tmp2
-			def mt = "manta" + "${vcf_idx}"
-			def tt = "tiddit" + "${vcf_idx}"
-			def ct = "gatk" + "${vcf_idx}"
-			manta << mt
-			tiddit << tt
-			gatk << ct
-			vcf_idx = vcf_idx + 1
+				def tmp = mantaV[vcf_idx - 1] + ":manta" + "${vcf_idx}"
+				def tmp1 = tidditV[vcf_idx - 1] + ":tiddit" + "${vcf_idx}"
+				def tmp2 = gatkV[vcf_idx - 1] + ":gatk" + "${vcf_idx}"
+				vcfs = vcfs + tmp + tmp1 + tmp2
+				def mt = "manta" + "${vcf_idx}"
+				def tt = "tiddit" + "${vcf_idx}"
+				def ct = "gatk" + "${vcf_idx}"
+				manta << mt
+				tiddit << tt
+				gatk << ct
+				vcf_idx = vcf_idx + 1
 			}
 
 			prio = manta + tiddit + gatk
