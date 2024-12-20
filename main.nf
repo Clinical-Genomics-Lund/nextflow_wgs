@@ -3164,11 +3164,11 @@ process postprocessgatk {
 	script:
 		def modelshards = shard.join(' --model-shard-path ') // join each reference shard
 		def caseshards = []
-		// TODO: lsp complains about indexing var
+		// TODO: put into func
 		// // join each shard(n) that's been called
 	    i.each { shard_name ->
         	def shard_path = group + '_' + shard_name + '/' + group + '_' + shard_name + '-calls'
-        	caseshards << shard_path // Append to the list
+        	caseshards << shard_path
     	}
 		caseshards = caseshards.join( ' --calls-shard-path ')
 		version_str = postprocessgatk_version(task)
@@ -3207,7 +3207,7 @@ process postprocessgatk {
 		// // join each shard(n) that's been called
 	    i.each { shard_name ->
         	def shard_path = group + '_' + shard_name + '/' + group + '_' + shard_name + '-calls'
-        	caseshards << shard_path // Append to the list
+        	caseshards << shard_path
     	}
 		caseshards = caseshards.join( ' --calls-shard-path ')
 		version_str = postprocessgatk_version(task)
@@ -3215,12 +3215,15 @@ process postprocessgatk {
 		THEANO_FLAGS="base_compiledir=/fs1/resources/theano"
 		set +u
 		source activate gatk
-		export MKL_NUM_THREADS=!{task.cpus}
-		export OMP_NUM_THREADS=!{task.cpus}
+		export MKL_NUM_THREADS=${task.cpus}
+		export OMP_NUM_THREADS=${task.cpus}
 		source activate gatk
 		touch "genotyped-intervals-${group}-vs-cohort30.vcf.gz"
 		touch "genotyped-segments-${group}-vs-cohort30.vcf.gz"
 		touch "denoised-${group}-vs-cohort30.vcf.gz"
+
+		echo "${modelshards}"
+		echo "${caseshards}"
 
 		echo "${version_str}" > "${task.process}_versions.yml"
 		"""
@@ -3231,6 +3234,7 @@ def postprocessgatk_version(task) {
 	"""${task.process}:
 	    gatk: \$(echo \$(gatk --version 2>&1) | sed 's/^.*(GATK) v//; s/ .*\$// ; s/-SNAPSHOT//')"""
 }
+
 
 process filter_merge_gatk {
 	cpus 2
