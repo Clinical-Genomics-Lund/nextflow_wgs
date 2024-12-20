@@ -4099,7 +4099,7 @@ process create_yaml {
 		set group, file("${group}.yaml*") into yaml
 
 	script:
-		def assay = "${params.dev}" ? "dev,${analysis}" : "${assay},${analysis}"
+		def assay = ${params.dev} ? "dev,${analysis}" : "${assay},${analysis}"
 		"""
 		create_yml.pl \\
 			--g "${group},${clarity_sample_id}" \\
