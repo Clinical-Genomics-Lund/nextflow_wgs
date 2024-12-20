@@ -266,6 +266,22 @@ workflow NEXTFLOW_WGS {
 		// TODO: do the joining and combining outside
 		gatk_call_cnv(ch_gatk_coverage.join(ch_gatk_ploidy, by: [0,1]).combine(ch_gatk_ref))
 		//postprocessgatk(gatk_call_cnv.out.gatk_calls)
+
+		// TODO: these two processes can be merged.
+		//       antype.panel has an additional arg to manta
+		//       and different resource allocation
+		ch_manta_out = Channel.empty()
+		if (params.antype == "wgs") {
+			manta(ch_bam_bai)
+			ch_manta_out = ch_manta_out.mix(manta.out.vcf)
+		}
+
+		if (params.antype == "panel") {
+			manta_panel(ch_bam_bai)
+			ch_manta_out = ch_manta_out.mix(manta_panel.out.vcf)
+		}
+
+
 	}
 
 
@@ -3226,92 +3242,88 @@ process filter_merge_gatk {
 		"""
 }
 
-// process manta {
-// 	cpus  56
-// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
-// 	tag "$id"
-// 	time '10h'
-// 	memory '150 GB'
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai)
+process manta {
+	cpus  56
+	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+	tag "$id"
+	time '10h'
+	memory '150 GB'
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
 
-// 	output:
-// 		tuple val(group), val(id), path("${id}.manta.vcf.gz"), emit: called_manta
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${id}.manta.vcf.gz"), emit: vcf
+		path "*versions.yml", emit: versions
 
+	script:
+		bams = bam.join('--bam ')
 
-// 	when:
-// 		params.sv && params.antype == "wgs"
+		"""
+		configManta.py --bam $bam --reference ${params.genome_file} --runDir .
+		python runWorkflow.py -m local -j ${task.cpus}
+		mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
+		mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
 
-// 	script:
-// 		bams = bam.join('--bam ')
+		${manta_version(task)}
+		"""
 
-// 		"""
-// 		configManta.py --bam $bam --reference ${params.genome_file} --runDir .
-// 		python runWorkflow.py -m local -j ${task.cpus}
-// 		mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
-// 		mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
+	stub:
+		"""
+		touch "${id}.manta.vcf.gz"
+		${manta_version(task)}
+		"""
+}
+def manta_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    manta: \$( configManta.py --version )
+	END_VERSIONS
+	"""
+}
 
-// 		${manta_version(task)}
-// 		"""
-
-// 	stub:
-// 		"""
-// 		touch "${id}.manta.vcf.gz"
-// 		${manta_version(task)}
-// 		"""
-// }
-// def manta_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    manta: \$( configManta.py --version )
-// 	END_VERSIONS
-// 	"""
-// }
-
-// process manta_panel {
-// 	cpus  20
-// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
-// 	tag "$id"
-// 	time '1h'
-// 	memory '50 GB'
+process manta_panel {
+	cpus  20
+	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf.gz'
+	tag "$id"
+	time '1h'
+	memory '50 GB'
 
 
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai)
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
 
-// 	output:
-// 		tuple val(group), val(id), path("${id}.manta.vcf.gz"), emit: called_manta_panel
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${id}.manta.vcf.gz"), emit: vcf
+		path "*versions.yml", emit: versions
 
-// 	when:
-// 		params.sv && params.antype == "panel"
+	when:
+		params.sv && params.antype == "panel"
 
-// 	script:
-// 		"""
-// 		configManta.py --bam $bam --reference ${params.genome_file} --runDir . --exome --callRegions $params.bedgz --generateEvidenceBam
-// 		python runWorkflow.py -m local -j ${task.cpus}
-// 		mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
-// 		mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
+	script:
+		"""
+		configManta.py --bam $bam --reference ${params.genome_file} --runDir . --exome --callRegions $params.bedgz --generateEvidenceBam
+		python runWorkflow.py -m local -j ${task.cpus}
+		mv results/variants/diploidSV.vcf.gz ${id}.manta.vcf.gz
+		mv results/variants/diploidSV.vcf.gz.tbi ${id}.manta.vcf.gz.tbi
 
-// 		${manta_panel_version(task)}
-// 		"""
+		${manta_panel_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${id}.manta.vcf.gz"
-// 		${manta_panel_version(task)}
-// 		"""
-// }
-// def manta_panel_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    manta: \$( configManta.py --version )
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${id}.manta.vcf.gz"
+		${manta_panel_version(task)}
+		"""
+}
+def manta_panel_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    manta: \$( configManta.py --version )
+	END_VERSIONS
+	"""
+}
 
 
 // process cnvkit_panel {
