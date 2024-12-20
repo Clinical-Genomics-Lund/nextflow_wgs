@@ -2673,7 +2673,7 @@ process peddy {
 	memory '20GB'
 
 	input:
-		tuple val(group), val(type), path(vcf), val(idx)
+		tuple val(group), val(type), path(vcf), path(idx)
 		tuple val(group1), val(type1), path(ped)
 
 	output:
@@ -2695,11 +2695,6 @@ process peddy {
 
 	stub:
 		"""
-		if [ ! -f "$idx" ]; then
-			echo "missing file: $idx"
-		exit 1
-		fi
-
 		source activate py3-env
 		touch "${group}.ped_check.csv"
 		touch "${group}.peddy.ped"
