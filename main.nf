@@ -3363,60 +3363,58 @@ def manta_panel_version(task) {
 }
 
 
-// process cnvkit_panel {
-// 	cpus  5
-// 	container  "${params.container_twist_myeloid}"
-// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-// 	publishDir "${params.results_output_dir}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
-// 	tag "$id"
-// 	time '1h'
-// 	memory '20 GB'
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai), path(vcf), path(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV)
-// 		//tuple id, val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV)
-// 		//tuple val(group), val(id), path(vcf)
+process cnvkit_panel {
+	cpus  5
+	container  "${params.container_twist_myeloid}"
+	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	publishDir "${params.results_output_dir}/plots/", mode: 'copy', overwrite: 'true', pattern: '*.png'
+	tag "$id"
+	time '1h'
+	memory '20 GB'
+	input:
+		tuple val(group), val(id), path(bam), path(bai), path(vcf), path(multi), val(INS_SIZE), val(MEAN_DEPTH), val(COV_DEV)
 
-// 	output:
-// 		tuple val(group), val(id), path("${id}.cnvkit_filtered.vcf"), emit: called_cnvkit_panel
-// 		path("${id}.call.cns"), emit: unfiltered_cns
-// 		path("${group}.genomic_overview.png")
-// 		tuple val(group), path("${group}_oplot.INFO"), emit: cnvkit_INFO
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${id}.cnvkit_filtered.vcf"), emit: cnvkit_calls
+		path("${id}.call.cns"), emit: unfiltered_cns
+		path("${group}.genomic_overview.png")
+		tuple val(group), path("${group}_oplot.INFO"), emit: cnvkit_INFO
+		path "*versions.yml", emit: versions
 
 
-// 	when:
-// 		params.sv && params.antype == "panel"
+	when:
+		params.antype == "panel"
 
-// 	script:
-// 		"""
-// 		cnvkit.py batch $bam -r $params.cnvkit_reference -p 5 -d results/
-// 		cnvkit.py call results/*.cns -v $vcf -o ${id}.call.cns
-// 		filter_cnvkit.pl ${id}.call.cns $MEAN_DEPTH > ${id}.filtered
-// 		cnvkit.py export vcf ${id}.filtered -i "$id" > ${id}.cnvkit_filtered.vcf
-// 		cnvkit.py scatter -s results/*dedup.cn{s,r} -o ${group}.genomic_overview.png -v $vcf -i $id
-// 		echo "IMG overviewplot	${params.accessdir}/plots/${group}.genomic_overview.png" > ${group}_oplot.INFO
+	script:
+		"""
+		cnvkit.py batch $bam -r $params.cnvkit_reference -p 5 -d results/
+		cnvkit.py call results/*.cns -v $vcf -o ${id}.call.cns
+		filter_cnvkit.pl ${id}.call.cns $MEAN_DEPTH > ${id}.filtered
+		cnvkit.py export vcf ${id}.filtered -i "$id" > ${id}.cnvkit_filtered.vcf
+		cnvkit.py scatter -s results/*dedup.cn{s,r} -o ${group}.genomic_overview.png -v $vcf -i $id
+		echo "IMG overviewplot	${params.accessdir}/plots/${group}.genomic_overview.png" > ${group}_oplot.INFO
 
-// 		${cnvkit_panel_version(task)}
-// 		"""
+		${cnvkit_panel_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${id}.cnvkit_filtered.vcf"
-// 		touch "${id}.call.cns"
-// 		touch "${group}.genomic_overview.png"
-// 		touch "${group}_oplot.INFO"
+	stub:
+		"""
+		touch "${id}.cnvkit_filtered.vcf"
+		touch "${id}.call.cns"
+		touch "${group}.genomic_overview.png"
+		touch "${group}_oplot.INFO"
 
-// 		${cnvkit_panel_version(task)}
-// 		"""
-// }
-// def cnvkit_panel_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    cnvkit: \$(cnvkit.py version | sed -e 's/cnvkit v//g')
-// 	END_VERSIONS
-// 	"""
-// }
+		${cnvkit_panel_version(task)}
+		"""
+}
+def cnvkit_panel_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    cnvkit: \$(cnvkit.py version | sed -e 's/cnvkit v//g')
+	END_VERSIONS
+	"""
+}
 
 // process svdb_merge_panel {
 // 	container  "${params.container_svdb}"
