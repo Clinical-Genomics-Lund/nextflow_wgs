@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### TBD
+
+* dev-assay for create-yaml, triggered when running with `--dev` flag
+
 ### 3.14.1
 
 * Adds basic flake8-based linting 
