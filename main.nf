@@ -269,7 +269,7 @@ workflow NEXTFLOW_WGS {
 
 			// CALL REPEATS //
 
-			expansionhunter(ch_bam_bai.join(ch_meta.map {row ->
+			expansionhunter(ch_bam_bai.join(ch_samplesheet.map {row ->
 				tuple(row.group, row.id, row.sex, row.type)
 			}))
 			stranger(expansionhunter.out.expansionhunter_vcf)
