@@ -2693,6 +2693,11 @@ process peddy {
 
 	stub:
 		"""
+		if [ ! -f "$idx" ]; then
+			echo "missing file: $idx"
+		exit 1
+		fi
+
 		source activate py3-env
 		touch "${group}.ped_check.csv"
 		touch "${group}.peddy.ped"
