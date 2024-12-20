@@ -147,6 +147,10 @@ workflow NEXTFLOW_WGS {
 
 	bqsr(ch_bam_bai)
 
+	// POST SEQ QC //
+	sentieon_qc(ch_bam_bai)
+	// TODO: dedupmetrics wont be in bam start, send in dummy file
+	sentieon_qc_postprocess(markdup.out.dedup_metrics, sentieon_qc.out.sentieon_qc_metrics)
 
 	// SNV CALLING //
 	dnascope(ch_bam_bai, bqsr.out.dnascope_bqsr)
@@ -774,107 +778,106 @@ def dnascope_version(task) {
 }
 
 
-// //Collect various QC data:
-// process sentieon_qc {
-// 	cpus 52
-// 	memory '30 GB'
-// 	tag "$id"
-// 	time '2h'
-// 	container  "${params.container_sentieon}"
+//Collect various QC data:
+process sentieon_qc {
+	cpus 52
+	memory '30 GB'
+	tag "$id"
+	time '2h'
+	container  "${params.container_sentieon}"
 
-// 	input:
-// 		tuple val(id), val(group), path(bam), path(bai)
+	input:
+		tuple val(id), val(group), path(bam), path(bai)
 
-// 	output:
-// 		tuple val(id), val(group), path("mq_metrics.txt"), path("qd_metrics.txt"), path("gc_summary.txt"),
-// 		path("gc_metrics.txt"), path("aln_metrics.txt"), path("is_metrics.txt"), path("assay_metrics.txt"),
-// 		path("cov_metrics.txt"), path("cov_metrics.txt.sample_summary"), emit: ch_sentieon_qc_metrics
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(id), val(group), path("mq_metrics.txt"), path("qd_metrics.txt"), path("gc_summary.txt"),
+		path("gc_metrics.txt"), path("aln_metrics.txt"), path("is_metrics.txt"), path("assay_metrics.txt"),
+		path("cov_metrics.txt"), path("cov_metrics.txt.sample_summary"), emit: sentieon_qc_metrics
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		target = ""
-// 		// A bit of cheating here - these are really optional arguments
-// 		panel_command = "touch cov_metrics.txt cov_metrics.txt.sample_summary"
-// 		cov = "WgsMetricsAlgo assay_metrics.txt"
+	script:
+		target = ""
+		// A bit of cheating here - these are really optional arguments
+		panel_command = "touch cov_metrics.txt cov_metrics.txt.sample_summary"
+		cov = "WgsMetricsAlgo assay_metrics.txt"
 
-// 		if (params.onco || params.exome) {
-// 			target = "--interval $params.intervals"
-// 			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
-// 			panel_command = "sentieon driver -r ${params.genome_file} -t ${task.cpus} -i ${bam} --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} assay_metrics.txt"
-// 		}
+		if (params.onco || params.exome) {
+			target = "--interval $params.intervals"
+			cov = "CoverageMetrics --cov_thresh 1 --cov_thresh 10 --cov_thresh 30 --cov_thresh 100 --cov_thresh 250 --cov_thresh 500 cov_metrics.txt"
+			panel_command = "sentieon driver -r ${params.genome_file} -t ${task.cpus} -i ${bam} --algo HsMetricAlgo --targets_list ${params.intervals} --baits_list ${params.intervals} assay_metrics.txt"
+		}
 
-// 		"""
-// 		sentieon driver \\
-// 			-r ${params.genome_file} $target \\
-// 			-t ${task.cpus} \\
-// 			-i $bam \\
-// 			--algo MeanQualityByCycle mq_metrics.txt \\
-// 			--algo QualDistribution qd_metrics.txt \\
-// 			--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
-// 			--algo AlignmentStat aln_metrics.txt \\
-// 			--algo InsertSizeMetricAlgo is_metrics.txt \\
-// 			--algo $cov
-// 		$panel_command
+		"""
+		sentieon driver \\
+			-r ${params.genome_file} $target \\
+			-t ${task.cpus} \\
+			-i $bam \\
+			--algo MeanQualityByCycle mq_metrics.txt \\
+			--algo QualDistribution qd_metrics.txt \\
+			--algo GCBias --summary gc_summary.txt gc_metrics.txt \\
+			--algo AlignmentStat aln_metrics.txt \\
+			--algo InsertSizeMetricAlgo is_metrics.txt \\
+			--algo $cov
+		$panel_command
 
-// 		${sentieon_qc_version(task)}
-// 		"""
+		${sentieon_qc_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "assay_metrics.txt"
-// 		touch "mq_metrics.txt"
-// 		touch "qd_metrics.txt"
-// 		touch "gc_summary.txt"
-// 		touch "gc_metrics.txt"
-// 		touch "aln_metrics.txt"
-// 		touch "is_metrics.txt"
-// 		touch "cov_metrics.txt"
-// 		touch "cov_metrics.txt.sample_summary"
-// 		${sentieon_qc_version(task)}
-// 		"""
-// }
-// def sentieon_qc_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "assay_metrics.txt"
+		touch "mq_metrics.txt"
+		touch "qd_metrics.txt"
+		touch "gc_summary.txt"
+		touch "gc_metrics.txt"
+		touch "aln_metrics.txt"
+		touch "is_metrics.txt"
+		touch "cov_metrics.txt"
+		touch "cov_metrics.txt.sample_summary"
+		${sentieon_qc_version(task)}
+		"""
+}
+def sentieon_qc_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    sentieon: \$(echo \$(sentieon driver --version 2>&1) | sed -e "s/sentieon-genomics-//g")
+	END_VERSIONS
+	"""
+}
 
-// process sentieon_qc_postprocess {
-// 	cpus 2
-// 	memory '1 GB'
-// 	tag "$id"
-// 	time '2h'
+process sentieon_qc_postprocess {
+	cpus 2
+	memory '1 GB'
+	tag "$id"
+	time '2h'
 
-// 	input:
-// 		tuple val(id), path(dedup)
-// 		tuple val(id), val(group), path(mq_metrics), path(qd_metrics), path(gc_summary), path(gc_metrics), path(aln_metrics)
-// 		path (is_metrics), path(assay_metrics), path(cov_metrics), path(cov_metrics_sample_summary)
+	input:
+	tuple val(group), val(id), path(dedup)
+	tuple val(_group), val(_id), path(mq_metrics), path(qd_metrics), path(gc_summary), path(gc_metrics), path(aln_metrics),
+		path (is_metrics), path(assay_metrics), path(cov_metrics), path(cov_metrics_sample_summary)
 
-// 	output:
-// 		tuple val(group), val(id), path("${id}_qc.json"), emit: qc_cdm
-// 		tuple val(group), val(id), path("${id}_qc.json"), emit: qc_melt
+	output:
+		tuple val(group), val(id), path("${id}_qc.json"), emit: qc_json
 
-// 	script:
+	script:
 
-// 		assay = (params.onco || params.exome) ? "panel" : "wgs"
-// 		"""
-// 		qc_sentieon.pl \\
-// 			--SID ${id} \\
-// 			--type ${assay} \\
-// 			--align_metrics_file ${aln_metrics} \\
-// 			--insert_file ${is_metrics} \\
-// 			--dedup_metrics_file ${dedup} \\
-// 			--metrics_file ${assay_metrics} \\
-// 			--gcsummary_file ${gc_summary} \\
-// 			--coverage_file ${cov_metrics} \\
-// 			--coverage_file_summary ${cov_metrics_sample_summary} \\
-// 			> ${id}_qc.json
+		assay = (params.onco || params.exome) ? "panel" : "wgs"
+		"""
+		qc_sentieon.pl \\
+			--SID ${id} \\
+			--type ${assay} \\
+			--align_metrics_file ${aln_metrics} \\
+			--insert_file ${is_metrics} \\
+			--dedup_metrics_file ${dedup} \\
+			--metrics_file ${assay_metrics} \\
+			--gcsummary_file ${gc_summary} \\
+			--coverage_file ${cov_metrics} \\
+			--coverage_file_summary ${cov_metrics_sample_summary} \\
+			> ${id}_qc.json
 
-// 		"""
-// }
+		"""
+}
 
 // process d4_coverage {
 // 	cpus 16
