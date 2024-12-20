@@ -251,6 +251,7 @@ workflow NEXTFLOW_WGS {
 	if (params.sv) {
 		ch_smn_tsv = Channel.empty()
 		if(params.antype  == "wgs") {
+			// SMN CALLING //
 			SMNCopyNumberCaller(ch_bam_bai)
 
 			// Collects each individual's SMNCNC-tsv and creates one tsv-file
@@ -261,10 +262,16 @@ workflow NEXTFLOW_WGS {
 						storeDir: "${params.results_output_dir}/smn/")
 			)
 			ch_smn_tsv.view()
-		}
-		// SMN CALLING //
 
-		// CALL REPEATS //
+			// CALL REPEATS //
+
+			expansionhunter(ch_bam_bai.join(ch_meta.map {row ->
+				tuple(row.group, row.id, row.sex, row.type)
+			}))
+			stranger(expansionhunter.out.expansionhunter_vcf)
+			reviewer(expansionhunter.out.bam_vcf)
+		}
+
 
 		// BIG SV //
 		// TODO: define elsewhere
@@ -1075,147 +1082,147 @@ def smn_copy_number_caller_version(task) {
 }
 
 
-// ////////////////////////////////////////////////////////////////////////
-// ////////////////////////// EXPANSION HUNTER ////////////////////////////
-// ////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////// EXPANSION HUNTER ////////////////////////////
+////////////////////////////////////////////////////////////////////////
 
-// // call STRs using ExpansionHunter, and plot alignments with GraphAlignmentViewer
-// process expansionhunter {
-// 	tag "$group"
-// 	cpus 2
-// 	time '10h'
-// 	memory '40 GB'
+// call STRs using ExpansionHunter, and plot alignments with GraphAlignmentViewer
+process expansionhunter {
+	tag "$group"
+	cpus 2
+	time '10h'
+	memory '40 GB'
 
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai), sex, type \
+	input:
+		tuple val(group), val(id), path(bam), path(bai), val(sex), val(type)
 
 
-// 	output:
-// 		tuple val(group), val(id), path("${group}.eh.vcf"), emit: expansionhunter_vcf
-// 		tuple val(group), val(id), path("${group}.eh_realigned.sort.bam"), path("${group}.eh_realigned.sort.bam.bai"), path("${group}.eh.vcf"), emit: reviewer
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${group}.eh.vcf"), emit: expansionhunter_vcf
+		tuple val(group), val(id), path("${group}.eh_realigned.sort.bam"), path("${group}.eh_realigned.sort.bam.bai"), path("${group}.eh.vcf"), emit: bam_vcf
+		path "*versions.yml", emit: versions
 
-// 	when:
-// 		params.str
+	when:
+		params.str
 
-// 	script:
-// 		"""
-// 		source activate htslib10
-// 		ExpansionHunter \
-// 			--reads $bam \
-// 			--reference ${params.genome_file} \
-// 			--variant-catalog $params.expansionhunter_catalog \
-// 			--output-prefix ${group}.eh
-// 		samtools sort ${group}.eh_realigned.bam -o ${group}.eh_realigned.sort.bam
-// 		samtools index ${group}.eh_realigned.sort.bam
+	script:
+		"""
+		source activate htslib10
+		ExpansionHunter \
+			--reads $bam \
+			--reference ${params.genome_file} \
+			--variant-catalog $params.expansionhunter_catalog \
+			--output-prefix ${group}.eh
+		samtools sort ${group}.eh_realigned.bam -o ${group}.eh_realigned.sort.bam
+		samtools index ${group}.eh_realigned.sort.bam
 
-// 		${expansionhunter_version(task)}
-// 		"""
+		${expansionhunter_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		source activate htslib10
-// 		touch "${group}.eh.vcf"
-// 		touch "${group}.eh_realigned.sort.bam"
-// 		touch "${group}.eh_realigned.sort.bam.bai"
+	stub:
+		"""
+		source activate htslib10
+		touch "${group}.eh.vcf"
+		touch "${group}.eh_realigned.sort.bam"
+		touch "${group}.eh_realigned.sort.bam.bai"
 
-// 		${expansionhunter_version(task)}
-// 		"""
-// }
-// def expansionhunter_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    expansionhunter: \$(echo \$(ExpansionHunter --version 2>&1) | sed 's/.*ExpansionHunter v// ; s/]//')
-// 	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-// 	END_VERSIONS
-// 	"""
-// }
+		${expansionhunter_version(task)}
+		"""
+}
+def expansionhunter_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    expansionhunter: \$(echo \$(ExpansionHunter --version 2>&1) | sed 's/.*ExpansionHunter v// ; s/]//')
+	    samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+	END_VERSIONS
+	"""
+}
 
-// // annotate expansionhunter vcf
-// process stranger {
-// 	tag "$group"
-// 	memory '1 GB'
-// 	time '10m'
-// 	cpus 2
-// 	container  "${params.container_stranger}"
+// annotate expansionhunter vcf
+process stranger {
+	tag "$group"
+	memory '1 GB'
+	time '10m'
+	cpus 2
+	container  "${params.container_stranger}"
 
-// 	input:
-// 		tuple val(group), val(id), path(eh_vcf)
+	input:
+		tuple val(group), val(id), path(eh_vcf)
 
-// 	output:
-// 		tuple val(group), val(id), path("${group}.fixinfo.eh.stranger.vcf"), emit: expansionhunter_vcf_anno
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${group}.fixinfo.eh.stranger.vcf"), emit: vcf_annotated
 
-// 	script:
-// 		"""
-// 		stranger ${eh_vcf} -f $params.expansionhunter_catalog > ${group}.eh.stranger.vcf
-// 		grep ^# ${group}.eh.stranger.vcf > ${group}.fixinfo.eh.stranger.vcf
-// 		grep -v ^# ${group}.eh.stranger.vcf | sed 's/ /_/g' >> ${group}.fixinfo.eh.stranger.vcf
+		path "*versions.yml", emit: versions
 
-// 		${stranger_version(task)}
-// 		"""
+	script:
+		"""
+		stranger ${eh_vcf} -f $params.expansionhunter_catalog > ${group}.eh.stranger.vcf
+		grep ^# ${group}.eh.stranger.vcf > ${group}.fixinfo.eh.stranger.vcf
+		grep -v ^# ${group}.eh.stranger.vcf | sed 's/ /_/g' >> ${group}.fixinfo.eh.stranger.vcf
 
-// 	stub:
-// 		"""
-// 		touch "${group}.fixinfo.eh.stranger.vcf"
-// 		${stranger_version(task)}
-// 		"""
-// }
-// def stranger_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    stranger: \$( stranger --version )
-// 	END_VERSIONS
-// 	"""
-// }
+		${stranger_version(task)}
+		"""
 
-// //for i in $( ls *.svg | cut -f 2 -d "." ); do echo "STR_IMG $i /access/!{params.subdir}/plots/reviewer/!{group}/!{group}.${i}.svg" >> !{group}_rev.INFO; done
-// process reviewer {
-// 	tag "$group"
-// 	cpus 2
-// 	time '1h'
-// 	memory '1 GB'
-// 	errorStrategy 'ignore'
-// 	container  "${params.container_reviewer}"
-// 	publishDir "${params.results_output_dir}/plots/reviewer/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.svg'
+	stub:
+		"""
+		touch "${group}.fixinfo.eh.stranger.vcf"
+		${stranger_version(task)}
+		"""
+}
+def stranger_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    stranger: \$( stranger --version )
+	END_VERSIONS
+	"""
+}
 
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai), path(vcf)
 
-// 	output:
-// 		path("*svg")
-// 		//tuple val(group), path("${group}_rev.INFO"), emit: reviewer_INFO
-// 		path "*versions.yml", emit: versions
+process reviewer {
+	tag "$group"
+	cpus 2
+	time '1h'
+	memory '1 GB'
+	errorStrategy 'ignore'
+	container  "${params.container_reviewer}"
+	publishDir "${params.results_output_dir}/plots/reviewer/${group}", mode: 'copy' , overwrite: 'true', pattern: '*.svg'
 
-// 	shell:
-// 		version_str = reviewer_version(task)
-// 		'''
-// 		grep LocusId !{params.expansionhunter_catalog} | sed 's/[",^ ]//g' | cut -d':' -f2 | perl -na -e 'chomp; \
-// 		system("REViewer --reads !{bam} \
-// 		--vcf !{vcf} \
-// 		--reference !{genome_file} \
-// 		--catalog !{params.expansionhunter_catalog} \
-// 		--locus $_ \
-// 		--output-prefix !{id}");'
+	input:
+		tuple val(group), val(id), path(bam), path(bai), path(vcf)
 
-// 		echo "!{version_str}" > "!{task.process}_versions.yml"
-// 		'''
+	output:
+		path("*svg")
+		path "*versions.yml", emit: versions
 
-// 	stub:
-// 		version_str = reviewer_version(task)
-// 		"""
-// 		touch "${id}.svg"
-// 		echo "${version_str}" > "${task.process}_versions.yml"
-// 		"""
-// }
-// def reviewer_version(task) {
-// 	// This docstring looks different
-// 	// If spaces similarly to the others, this leads to additional whitespace above and below the version text
-// 	"""${task.process}:
-// 	    reviewer: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')"""
-// }
+	script:
+		version_str = reviewer_version(task)
+		"""
+		grep LocusId !{params.expansionhunter_catalog} | sed 's/[",^ ]//g' | cut -d':' -f2 | perl -na -e 'chomp; \
+		system("REViewer --reads !{bam} \
+		--vcf !{vcf} \
+		--reference !{genome_file} \
+		--catalog !{params.expansionhunter_catalog} \
+		--locus \$_ \
+		--output-prefix !{id}");'
+
+		echo "!{version_str}" > "!{task.process}_versions.yml"
+		"""
+
+	stub:
+		version_str = reviewer_version(task)
+		"""
+		touch "${id}.svg"
+		echo "${version_str}" > "${task.process}_versions.yml"
+		"""
+}
+def reviewer_version(task) {
+	// This docstring looks different
+	// If spaces similarly to the others, this leads to additional whitespace above and below the version text
+	"""${task.process}:
+	    reviewer: \$(echo \$(REViewer --version 2>&1) | sed 's/^.*REViewer v//')"""
+}
 
 // // split multiallelic sites in expansionhunter vcf
 // // FIXME: Use env variable for picard path...
