@@ -272,6 +272,8 @@ workflow NEXTFLOW_WGS {
 			.combine(ch_gatk_ref.groupTuple(by : 3))
 
 		postprocessgatk(ch_gatk_postprocess_input)
+		// ch_filtered_merged_gatk_calls = postprocessgatk.out.called_gatk
+		// filter_merge_gatk()
 
 		// TODO: these two processes can be merged.
 		//       antype.panel has an additional arg to manta
@@ -281,11 +283,11 @@ workflow NEXTFLOW_WGS {
 			manta(ch_bam_bai)
 			ch_manta_out = ch_manta_out.mix(manta.out.vcf)
 			tiddit(ch_bam_bai)
-			svdb_merge(
-				ch_manta_out.groupTuple(),
-				tiddit.out.vcf.groupTuple(),
-				ch_filtered_merged_gatk_calls.groupTuple()
-			)
+			// svdb_merge(
+			// 	ch_manta_out.groupTuple(),
+			// 	tiddit.out.vcf.groupTuple(),
+			// 	ch_filtered_merged_gatk_calls.groupTuple()
+			// )
 		}
 
 		if (params.antype == "panel") {
