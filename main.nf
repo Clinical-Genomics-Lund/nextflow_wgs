@@ -280,11 +280,21 @@ workflow NEXTFLOW_WGS {
 		if (params.antype == "wgs") {
 			manta(ch_bam_bai)
 			ch_manta_out = ch_manta_out.mix(manta.out.vcf)
+			tiddit(ch_bam_bai)
+			svdb_merge(
+				ch_manta_out.groupTuple(),
+				tiddit.out.vcf.groupTuple(),
+				ch_filtered_merged_gatk_calls.groupTuple()
+			)
 		}
 
 		if (params.antype == "panel") {
 			manta_panel(ch_bam_bai)
 			ch_manta_out = ch_manta_out.mix(manta_panel.out.vcf)
+
+			// cnvkit_panel()
+			// svdb_merge_panel()
+			// postprocess_merged_panel_sv_vcf()
 		}
 
 
@@ -3550,155 +3560,160 @@ def manta_panel_version(task) {
 // 	"""
 // }
 
-// process tiddit {
-// 	cpus  2
-// 	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-// 	time '10h'
-// 	tag "$id"
-// 	memory '15 GB'
+process tiddit {
+	cpus  2
+	publishDir "${params.results_output_dir}/sv_vcf/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	time '10h'
+	tag "$id"
+	memory '15 GB'
 
-// 	input:
-// 		tuple val(group), val(id), path(bam), path(bai)
+	input:
+		tuple val(group), val(id), path(bam), path(bai)
 
-// 	output:
-// 		tuple val(group), val(id), path("${id}.tiddit.filtered.vcf"), emit: called_tiddit
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${id}.tiddit.filtered.vcf"), emit: vcf
+		path "*versions.yml", emit: versions
 
 
-// 	when:
-// 		params.sv && params.antype == "wgs"
+	when:
+		params.sv && params.antype == "wgs"
 
-// 	script:
-// 		"""
-// 		TIDDIT.py --sv -o ${id}.tiddit --bam $bam
-// 		grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
-// 		${tiddit_version(task)}
-// 		"""
+	script:
+		"""
+		TIDDIT.py --sv -o ${id}.tiddit --bam $bam
+		grep -E \"#|PASS\" ${id}.tiddit.vcf > ${id}.tiddit.filtered.vcf
+		${tiddit_version(task)}
+		"""
 
-// 	stub:
-// 		"""
-// 		touch "${id}.tiddit.filtered.vcf"
-// 		${tiddit_version(task)}
-// 		"""
-// }
-// def tiddit_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    tiddit: \$(echo \$(TIDDIT.py 2>&1) | sed 's/^.*TIDDIT-//; s/ .*\$//')
-// 	END_VERSIONS
-// 	"""
-// }
+	stub:
+		"""
+		touch "${id}.tiddit.filtered.vcf"
+		${tiddit_version(task)}
+		"""
+}
+def tiddit_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    tiddit: \$(echo \$(TIDDIT.py 2>&1) | sed 's/^.*TIDDIT-//; s/ .*\$//')
+	END_VERSIONS
+	"""
+}
 
-// process svdb_merge {
-// 	cpus 2
-// 	container  "${params.container_svdb}"
-// 	tag "$group"
-// 	publishDir "${params.results_output_dir}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
-// 	time '2h'
-// 	memory '1 GB'
+process svdb_merge {
+	cpus 2
+	container  "${params.container_svdb}"
+	tag "$group"
+	publishDir "${params.results_output_dir}/sv_vcf/merged/", mode: 'copy', overwrite: 'true', pattern: '*.vcf'
+	time '2h'
+	memory '1 GB'
 
-// 	input:
-// 		tuple val(group), val(id), path(mantaV)
-// 		tuple val(group), val(id), path(tidditV)
-// 		tuple val(group), val(id), path(gatkV)
+	// TODO: make interface to this more general?
+	//       e.g. tuple group, id, caller_name, calls
+	input:
+		tuple val(group), val(id), path(mantaV)
+		tuple val(group2), val(id2), path(tidditV)
+		tuple val(group3), val(id3), path(gatkV)
 
-// 	output:
-// 		tuple val(group), val(id), path("${group}.merged.bndless.vcf"), emit: vep_sv, annotsv_vcf
-// 		tuple val(group), path("${group}.merged.vcf"), emit: loqusdb_sv
-// 		path "*versions.yml", emit: versions
+	output:
+		tuple val(group), val(id), path("${group}.merged.bndless.vcf"), emit: bndless_vcf
+		tuple val(group), path("${group}.merged.vcf"), emit: bndful_vcf
+		path "*versions.yml", emit: versions
 
-// 	script:
-// 		if (params.mode == "family") {
-// 			vcfs = []
-// 			manta = []
-// 			tiddit = []
-// 			gatk = []
+	script:
+		if (params.mode == "family") {
+			def vcfs = []
+			def manta = []
+			def tiddit = []
+			def gatk = []
 
-// 			/*
-// 			 Order in which VCFs are merged matters when the merged SV
-// 			 is annotated with final position/length, which affects
-// 			 artefact matching in loqusdb.
+			/*
+			 Order in which VCFs are merged matters when the merged SV
+			 is annotated with final position/length, which affects
+			 artefact matching in loqusdb.
 
-// 			 A possibly better way to sort here would be to sort the
-// 			 file by familial-relation (e.g. always sort proband-mother-father)
-// 			 this would ensure the same merge-order regardless of sample-id
-// 			 */
+			 A possibly better way to sort here would be to sort the
+			 file by familial-relation (e.g. always sort proband-mother-father)
+			 this would ensure the same merge-order regardless of sample-id
+			 */
 
-// 			mantaV = mantaV.collect { it.toString() }.sort()
-// 			gatkV = gatkV.collect { it.toString() }.sort()
-// 			tidditV = tidditV.collect { it.toString() }.sort()
+			mantaV = mantaV.collect { it.toString() }.sort()
+			gatkV = gatkV.collect { it.toString() }.sort()
+			tidditV = tidditV.collect { it.toString() }.sort()
 
-// 		//TODO: lsp complains about for loop?
-// 			// for (i = 1; i <= mantaV.size(); i++) {
-// 			// 	tmp = mantaV[i-1] + ':manta' + "${i}"
-// 			// 	tmp1 = tidditV[i-1] + ':tiddit' + "${i}"
-// 			// 	tmp2 = gatkV[i-1] + ':gatk' + "${i}"
-// 			// 	vcfs = vcfs + tmp + tmp1 + tmp2
-// 			// 	mt = 'manta' + "${i}"
-// 			// 	tt = 'tiddit' + "${i}"
-// 			// 	ct = 'gatk' + "${i}"
-// 			// 	manta = manta + mt
-// 			// 	tiddit = tiddit + tt
-// 			// 	gatk = gatk + ct
-// 			// }
 
-// 			prio = manta + tiddit + gatk
-// 			prio = prio.join(',')
-// 			vcfs = vcfs.join(' ')
-// 			"""
-// 			svdb \\
-// 				--merge \\
-// 				--vcf $vcfs \\
-// 				--no_intra \\
-// 				--pass_only \\
-// 				--bnd_distance 2500 \\
-// 				--overlap 0.7 \\
-// 				--priority $prio \\
-// 				--ins_distance 0 > ${group}.merged.vcf
+			def vcf_idx = 1
 
-// 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
+			mantaV.each { _manta_vcf ->
+			def tmp = mantaV[vcf_idx - 1] + ":manta" + "${vcf_idx}"
+			def tmp1 = tidditV[vcf_idx - 1] + ":tiddit" + "${vcf_idx}"
+			def tmp2 = gatkV[vcf_idx - 1] + ":gatk" + "${vcf_idx}"
+			vcfs = vcfs + tmp + tmp1 + tmp2
+			def mt = "manta" + "${vcf_idx}"
+			def tt = "tiddit" + "${vcf_idx}"
+			def ct = "gatk" + "${vcf_idx}"
+			manta << mt
+			tiddit << tt
+			gatk << ct
+			vcf_idx = vcf_idx + 1
+			}
 
-// 			${svdb_merge_version(task)}
-// 			"""
-// 		}
+			prio = manta + tiddit + gatk
+			prio = prio.join(',')
+			vcfs = vcfs.join(' ')
+			"""
+			svdb \\
+				--merge \\
+				--vcf $vcfs \\
+				--no_intra \\
+				--pass_only \\
+				--bnd_distance 2500 \\
+				--overlap 0.7 \\
+				--priority $prio \\
+				--ins_distance 0 > ${group}.merged.vcf
 
-// 		else {
-// 			tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + gatkV.collect {it + ':gatk ' }
-// 			vcfs = tmp.join(' ')
-// 			"""
-// 			svdb \\
-// 				--merge \\
-// 				--vcf $vcfs \\
-// 				--no_intra \\
-// 				--pass_only \\
-// 				--bnd_distance 2500 \\
-// 				--overlap 0.7 \\
-// 				--priority manta,tiddit,gatk \\
-// 				--ins_distance 0 > ${group}.merged.vcf
+			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 
-// 			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
+			${svdb_merge_version(task)}
+			"""
+		}
 
-// 			${svdb_merge_version(task)}
-// 			"""
-// 		}
+		else {
+			tmp = mantaV.collect {it + ':manta ' } + tidditV.collect {it + ':tiddit ' } + gatkV.collect {it + ':gatk ' }
+			vcfs = tmp.join(' ')
+			"""
+			svdb \\
+				--merge \\
+				--vcf $vcfs \\
+				--no_intra \\
+				--pass_only \\
+				--bnd_distance 2500 \\
+				--overlap 0.7 \\
+				--priority manta,tiddit,gatk \\
+				--ins_distance 0 > ${group}.merged.vcf
 
-// 	stub:
-// 		"""
-// 		touch "${group}.merged.vcf"
-// 		touch "${group}.merged.bndless.vcf"
+			grep -v BND ${group}.merged.vcf > ${group}.merged.bndless.vcf
 
-// 		${svdb_merge_version(task)}
-// 		"""
-// }
-// def svdb_merge_version(task) {
-// 	"""
-// 	cat <<-END_VERSIONS > ${task.process}_versions.yml
-// 	${task.process}:
-// 	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
-// 	END_VERSIONS
-// 	"""
-// }
+			${svdb_merge_version(task)}
+			"""
+		}
+
+	stub:
+		"""
+		touch "${group}.merged.vcf"
+		touch "${group}.merged.bndless.vcf"
+
+		${svdb_merge_version(task)}
+		"""
+}
+def svdb_merge_version(task) {
+	"""
+	cat <<-END_VERSIONS > ${task.process}_versions.yml
+	${task.process}:
+	    svdb: \$( echo \$(svdb) | head -1 | sed 's/usage: SVDB-\\([0-9]\\.[0-9]\\.[0-9]\\).*/\\1/' )
+	END_VERSIONS
+	"""
+}
 
 // process dummy_svvcf_for_loqusdb {
 
