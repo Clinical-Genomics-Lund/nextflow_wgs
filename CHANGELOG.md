@@ -3,6 +3,7 @@
 ### [Unreleased]
 
 #### Added
+* Add SpliceAI to SNV/indel VEP annotation using masked GRCh38 genome_scores_v1.3 references
 * Add workflow `MITOCHONDRIAL_ANALYSIS`
 * Add WGS coverage uniformity (IQR divided by median coverage) to Sentieon QC output for CDM
 
