@@ -225,7 +225,7 @@ workflow NEXTFLOW_WGS {
     val_run_contamination_qc                   // bool:    Whether to run contamination QC
     val_run_onco_depth                         // bool:    Whether to calculate onco panel depth.
     val_scout_bed                              // path:    Target regions used for onco panel depth.
-    val_gene_regions                           // path:    Gene regions used to annotate low-coverage intervals.
+    val_gene_regions                           // path:    Gene-region BED; append each overlapping region's last field to low-coverage intervals.
     val_use_family_wgs_genmod_scoring          // bool:    Whether SNV and SV scoring should use family WGS genmod/rank-model behavior.
 	val_run_mito_qc                            // bool:    Whether to run mitochondrial coverage QC.
 	val_run_mito_mutect2                       // bool:    Whether to run mitochondrial Mutect2 SNV calling.
