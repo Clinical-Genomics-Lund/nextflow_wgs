@@ -74,6 +74,7 @@ workflow {
     val_use_family_wgs_genmod_scoring = val_analysis_mode == "family" && params.antype == "wgs"
     val_run_mito_qc = params.antype == "wgs"
     val_run_mito_mutect2 = !params.onco
+    val_run_gens_preparation = params.prepare_gens_data
 
 	NEXTFLOW_WGS(
 		ch_samplesheet,
@@ -117,7 +118,11 @@ workflow {
 		val_run_mito_mutect2,
 		params.rCRS_fasta,
 		"/access/${params.subdir}/bam",
-        val_use_targeted_qc
+        val_use_targeted_qc,
+        val_run_gens_preparation,
+        params.GENS_GNOMAD,
+        params.GENOMEDICT,
+        params.gens_accessdir
 	)
 
 	ch_versions = ch_versions.mix(NEXTFLOW_WGS.out.versions).collect()
@@ -232,6 +237,10 @@ workflow NEXTFLOW_WGS {
 	val_rcrs_fasta                             // path:    Mitochondrial rCRS FASTA.
 	val_mito_bam_accessdir                     // string:  Access path used in mitochondrial BAM output metadata.
     val_use_targeted_qc                        // bool:    Whether to restrict QC to target intervals and collect coverage and hybrid-selection metrics.
+    val_run_gens_preparation                   // bool:    Whether to prepare Gens tracks, metadata, and cron files.
+    val_gens_gnomad                            // string:  GnomAD reference used for Gens data generation.
+    val_gens_genome_dict                       // string:  Genome dictionary used for Gens metadata.
+    val_gens_accessdir                         // string:  Published data access path used in Gens cron files.
 
 	main:
 	// Output channels:
@@ -513,32 +522,35 @@ workflow NEXTFLOW_WGS {
 				upd.out.upd_bed
 			)
 
-			generate_gens_data(ch_sample_gvcf_tbi.join(gatkcov.out.cov_gens, by: [0,1]))
+			if (val_run_gens_preparation) {
+				generate_gens_data(ch_sample_gvcf_tbi.join(gatkcov.out.cov_gens, by: [0,1]), val_gens_gnomad, val_gens_accessdir)
 
-			ch_gens_v4_meta = gatkcov.out.cov_plot
-				.combine(roh.out.roh_plot.map { it -> it[1] })
-				.combine(upd.out.upd_bed)
-				.combine(upd.out.upd_sites.map { it -> it[1] })
+				ch_gens_v4_meta = gatkcov.out.cov_plot
+					.combine(roh.out.roh_plot.map { it -> it[1] })
+					.combine(upd.out.upd_bed)
+					.combine(upd.out.upd_sites.map { it -> it[1] })
 
-			generate_gens_v4_meta(ch_gens_v4_meta, val_analysis_mode)
+				generate_gens_v4_meta(ch_gens_v4_meta, val_analysis_mode, val_gens_genome_dict)
 
-			ch_cron_meta = generate_gens_v4_meta.out.meta
-				.join(generate_gens_data.out.is_done, by: [0,1])
-				.map { group, id, type, sex, track_roh, track_upd, meta_tsv, chrom_meta_tsv, _gens_input_data_is_done ->
-					tuple(
-						group,
-						id,
-						type,
-						sex,
-						track_roh.getName(),
-						track_upd.getName(),
-						meta_tsv.getName(),
-						chrom_meta_tsv.getName()
-					)
-				}
-				.groupTuple(by: [0])
+				ch_cron_meta = generate_gens_v4_meta.out.meta
+					.join(generate_gens_data.out.is_done, by: [0,1])
+					.map { group, id, type, sex, track_roh, track_upd, meta_tsv, chrom_meta_tsv, _gens_input_data_is_done ->
+						tuple(
+							group,
+							id,
+							type,
+							sex,
+							track_roh.getName(),
+							track_upd.getName(),
+							meta_tsv.getName(),
+							chrom_meta_tsv.getName()
+						)
+					}
+					.groupTuple(by: [0])
 
-			gens_v4_cron(ch_cron_meta, val_is_trio)
+				gens_v4_cron(ch_cron_meta, val_is_trio, val_gens_accessdir)
+
+			}
 
 			ch_output_info = ch_output_info.mix(overview_plot.out.oplot_INFO)
 
@@ -1865,19 +1877,18 @@ process generate_gens_data {
 
 	input:
 		tuple val(group), val(id), path(gvcf), path(gvcf_index), path(cov_stand), path(cov_denoise)
+		val gens_gnomad
+		val gens_accessdir
 
 	output:
 		tuple path("${id}.cov.bed.gz"), path("${id}.baf.bed.gz"), path("${id}.cov.bed.gz.tbi"), path("${id}.baf.bed.gz.tbi"), path("${id}.overview.json.gz")
 		tuple val(group), val(id), val(true), 	emit: is_done
 		path("${id}.gens"), 					emit: gens_middleman
 
-	when:
-		params.prepare_gens_data
-
 	script:
 		"""
-		generate_gens_data.pl $cov_stand $gvcf $id $params.GENS_GNOMAD
-		echo "gens load sample --sample-id $id --case-id $group --genome-build 38 --baf ${params.gens_accessdir}/${id}.baf.bed.gz --coverage ${params.gens_accessdir}/${id}.cov.bed.gz --overview-json ${params.gens_accessdir}/${id}.overview.json.gz" > ${id}.gens
+		generate_gens_data.pl $cov_stand $gvcf $id $gens_gnomad
+		echo "gens load sample --sample-id $id --case-id $group --genome-build 38 --baf ${gens_accessdir}/${id}.baf.bed.gz --coverage ${gens_accessdir}/${id}.cov.bed.gz --overview-json ${gens_accessdir}/${id}.overview.json.gz" > ${id}.gens
 		"""
 
 	stub:
@@ -1902,12 +1913,10 @@ process generate_gens_v4_meta {
 	input:
 		tuple val(group), val(id), val(type), val(sex), path(cov_stand), path(cov_denoise), path(roh), path(upd_bed), path(upd_sites)
 	    val analysis_mode // value: [single, family]
+		val genome_dict
 
 	output:
 		tuple val(group), val(id), val(type), val(sex), path("${id}.gens_track.roh.bed"), path("${id}.gens_track.upd.bed"), path("${id}.meta.tsv"), path("${id}.chrom_meta.tsv"), emit: meta
-	
-	when:
-		params.prepare_gens_data
 	
 	script:
 		"""
@@ -1917,7 +1926,7 @@ process generate_gens_v4_meta {
 				--upd_regions ${upd_bed} \\
 				--upd_sites ${upd_sites} \\
 				--cov ${cov_denoise} \\
-				--chrom_lengths ${params.GENOMEDICT} \\
+				--chrom_lengths ${genome_dict} \\
 				--sample ${id} \\
 				--sex ${sex} \\
 				--out_gens_track_roh "${id}.gens_track.roh.bed" \\
@@ -1955,12 +1964,10 @@ process gens_v4_cron {
 	input:
 		tuple val(group), val(ids), val(types), val(sexes), val(track_rohs), val(track_upds), val(meta_tsvs), val(chrom_meta_tsvs)
 		val is_trio
+		val gens_accessdir
 	
 	output:
 		path("${group}.gens_const.yaml"), emit: gens_v4_middleman
-	
-	when:
-		params.prepare_gens_data
 
 	script:
 		def sampleIdArgs = ids.join(' ')
@@ -1974,7 +1981,7 @@ process gens_v4_cron {
 		"""
 		create_gens_case_yaml.py \\
 		  --case_id "${group}" \\
-		  --gens_accessdir "${params.gens_accessdir}" \\
+		  --gens_accessdir "${gens_accessdir}" \\
 		  ${trioFlag} \\
 		  --sample_ids ${sampleIdArgs} \\
 		  --sample_types ${sampleTypeArgs} \\
