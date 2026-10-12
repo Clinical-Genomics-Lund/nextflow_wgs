@@ -4,10 +4,12 @@
 
 #### Added
 * Add SpliceAI to SNV/indel VEP annotation using masked GRCh38 genome_scores_v1.3 references
+* Add nf-core module  `custom/addmostsevereconsequence` for annotating most severe VEP consequence for SNV/indels and SVs. 
 * Add workflow `MITOCHONDRIAL_ANALYSIS`
 * Add WGS coverage uniformity (IQR divided by median coverage) to Sentieon QC output for CDM
 
 #### Changed
+* Annotate SV VCFs with `INFO/most_severe_consequence`
 * Pass the CFTR annotation flag through `NEXTFLOW_WGS` into `SNV_ANNOTATE` instead of reading `params.cftr` inside named workflows
 * Pass SNV split/normalize reference FASTA and index through workflow inputs instead of reading the reference FASTA from global params
 * Pass analysis type through workflow/process inputs instead of reading `params.antype` from global params
@@ -21,6 +23,7 @@
 
 #### Removed
 * Analysis mode (single/trio) from score_sv tag
+* `INFO/most_severe_consequence` annotation from `modify_vcf_scout.pl`
 
 ### 3.28.0
 
