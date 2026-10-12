@@ -112,6 +112,7 @@ process annotate_vep {
 			-cache \\
 			--plugin CADD,$params.CADD \\
 			--plugin LoFtool \\
+			--plugin SpliceAI,snv=$params.SPLICEAI_SNV,indel=$params.SPLICEAI_INDEL \\
 			--plugin MaxEntScan,$params.MAXENTSCAN,SWA,NCSS \\
 			--plugin dbNSFP,$params.DBNSFP,transcript_match=1,REVEL_score,REVEL_rankscore,BayesDel_addAF_score,BayesDel_addAF_pred,BayesDel_noAF_score,BayesDel_noAF_pred,GERP++_RS \\
 			-custom $params.GNOMAD_EXOMES,gnomADe,vcf,exact,0,AF_grpmax,AF,grpmax \\
