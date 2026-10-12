@@ -1,5 +1,15 @@
 # CHANGELOG
 
+### Unreleased
+
+#### Added
+
+#### Changed
+* Migrate loqusdb cron inputs from global params to workflows inputs 
+#### fixed
+
+#### Removed
+
 ### 3.29.0
 
 #### Added
