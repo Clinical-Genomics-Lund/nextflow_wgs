@@ -17,6 +17,7 @@
 
 #### Fixed
 * Retain zero-depth quartiles when calculating Sentieon WGS coverage IQR
+* Control onco panel-depth calculation with an explicit flag and pass its reference files through workflow and process inputs
 
 #### Removed
 * Analysis mode (single/trio) from score_sv tag
