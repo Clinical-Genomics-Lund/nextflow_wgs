@@ -1,25 +1,25 @@
 # CHANGELOG
 
-### [Unreleased]
+### 3.29.0
 
 #### Added
-* Add SpliceAI to SNV/indel VEP annotation using masked GRCh38 genome_scores_v1.3 references
-* Extract Peddy QC and CDM conversion into `PEDDY_QC`, with explicit configuration and a dedicated run flag
+* Add SpliceAI (masked `genome_scores_v1.3`) to `annotate_vep` for SNV/Indels 
+* Add workflow `PEDDY_QC`
 * Add workflow `MITOCHONDRIAL_ANALYSIS`
-* Add WGS coverage uniformity (IQR divided by median coverage) to Sentieon QC output for CDM
+* Add calculation of QC val  `coverage_uniformity` to Sentieon QC 
 
 #### Changed
-* Run Peddy on the normalized, deduplicated joint VCF before DPAF filtering and BED intersection
-* Pass the CFTR annotation flag through `NEXTFLOW_WGS` into `SNV_ANNOTATE` instead of reading `params.cftr` inside named workflows
-* Pass SNV split/normalize reference FASTA and index through workflow inputs instead of reading the reference FASTA from global params
-* Pass analysis type through workflow/process inputs instead of reading `params.antype` from global params
-* Pass selected parameter values explicitly into `VALIDATE_PARAMETERS`
-* Pass ID-SNP references and output configuration through explicit workflow and process inputs
-* Pass general QC analysis type, reference FASTA, and target intervals through explicit process inputs
+* Cahnge Peddy inputs from intersected/ranked VCF to pre-intersect normalized, deduplicated family-VCF
+* Migrate the CFTR annotation inputs from global params to workflow inputs
+* Migrate SNV split/normalize reference fasta and fai from global params to workflow inputs
+* Migrate `params.antype` from global params to workflow inputs 
+* Migrate `VALIDATE_PARAMETERS` from global params to workflow inputs 
+* Migrate `IDSNP_CALL`/``IDSNP_VCF` inputs from global params to workflow inputs 
+* Migrate general QC analysis type, reference FASTA, and target intervals from global params to workflow inputs
+* Migrate `depth_onco` inputs from global params to workflow inputs
 
 #### Fixed
-* Retain zero-depth quartiles when calculating Sentieon WGS coverage IQR
-* Control onco panel-depth calculation with an explicit flag and pass its reference files through workflow and process inputs
+* Fix zero-depth quartiles treated as `false` when calculating WGS IQR in Sentieon QC processing
 
 #### Removed
 * Analysis mode (single/trio) from score_sv tag
