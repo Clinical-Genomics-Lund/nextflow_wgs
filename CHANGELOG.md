@@ -9,7 +9,7 @@
 * Add calculation of QC val  `coverage_uniformity` to Sentieon QC 
 
 #### Changed
-* Cahnge Peddy inputs from intersected/ranked VCF to pre-intersect normalized, deduplicated family-VCF
+* Change Peddy inputs from intersected/ranked VCF to pre-intersect normalized, deduplicated family-VCF
 * Migrate the CFTR annotation inputs from global params to workflow inputs
 * Migrate SNV split/normalize reference fasta and fai from global params to workflow inputs
 * Migrate `params.antype` from global params to workflow inputs 
