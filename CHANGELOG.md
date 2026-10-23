@@ -1,5 +1,15 @@
 # CHANGELOG
 
+### [Unreleased]
+
+#### Added 
+
+#### Changed
+* Update fastp to v1.4.0
+
+#### Fixed
+* fastp runs now produce consistent outputs for onco runs on reruns
+
 ### 3.29.0
 
 #### Added
